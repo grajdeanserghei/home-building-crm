@@ -8,10 +8,11 @@ namespace HomeProjectManagement.Application.Bids;
 
 /// <summary>
 /// Thin orchestration over the <see cref="Bid"/> aggregate: load via the repository port, invoke
-/// domain behaviour, commit through the unit of work. It also enforces the cross-instance
-/// invariants the aggregate cannot see on its own — "one bid per work-package/contractor pair"
-/// (checked before opening) and "at most one Selected bid per work package" (by rejecting the
-/// rivals when one is selected). Audit fields are stamped inside the unit of work.
+/// domain behaviour, commit through the unit of work. It enforces "one bid per work-package/
+/// contractor pair" (checked before opening). Selecting a bid is <b>not</b> done here — it is one
+/// inseparable part of the atomic award flow in the Contract app service, so requests to set a bid
+/// to <c>Selected</c> are rejected with a pointer there. Audit fields are stamped inside the unit
+/// of work.
 /// </summary>
 public sealed class BidAppService(
     IBidRepository repository,
@@ -110,28 +111,16 @@ public sealed class BidAppService(
             return null;
         }
 
-        var now = timeProvider.GetUtcNow();
-
         if (command.Status == BidStatus.Selected)
         {
-            // Selecting a winner rejects the other live bids on the same work package, upholding
-            // "at most one Selected per work package". (The award flow proper — creating the
-            // contract and transitioning the work package — arrives with the Contract aggregate.)
-            var siblings = await repository.ListByWorkPackageAsync(bid.WorkPackageId, cancellationToken);
-            foreach (var other in siblings)
-            {
-                if (other.Id != bid.Id && other.Status is not (BidStatus.Withdrawn or BidStatus.Rejected))
-                {
-                    other.Reject(now);
-                }
-            }
+            // Selecting a bid is no longer a standalone step: it is one inseparable part of awarding
+            // the contract (which also accepts the BoQ, rejects the rivals, and transitions the work
+            // package). Route it through the atomic award use case instead.
+            throw new InvalidOperationException(
+                "A bid is selected by awarding its contract; POST /api/contracts with the winning BoQ.");
+        }
 
-            bid.Select(now);
-        }
-        else
-        {
-            bid.ChangeStatus(command.Status, now);
-        }
+        bid.ChangeStatus(command.Status, timeProvider.GetUtcNow());
 
         await unitOfWork.CommitAsync(cancellationToken);
         return ToDto(bid);

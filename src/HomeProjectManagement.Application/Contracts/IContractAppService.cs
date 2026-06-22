@@ -18,9 +18,10 @@ public interface IContractAppService
     Task<ContractDto?> GetByWorkPackageAsync(Guid workPackageId, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Award a contract from an accepted BoQ, transitioning its work package to <c>Awarded</c>.
-    /// Returns null if the accepted BoQ does not exist. Throws <see cref="InvalidOperationException"/>
-    /// if the BoQ is not accepted, its bid is not selected, or the work package is already under
+    /// Award a contract from a chosen winning BoQ, atomically: accept the BoQ, select its bid and
+    /// reject the rivals, create the contract, and transition the work package to <c>Awarded</c>.
+    /// Returns null if the BoQ does not exist. Throws <see cref="InvalidOperationException"/> if the
+    /// BoQ or its bid is closed (cannot be accepted/selected) or the work package is already under
     /// contract.
     /// </summary>
     Task<ContractDto?> AwardAsync(AwardContractCommand command, CancellationToken cancellationToken = default);

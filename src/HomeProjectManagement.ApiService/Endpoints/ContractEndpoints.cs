@@ -5,10 +5,11 @@ namespace HomeProjectManagement.ApiService.Endpoints;
 /// <summary>
 /// The driving (primary) adapter for contracts: thin minimal-API endpoints that call
 /// <see cref="IContractAppService"/> and return DTOs. A contract is an aggregate root addressable by
-/// its own id; it is awarded from an accepted BoQ and there is at most one per work package (also
-/// reachable via <c>/api/work-packages/{id}/contract</c>). Invariant violations the service surfaces
-/// as <see cref="InvalidOperationException"/> (awarding from a non-accepted BoQ or non-selected bid,
-/// a work package already under contract, an illegal status transition) map to 409.
+/// its own id; posting the winning BoQ to <c>/api/contracts</c> awards it atomically (accept the BoQ,
+/// select its bid, reject the rivals, award the work package). There is at most one contract per work
+/// package (also reachable via <c>/api/work-packages/{id}/contract</c>). Invariant violations the
+/// service surfaces as <see cref="InvalidOperationException"/> (a closed BoQ/bid that cannot be
+/// accepted or selected, a work package already under contract, an illegal status transition) map to 409.
 /// </summary>
 public static class ContractEndpoints
 {
@@ -26,7 +27,8 @@ public static class ContractEndpoints
                     ? Results.Ok(contract)
                     : Results.NotFound());
 
-        // Award a contract from an accepted BoQ (the work package is reached through its bid).
+        // Award a contract from the winning BoQ, atomically: accept it, select its bid, reject the
+        // rivals, create the contract, and award the work package (all reached through the BoQ's bid).
         contracts.MapPost("/",
             async (AwardContractCommand command, IContractAppService service, CancellationToken ct) =>
             {

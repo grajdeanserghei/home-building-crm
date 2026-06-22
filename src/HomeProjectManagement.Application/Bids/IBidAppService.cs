@@ -25,9 +25,10 @@ public interface IBidAppService
     Task<BidDto?> UpdateAsync(Guid id, UpdateBidCommand command, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Transition a bid's status. Selecting it also rejects the other live bids on the same work
-    /// package. Returns null if the bid does not exist; throws <see cref="InvalidOperationException"/>
-    /// for an illegal transition (e.g. selecting a withdrawn bid).
+    /// Transition a bid's status. Returns null if the bid does not exist; throws
+    /// <see cref="InvalidOperationException"/> for an illegal transition. Setting the status to
+    /// <c>Selected</c> is rejected here — a bid is selected only by awarding its contract (the atomic
+    /// award flow on the Contract app service), which also rejects the rivals and awards the work package.
     /// </summary>
     Task<BidDto?> ChangeStatusAsync(Guid id, ChangeBidStatusCommand command, CancellationToken cancellationToken = default);
 
