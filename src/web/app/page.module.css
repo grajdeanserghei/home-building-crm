@@ -84,6 +84,29 @@
   margin-top: 2px;
 }
 
+.actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.edit {
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  line-height: 1;
+}
+
+.edit:hover {
+  border-color: #2563eb;
+  color: #2563eb;
+}
+
 .delete {
   padding: 6px 12px;
   border-radius: 6px;
@@ -97,6 +120,48 @@
 .delete:hover {
   background: #ef4444;
   color: white;
+}
+
+.backLink {
+  display: inline-block;
+  margin-top: 16px;
+  color: #6b7280;
+}
+
+.backLink:hover {
+  color: inherit;
+  text-decoration: underline;
+}
+
+/* Status badges -------------------------------------------------------- */
+.badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+.statusPlanned {
+  background: color-mix(in srgb, #6b7280 14%, transparent);
+  color: #6b7280;
+}
+
+.statusInProgress {
+  background: color-mix(in srgb, #2563eb 14%, transparent);
+  color: #2563eb;
+}
+
+.statusOnHold {
+  background: color-mix(in srgb, #d97706 16%, transparent);
+  color: #d97706;
+}
+
+.statusCompleted {
+  background: color-mix(in srgb, #16a34a 16%, transparent);
+  color: #16a34a;
 }
 
 .error {

@@ -1,8 +1,8 @@
+import Link from "next/link";
 import { createProject, deleteProject } from "./actions";
-import { getProjects, type Project } from "./lib/api";
+import { ProjectForm } from "./components/ProjectForm";
+import { getProjects, PROJECT_STATUS_LABELS, type Project } from "./lib/api";
 import styles from "./page.module.css";
-
-const STATUS_OPTIONS = ["Planned", "InProgress", "OnHold", "Completed"] as const;
 
 function formatDate(value?: string | null): string {
   if (!value) return "—";
@@ -28,19 +28,7 @@ export default async function Home() {
 
       <section className={styles.card}>
         <h2>New project</h2>
-        <form action={createProject} className={styles.form}>
-          <input name="name" placeholder="Project name" required />
-          <input name="description" placeholder="Description (optional)" />
-          <select name="status" defaultValue="Planned">
-            {STATUS_OPTIONS.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-          <input name="dueDate" type="date" />
-          <button type="submit">Add project</button>
-        </form>
+        <ProjectForm action={createProject} submitLabel="Add project" />
       </section>
 
       <section className={styles.card}>
@@ -69,16 +57,28 @@ export default async function Home() {
                       <div className={styles.muted}>{p.description}</div>
                     ) : null}
                   </td>
-                  <td>{p.status}</td>
+                  <td>
+                    <span className={`${styles.badge} ${styles[`status${p.status}`]}`}>
+                      {PROJECT_STATUS_LABELS[p.status]}
+                    </span>
+                  </td>
                   <td>{formatDate(p.dueDate)}</td>
                   <td>{formatDate(p.createdAt)}</td>
                   <td>
-                    <form action={deleteProject}>
-                      <input type="hidden" name="id" value={p.id} />
-                      <button type="submit" className={styles.delete}>
-                        Delete
-                      </button>
-                    </form>
+                    <div className={styles.actions}>
+                      <Link
+                        href={`/projects/${p.id}/edit`}
+                        className={styles.edit}
+                      >
+                        Edit
+                      </Link>
+                      <form action={deleteProject}>
+                        <input type="hidden" name="id" value={p.id} />
+                        <button type="submit" className={styles.delete}>
+                          Delete
+                        </button>
+                      </form>
+                    </div>
                   </td>
                 </tr>
               ))}
