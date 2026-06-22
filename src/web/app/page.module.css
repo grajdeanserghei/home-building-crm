@@ -1,8 +1,14 @@
 .main {
-  max-width: 880px;
+  max-width: 1200px;
   margin: 0 auto;
   padding: 48px 24px 80px;
   font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+@media (min-width: 1600px) {
+  .main {
+    max-width: 1440px;
+  }
 }
 
 .main h1 {
@@ -233,6 +239,19 @@
 .statusAccepted {
   background: color-mix(in srgb, #16a34a 16%, transparent);
   color: #16a34a;
+}
+
+/* Contract lifecycle statuses (Draft / Signed / Active / Completed / Terminated).
+   Draft and Completed reuse the badge classes above; Active reuses the green
+   unit-of-measure `.statusActive` below. */
+.statusSigned {
+  background: color-mix(in srgb, #7c3aed 16%, transparent);
+  color: #7c3aed;
+}
+
+.statusTerminated {
+  background: color-mix(in srgb, #ef4444 14%, transparent);
+  color: #ef4444;
 }
 
 /* Unit-of-measure active state. */

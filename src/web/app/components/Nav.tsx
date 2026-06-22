@@ -6,19 +6,24 @@ import styles from "./Nav.module.css";
 export function Nav() {
   return (
     <nav className={styles.nav}>
-      <Link href="/" className={styles.brand}>
-        Home Project Management
-      </Link>
-      <div className={styles.links}>
-        <Link href="/" className={styles.link}>
-          Projects
+      <div className={styles.inner}>
+        <Link href="/" className={styles.brand}>
+          Home Project Management
         </Link>
-        <Link href="/contractors" className={styles.link}>
-          Contractors
-        </Link>
-        <Link href="/units-of-measure" className={styles.link}>
-          Units of measure
-        </Link>
+        <div className={styles.links}>
+          <Link href="/" className={styles.link}>
+            Projects
+          </Link>
+          <Link href="/contractors" className={styles.link}>
+            Contractors
+          </Link>
+          <Link href="/contracts" className={styles.link}>
+            Contracts
+          </Link>
+          <Link href="/units-of-measure" className={styles.link}>
+            Units of measure
+          </Link>
+        </div>
       </div>
     </nav>
   );

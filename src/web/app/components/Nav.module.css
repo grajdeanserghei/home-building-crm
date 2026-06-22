@@ -1,11 +1,22 @@
 .nav {
+  border-bottom: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+.inner {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+  max-width: 1200px;
+  margin: 0 auto;
   padding: 14px 24px;
-  border-bottom: 1px solid color-mix(in srgb, currentColor 12%, transparent);
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+@media (min-width: 1600px) {
+  .inner {
+    max-width: 1440px;
+  }
 }
 
 .brand {

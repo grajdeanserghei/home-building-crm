@@ -22,10 +22,7 @@ export default async function Home() {
 
   return (
     <main className={styles.main}>
-      <h1>Home Project Management</h1>
-      <p className={styles.subtitle}>
-        Next.js frontend · .NET API · PostgreSQL — orchestrated by .NET Aspire.
-      </p>
+      <h1 style={{ marginBottom: 32 }}>Home Project Management</h1>
 
       <section className={styles.card}>
         <h2>New project</h2>
