@@ -80,6 +80,9 @@ next-env.d.ts
 *.pem
 secrets.json
 
+# ---- Logs ----
+*.log
+
 # ---- OS / misc ----
 .DS_Store
 Thumbs.db
