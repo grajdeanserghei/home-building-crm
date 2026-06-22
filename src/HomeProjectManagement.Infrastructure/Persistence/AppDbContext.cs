@@ -1,4 +1,5 @@
 using HomeProjectManagement.Domain.Projects;
+using HomeProjectManagement.Domain.WorkPackages;
 using HomeProjectManagement.Infrastructure.Persistence.Conversions;
 using Microsoft.EntityFrameworkCore;
 
@@ -12,6 +13,8 @@ namespace HomeProjectManagement.Infrastructure.Persistence;
 public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
     public DbSet<Project> Projects => Set<Project>();
+
+    public DbSet<WorkPackage> WorkPackages => Set<WorkPackage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
