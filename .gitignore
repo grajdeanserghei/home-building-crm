@@ -1,0 +1,86 @@
+# ---- .NET ----
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+[Dd]ebug/
+[Rr]elease/
+[Dd]ebugPublic/
+[Rr]eleases/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]uild/
+[Bb]uildoutput/
+msbuild.log
+msbuild.err
+msbuild.wrn
+*.binlog
+
+# .NET user/secret/config
+*.user
+*.userosscache
+*.suo
+*.userprefs
+*.rsuser
+mono_crash.*
+project.lock.json
+project.fragment.lock.json
+artifacts/
+.dotnet/
+
+# .NET Aspire
+**/*.AppHost/aspire-manifest.json
+
+# ---- Visual Studio / Rider / VS Code ----
+.vs/
+.idea/
+*.swp
+*~
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# ---- Test results ----
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+*.coverage
+*.coveragexml
+coverage/
+TestResults/
+
+# ---- NuGet ----
+*.nupkg
+*.snupkg
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+*.nuget.props
+*.nuget.targets
+
+# ---- Node / Next.js (web) ----
+node_modules/
+.next/
+out/
+.pnp
+.pnp.*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.tsbuildinfo
+next-env.d.ts
+
+# ---- Environment / secrets ----
+.env
+.env.*
+!.env.example
+*.pem
+secrets.json
+
+# ---- OS / misc ----
+.DS_Store
+Thumbs.db
+*.stackdump
