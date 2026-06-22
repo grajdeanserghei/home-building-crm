@@ -186,6 +186,17 @@
   color: #ef4444;
 }
 
+/* Unit-of-measure active state. */
+.statusActive {
+  background: color-mix(in srgb, #16a34a 16%, transparent);
+  color: #16a34a;
+}
+
+.statusInactive {
+  background: color-mix(in srgb, #6b7280 14%, transparent);
+  color: #6b7280;
+}
+
 /* A label wrapping a date input so the otherwise-ambiguous date picker is named. */
 .fieldLabel {
   display: flex;
@@ -193,6 +204,24 @@
   gap: 4px;
   font-size: 0.78rem;
   color: #6b7280;
+}
+
+/* Read-only detail view: a label/value definition list (e.g. contractor overview). */
+.detailList {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 12px 20px;
+  margin: 0;
+}
+
+.detailList dt {
+  color: #6b7280;
+  font-size: 0.85rem;
+}
+
+.detailList dd {
+  margin: 0;
+  white-space: pre-wrap;
 }
 
 /* The clickable project name in the projects table. */

@@ -125,3 +125,144 @@ export async function getWorkPackage(id: string): Promise<WorkPackage | null> {
   }
   return res.json();
 }
+
+// Contractors ------------------------------------------------------------
+//
+// A contractor is a firm that bids on and carries out work packages. It is global
+// master data (not nested under a project); bids reference it by id. The contact
+// and address are optional owned value objects, sent over the wire as nested
+// objects (the backend collapses an all-empty one to null).
+// See docs/architecture/domain-model.md.
+
+export interface ContactInfo {
+  personName?: string | null;
+  email?: string | null;
+  phone?: string | null;
+}
+
+export interface Address {
+  street?: string | null;
+  city?: string | null;
+  county?: string | null;
+  postalCode?: string | null;
+  country?: string | null;
+}
+
+export interface Contractor {
+  id: string;
+  name: string;
+  fiscalCode?: string | null;
+  registrationNumber?: string | null;
+  contact?: ContactInfo | null;
+  address?: Address | null;
+  notes?: string | null;
+  createdAt: string;
+}
+
+export async function getContractors(): Promise<Contractor[]> {
+  const res = await fetch(`${apiBaseUrl()}/api/contractors`, {
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    throw new Error(
+      `Failed to load contractors: ${res.status} ${res.statusText}`,
+    );
+  }
+  return res.json();
+}
+
+export async function getContractor(id: string): Promise<Contractor | null> {
+  const res = await fetch(`${apiBaseUrl()}/api/contractors/${id}`, {
+    cache: "no-store",
+  });
+  if (res.status === 404) {
+    return null;
+  }
+  if (!res.ok) {
+    throw new Error(
+      `Failed to load contractor: ${res.status} ${res.statusText}`,
+    );
+  }
+  return res.json();
+}
+
+// Units of measure -------------------------------------------------------
+//
+// A unit of measure is global master data used to quantify bill-of-quantities
+// lines (e.g. "m" / metre, "buc" / piece). It carries a canonical, immutable
+// `code`, a category, and optional aliases other tokens can be recognised by.
+// It is never deleted — it is retired by deactivating it. See
+// docs/architecture/domain-model.md.
+
+export type UnitCategory =
+  | "Length"
+  | "Area"
+  | "Volume"
+  | "Mass"
+  | "Count"
+  | "Time"
+  | "Other";
+
+// The categories in selection order, plus human-readable labels. Shared by the
+// create/edit form and the table so they never drift apart.
+export const UNIT_CATEGORIES: readonly UnitCategory[] = [
+  "Length",
+  "Area",
+  "Volume",
+  "Mass",
+  "Count",
+  "Time",
+  "Other",
+];
+
+export const UNIT_CATEGORY_LABELS: Record<UnitCategory, string> = {
+  Length: "Length",
+  Area: "Area",
+  Volume: "Volume",
+  Mass: "Mass",
+  Count: "Count",
+  Time: "Time",
+  Other: "Other",
+};
+
+export interface UnitOfMeasure {
+  id: string;
+  code: string;
+  name: string;
+  category: UnitCategory;
+  aliases: string[];
+  isActive: boolean;
+  createdAt: string;
+}
+
+export async function getUnitsOfMeasure(
+  includeInactive = true,
+): Promise<UnitOfMeasure[]> {
+  const res = await fetch(
+    `${apiBaseUrl()}/api/units-of-measure?includeInactive=${includeInactive}`,
+    { cache: "no-store" },
+  );
+  if (!res.ok) {
+    throw new Error(
+      `Failed to load units of measure: ${res.status} ${res.statusText}`,
+    );
+  }
+  return res.json();
+}
+
+export async function getUnitOfMeasure(
+  id: string,
+): Promise<UnitOfMeasure | null> {
+  const res = await fetch(`${apiBaseUrl()}/api/units-of-measure/${id}`, {
+    cache: "no-store",
+  });
+  if (res.status === 404) {
+    return null;
+  }
+  if (!res.ok) {
+    throw new Error(
+      `Failed to load unit of measure: ${res.status} ${res.statusText}`,
+    );
+  }
+  return res.json();
+}
