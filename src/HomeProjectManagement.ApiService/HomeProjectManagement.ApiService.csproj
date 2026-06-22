@@ -4,6 +4,7 @@
     <!-- Aspire-wired Npgsql EF Core DbContext registration (configures the context defined in Infrastructure). -->
     <PackageReference Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Scalar.AspNetCore" />
   </ItemGroup>
 
   <!--

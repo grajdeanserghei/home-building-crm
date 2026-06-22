@@ -5,6 +5,7 @@ using HomeProjectManagement.Application;
 using HomeProjectManagement.Infrastructure;
 using HomeProjectManagement.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -58,6 +59,8 @@ using (var scope = app.Services.CreateScope())
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+    // Interactive API reference UI served at /scalar, backed by the OpenAPI document above.
+    app.MapScalarApiReference();
 }
 
 app.UseCors();
