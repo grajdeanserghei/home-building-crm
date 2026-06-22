@@ -51,8 +51,9 @@ maps onto these principles, and for decision records as the design evolves.
 
 ## Domain entities
 
-The core domain entities will be described here as they are defined. _(To be
-detailed.)_
+The core domain model — entities, relationships, ubiquitous language, and the
+diagram — is documented in [Domain Model](./architecture/domain-model.md).
+Attributes and aggregate-root boundaries are being defined iteratively.
 
 ## Non-goals (for now)
 
