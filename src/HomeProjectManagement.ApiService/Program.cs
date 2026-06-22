@@ -23,15 +23,18 @@ var app = builder.Build();
 // Aspire health/liveness endpoints.
 app.MapDefaultEndpoints();
 
+// Apply any pending EF Core migrations on startup. Aspire's WaitFor(projectsDb)
+// ensures the database is ready before this runs.
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    db.Database.Migrate();
+}
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
-
-    // Dev-only convenience: ensure the schema exists. Use EF Core migrations for production.
-    using var scope = app.Services.CreateScope();
-    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.EnsureCreated();
 }
 
 app.UseCors();
