@@ -266,3 +266,103 @@ export async function getUnitOfMeasure(
   }
   return res.json();
 }
+
+// Bids -------------------------------------------------------------------
+//
+// A bid is one contractor's standing on one work package — the unit through which
+// the procurement conversation is tracked, from first contact to selection. The
+// collection is nested under its work package (the competing bids); an individual
+// bid is an aggregate root addressable by its own id, and carries an internal
+// discussion log of dated notes. There is at most one bid per (work package,
+// contractor) pair, and at most one Selected bid per work package — selecting a
+// winner rejects its rivals server-side. See docs/architecture/domain-model.md.
+
+export type BidStatus =
+  | "InDiscussion"
+  | "Quoted"
+  | "Shortlisted"
+  | "Selected"
+  | "Rejected"
+  | "Withdrawn";
+
+// The statuses in lifecycle order, plus human-readable labels. Shared by the status
+// control and the bids table so they never drift apart. A bid is opened InDiscussion;
+// Selected is reached via selection (which rejects rivals); Withdrawn is terminal.
+export const BID_STATUSES: readonly BidStatus[] = [
+  "InDiscussion",
+  "Quoted",
+  "Shortlisted",
+  "Selected",
+  "Rejected",
+  "Withdrawn",
+];
+
+export const BID_STATUS_LABELS: Record<BidStatus, string> = {
+  InDiscussion: "In Discussion",
+  Quoted: "Quoted",
+  Shortlisted: "Shortlisted",
+  Selected: "Selected",
+  Rejected: "Rejected",
+  Withdrawn: "Withdrawn",
+};
+
+// The kind of interaction a discussion note records.
+export type NoteType = "Meeting" | "Call" | "Email" | "Note";
+
+export const NOTE_TYPES: readonly NoteType[] = [
+  "Meeting",
+  "Call",
+  "Email",
+  "Note",
+];
+
+export const NOTE_TYPE_LABELS: Record<NoteType, string> = {
+  Meeting: "Meeting",
+  Call: "Call",
+  Email: "Email",
+  Note: "Note",
+};
+
+// A dated entry in a bid's discussion log. Immutable once logged.
+export interface DiscussionNote {
+  id: string;
+  type: NoteType;
+  occurredOn: string;
+  authorId: string;
+  content: string;
+}
+
+export interface Bid {
+  id: string;
+  workPackageId: string;
+  contractorId: string;
+  status: BidStatus;
+  firstContactedOn?: string | null;
+  summary?: string | null;
+  notes: DiscussionNote[]; // oldest first
+  createdAt: string;
+}
+
+export async function getBids(workPackageId: string): Promise<Bid[]> {
+  const res = await fetch(
+    `${apiBaseUrl()}/api/work-packages/${workPackageId}/bids`,
+    { cache: "no-store" },
+  );
+  if (!res.ok) {
+    throw new Error(`Failed to load bids: ${res.status} ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function getBid(id: string): Promise<Bid | null> {
+  const res = await fetch(`${apiBaseUrl()}/api/bids/${id}`, {
+    cache: "no-store",
+  });
+  if (res.status === 404) {
+    return null;
+  }
+  if (!res.ok) {
+    throw new Error(`Failed to load bid: ${res.status} ${res.statusText}`);
+  }
+  return res.json();
+}

@@ -82,7 +82,12 @@ export default async function ProjectDetailPage({
                 <tr key={wp.id}>
                   <td>{wp.sequence}</td>
                   <td>
-                    <strong>{wp.name}</strong>
+                    <Link
+                      href={`/work-packages/${wp.id}`}
+                      className={styles.nameLink}
+                    >
+                      <strong>{wp.name}</strong>
+                    </Link>
                     {wp.description ? (
                       <div className={styles.muted}>{wp.description}</div>
                     ) : null}

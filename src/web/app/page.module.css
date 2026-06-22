@@ -186,6 +186,38 @@
   color: #ef4444;
 }
 
+/* Bid lifecycle statuses (InDiscussion / Quoted / Shortlisted / Selected /
+   Rejected / Withdrawn). */
+.statusInDiscussion {
+  background: color-mix(in srgb, #6b7280 14%, transparent);
+  color: #6b7280;
+}
+
+.statusQuoted {
+  background: color-mix(in srgb, #2563eb 14%, transparent);
+  color: #2563eb;
+}
+
+.statusShortlisted {
+  background: color-mix(in srgb, #7c3aed 16%, transparent);
+  color: #7c3aed;
+}
+
+.statusSelected {
+  background: color-mix(in srgb, #16a34a 16%, transparent);
+  color: #16a34a;
+}
+
+.statusRejected {
+  background: color-mix(in srgb, #ef4444 14%, transparent);
+  color: #ef4444;
+}
+
+.statusWithdrawn {
+  background: color-mix(in srgb, #d97706 16%, transparent);
+  color: #d97706;
+}
+
 /* Unit-of-measure active state. */
 .statusActive {
   background: color-mix(in srgb, #16a34a 16%, transparent);
