@@ -58,3 +58,70 @@ export async function getProject(id: string): Promise<Project | null> {
   }
   return res.json();
 }
+
+// Work packages ----------------------------------------------------------
+//
+// A work package is a defined scope of work within a project, procured as a unit
+// (e.g. "La Roșu", "Tâmplărie"). The collection is nested under its project; an
+// individual package is addressable by its own id. See docs/architecture/domain-model.md.
+
+export type WorkPackageStatus =
+  | "Defined"
+  | "OpenForBids"
+  | "Awarded"
+  | "InProgress"
+  | "Completed"
+  | "Cancelled";
+
+// The status values are surfaced read-only for now: the backend deliberately omits
+// status from the edit command, since lifecycle transitions (award, etc.) carry
+// invariants and get dedicated endpoints. Labels keep the table and any badge in sync.
+export const WORK_PACKAGE_STATUS_LABELS: Record<WorkPackageStatus, string> = {
+  Defined: "Defined",
+  OpenForBids: "Open for Bids",
+  Awarded: "Awarded",
+  InProgress: "In Progress",
+  Completed: "Completed",
+  Cancelled: "Cancelled",
+};
+
+export interface WorkPackage {
+  id: string;
+  projectId: string;
+  name: string;
+  description?: string | null;
+  status: WorkPackageStatus;
+  sequence: number;
+  plannedStartDate?: string | null;
+  plannedEndDate?: string | null;
+  awardedContractId?: string | null;
+  createdAt: string;
+}
+
+export async function getWorkPackages(projectId: string): Promise<WorkPackage[]> {
+  const res = await fetch(
+    `${apiBaseUrl()}/api/projects/${projectId}/work-packages`,
+    { cache: "no-store" },
+  );
+  if (!res.ok) {
+    throw new Error(
+      `Failed to load work packages: ${res.status} ${res.statusText}`,
+    );
+  }
+  return res.json();
+}
+
+export async function getWorkPackage(id: string): Promise<WorkPackage | null> {
+  const res = await fetch(`${apiBaseUrl()}/api/work-packages/${id}`, {
+    cache: "no-store",
+  });
+  if (res.status === 404) {
+    return null;
+  }
+  if (!res.ok) {
+    throw new Error(
+      `Failed to load work package: ${res.status} ${res.statusText}`,
+    );
+  }
+  return res.json();
+}

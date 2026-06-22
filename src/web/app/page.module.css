@@ -164,6 +164,48 @@
   color: #16a34a;
 }
 
+/* Work-package-specific statuses (Defined / OpenForBids / Awarded / Cancelled).
+   InProgress and Completed reuse the project badge classes above. */
+.statusDefined {
+  background: color-mix(in srgb, #6b7280 14%, transparent);
+  color: #6b7280;
+}
+
+.statusOpenForBids {
+  background: color-mix(in srgb, #7c3aed 16%, transparent);
+  color: #7c3aed;
+}
+
+.statusAwarded {
+  background: color-mix(in srgb, #0891b2 16%, transparent);
+  color: #0891b2;
+}
+
+.statusCancelled {
+  background: color-mix(in srgb, #ef4444 14%, transparent);
+  color: #ef4444;
+}
+
+/* A label wrapping a date input so the otherwise-ambiguous date picker is named. */
+.fieldLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.78rem;
+  color: #6b7280;
+}
+
+/* The clickable project name in the projects table. */
+.nameLink {
+  color: inherit;
+  text-decoration: none;
+}
+
+.nameLink:hover {
+  color: #2563eb;
+  text-decoration: underline;
+}
+
 .error {
   color: #b91c1c;
 }

@@ -52,7 +52,9 @@ export default async function Home() {
               {projects.map((p) => (
                 <tr key={p.id}>
                   <td>
-                    <strong>{p.name}</strong>
+                    <Link href={`/projects/${p.id}`} className={styles.nameLink}>
+                      <strong>{p.name}</strong>
+                    </Link>
                     {p.description ? (
                       <div className={styles.muted}>{p.description}</div>
                     ) : null}
