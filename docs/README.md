@@ -2,6 +2,13 @@
 
 Specifications and documentation for **Home Project Management**.
 
+## Tech Stack
+
+- **Frontend** — Next.js
+- **Backend** — .NET Core API
+- **Database** — PostgreSQL
+- **Orchestration** — .NET Aspire
+
 ## Structure
 
 | Folder | Purpose |

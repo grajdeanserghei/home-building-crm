@@ -1,66 +1,91 @@
-import Image from "next/image";
+import { createProject, deleteProject } from "./actions";
+import { getProjects, type Project } from "./lib/api";
 import styles from "./page.module.css";
 
-export default function Home() {
+const STATUS_OPTIONS = ["Planned", "InProgress", "OnHold", "Completed"] as const;
+
+function formatDate(value?: string | null): string {
+  if (!value) return "—";
+  return new Date(value).toLocaleDateString();
+}
+
+export default async function Home() {
+  let projects: Project[] = [];
+  let error: string | null = null;
+
+  try {
+    projects = await getProjects();
+  } catch (e) {
+    error = e instanceof Error ? e.message : "Unknown error";
+  }
+
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className={styles.intro}>
-          <h1>To get started, edit the page.tsx file.</h1>
-          <p>
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className={styles.secondary}
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+    <main className={styles.main}>
+      <h1>Home Project Management</h1>
+      <p className={styles.subtitle}>
+        Next.js frontend · .NET API · PostgreSQL — orchestrated by .NET Aspire.
+      </p>
+
+      <section className={styles.card}>
+        <h2>New project</h2>
+        <form action={createProject} className={styles.form}>
+          <input name="name" placeholder="Project name" required />
+          <input name="description" placeholder="Description (optional)" />
+          <select name="status" defaultValue="Planned">
+            {STATUS_OPTIONS.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+          <input name="dueDate" type="date" />
+          <button type="submit">Add project</button>
+        </form>
+      </section>
+
+      <section className={styles.card}>
+        <h2>Projects</h2>
+        {error ? (
+          <p className={styles.error}>Could not reach the API: {error}</p>
+        ) : projects.length === 0 ? (
+          <p>No projects yet. Add your first one above.</p>
+        ) : (
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Status</th>
+                <th>Due</th>
+                <th>Created</th>
+                <th aria-label="actions" />
+              </tr>
+            </thead>
+            <tbody>
+              {projects.map((p) => (
+                <tr key={p.id}>
+                  <td>
+                    <strong>{p.name}</strong>
+                    {p.description ? (
+                      <div className={styles.muted}>{p.description}</div>
+                    ) : null}
+                  </td>
+                  <td>{p.status}</td>
+                  <td>{formatDate(p.dueDate)}</td>
+                  <td>{formatDate(p.createdAt)}</td>
+                  <td>
+                    <form action={deleteProject}>
+                      <input type="hidden" name="id" value={p.id} />
+                      <button type="submit" className={styles.delete}>
+                        Delete
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
+    </main>
   );
 }
