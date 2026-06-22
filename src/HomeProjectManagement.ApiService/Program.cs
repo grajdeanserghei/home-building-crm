@@ -56,6 +56,7 @@ app.UseCors();
 app.MapProjectEndpoints();
 app.MapWorkPackageEndpoints();
 app.MapContractorEndpoints();
+app.MapBidEndpoints();
 app.MapUnitOfMeasureEndpoints();
 
 app.Run();
