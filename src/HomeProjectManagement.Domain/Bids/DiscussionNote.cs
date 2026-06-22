@@ -50,7 +50,7 @@ public sealed class DiscussionNote : Entity<DiscussionNoteId>
     {
         if (string.IsNullOrWhiteSpace(content))
         {
-            throw new ArgumentException("Discussion note content is required.", nameof(content));
+            throw new DomainValidationException("Discussion note content is required.", nameof(content));
         }
 
         return content.Trim();

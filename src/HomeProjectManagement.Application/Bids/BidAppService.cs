@@ -66,7 +66,7 @@ public sealed class BidAppService(
         // check turns the race-free common case into a clear conflict rather than a DB exception.
         if (await repository.ExistsForPairAsync(workPackage.Id, contractor.Id, cancellationToken))
         {
-            throw new InvalidOperationException(
+            throw new DomainConflictException(
                 "A bid already exists for this contractor on this work package.");
         }
 
@@ -116,7 +116,7 @@ public sealed class BidAppService(
             // Selecting a bid is no longer a standalone step: it is one inseparable part of awarding
             // the contract (which also accepts the BoQ, rejects the rivals, and transitions the work
             // package). Route it through the atomic award use case instead.
-            throw new InvalidOperationException(
+            throw new DomainConflictException(
                 "A bid is selected by awarding its contract; POST /api/contracts with the winning BoQ.");
         }
 

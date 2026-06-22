@@ -16,7 +16,7 @@ public sealed class ExchangeRate : ValueObject
     {
         if (rate <= 0m)
         {
-            throw new ArgumentOutOfRangeException(nameof(rate), "Exchange rate must be positive.");
+            throw new DomainValidationException("Exchange rate must be positive.", nameof(rate));
         }
 
         BaseCurrency = baseCurrency;

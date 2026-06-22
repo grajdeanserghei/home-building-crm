@@ -164,7 +164,7 @@ public sealed class UnitOfMeasure : AggregateRoot<UnitOfMeasureId>
     {
         if (string.IsNullOrWhiteSpace(code))
         {
-            throw new ArgumentException("Unit of measure code is required.", nameof(code));
+            throw new DomainValidationException("Unit of measure code is required.", nameof(code));
         }
 
         return code.Trim();
@@ -174,7 +174,7 @@ public sealed class UnitOfMeasure : AggregateRoot<UnitOfMeasureId>
     {
         if (string.IsNullOrWhiteSpace(name))
         {
-            throw new ArgumentException("Unit of measure name is required.", nameof(name));
+            throw new DomainValidationException("Unit of measure name is required.", nameof(name));
         }
 
         return name.Trim();
@@ -184,7 +184,7 @@ public sealed class UnitOfMeasure : AggregateRoot<UnitOfMeasureId>
     {
         if (string.IsNullOrWhiteSpace(alias))
         {
-            throw new ArgumentException("Alias must not be blank.", nameof(alias));
+            throw new DomainValidationException("Alias must not be blank.", nameof(alias));
         }
 
         return alias.Trim().ToLowerInvariant();

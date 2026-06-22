@@ -57,20 +57,20 @@ public sealed class ContractAppService(
         var bid = await bids.GetAsync(boq.BidId, cancellationToken);
         if (bid is null)
         {
-            throw new InvalidOperationException("The BoQ's bid no longer exists.");
+            throw new DomainConflictException("The BoQ's bid no longer exists.");
         }
 
         var workPackage = await workPackages.GetAsync(bid.WorkPackageId, cancellationToken);
         if (workPackage is null)
         {
-            throw new InvalidOperationException("The bid's work package no longer exists.");
+            throw new DomainConflictException("The bid's work package no longer exists.");
         }
 
         // One contract per work package. The unique index is the backstop; this check turns the
         // common case into a clear conflict rather than a DB exception.
         if (await repository.ExistsForWorkPackageAsync(workPackage.Id, cancellationToken))
         {
-            throw new InvalidOperationException("This work package has already been awarded a contract.");
+            throw new DomainConflictException("This work package has already been awarded a contract.");
         }
 
         var now = timeProvider.GetUtcNow();
@@ -153,7 +153,7 @@ public sealed class ContractAppService(
             case ContractStatus.Signed:
                 if (command.SignedOn is null)
                 {
-                    throw new InvalidOperationException("A signed date is required to sign a contract.");
+                    throw new DomainValidationException("A signed date is required to sign a contract.");
                 }
 
                 contract.Sign(command.SignedOn.Value, now);
@@ -166,7 +166,7 @@ public sealed class ContractAppService(
             case ContractStatus.Completed:
                 if (command.ActualEndDate is null)
                 {
-                    throw new InvalidOperationException("An actual end date is required to complete a contract.");
+                    throw new DomainValidationException("An actual end date is required to complete a contract.");
                 }
 
                 contract.Complete(command.ActualEndDate.Value, now);
@@ -177,7 +177,7 @@ public sealed class ContractAppService(
                 break;
 
             default:
-                throw new InvalidOperationException("A contract cannot be returned to Draft.");
+                throw new DomainConflictException("A contract cannot be returned to Draft.");
         }
 
         await unitOfWork.CommitAsync(cancellationToken);

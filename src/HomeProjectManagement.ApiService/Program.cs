@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using HomeProjectManagement.ApiService.Endpoints;
+using HomeProjectManagement.ApiService.ErrorHandling;
 using HomeProjectManagement.Application;
 using HomeProjectManagement.Infrastructure;
 using HomeProjectManagement.Infrastructure.Persistence;
@@ -18,6 +19,11 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
+// Map deliberate domain-rule violations to RFC 7807 ProblemDetails (400/409) instead of
+// raw 500s; AddProblemDetails supplies the writer the handler delegates to.
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<DomainExceptionHandler>();
+
 // Aspire-wired Npgsql EF Core. "projectsdb" matches the resource name in the AppHost.
 // The DbContext type itself lives in Infrastructure.
 builder.AddNpgsqlDbContext<AppDbContext>("projectsdb");
@@ -32,6 +38,10 @@ builder.Services.AddCors(options =>
         policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
 
 var app = builder.Build();
+
+// Surface unhandled exceptions through the registered IExceptionHandler(s) first, so domain
+// rule violations become ProblemDetails responses before any other middleware runs.
+app.UseExceptionHandler();
 
 // Aspire health/liveness endpoints.
 app.MapDefaultEndpoints();

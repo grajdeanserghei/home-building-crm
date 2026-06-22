@@ -158,7 +158,7 @@ public sealed class Contract : AggregateRoot<ContractId>
     {
         if (Status is ContractStatus.Completed or ContractStatus.Terminated)
         {
-            throw new InvalidOperationException(
+            throw new DomainConflictException(
                 $"A {Status} contract is closed and can no longer change.");
         }
     }
@@ -170,7 +170,7 @@ public sealed class Contract : AggregateRoot<ContractId>
     {
         if (start is not null && end is not null && end < start)
         {
-            throw new ArgumentException("Planned end date must not be before the start date.");
+            throw new DomainValidationException("Planned end date must not be before the start date.");
         }
     }
 }

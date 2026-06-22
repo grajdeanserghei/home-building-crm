@@ -96,7 +96,7 @@ public sealed class Project : AggregateRoot<ProjectId>
     {
         if (string.IsNullOrWhiteSpace(name))
         {
-            throw new ArgumentException("Project name is required.", nameof(name));
+            throw new DomainValidationException("Project name is required.", nameof(name));
         }
 
         return name.Trim();
@@ -109,7 +109,7 @@ public sealed class Project : AggregateRoot<ProjectId>
     {
         if (start is not null && target is not null && target < start)
         {
-            throw new ArgumentException("Target completion date must not be before the start date.");
+            throw new DomainValidationException("Target completion date must not be before the start date.");
         }
     }
 }

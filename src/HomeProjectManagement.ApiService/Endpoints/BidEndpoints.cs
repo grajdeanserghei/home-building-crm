@@ -6,8 +6,9 @@ namespace HomeProjectManagement.ApiService.Endpoints;
 /// The driving (primary) adapter for bids: thin minimal-API endpoints that call
 /// <see cref="IBidAppService"/> and return DTOs. The competing-bids collection is nested under
 /// its work package; an individual bid is a root, addressable by its own id, with sub-resources
-/// for its discussion log. Invariant violations the service surfaces as
-/// <see cref="InvalidOperationException"/> (duplicate pair, illegal transition) map to 409.
+/// for its discussion log. Domain rule violations (duplicate pair, illegal transition) are raised as
+/// domain exceptions and turned into ProblemDetails (validation → 400, conflict → 409) by the global
+/// exception handler, so the endpoints stay thin.
 /// </summary>
 public static class BidEndpoints
 {
@@ -22,18 +23,9 @@ public static class BidEndpoints
 
         byWorkPackage.MapPost("/",
             async (Guid workPackageId, OpenBidCommand command, IBidAppService service, CancellationToken ct) =>
-            {
-                try
-                {
-                    return await service.OpenAsync(workPackageId, command, ct) is { } created
-                        ? Results.Created($"/api/bids/{created.Id}", created)
-                        : Results.NotFound();
-                }
-                catch (InvalidOperationException ex)
-                {
-                    return Results.Conflict(ex.Message);
-                }
-            });
+                await service.OpenAsync(workPackageId, command, ct) is { } created
+                    ? Results.Created($"/api/bids/{created.Id}", created)
+                    : Results.NotFound());
 
         // Contractor-scoped read: every bid a contractor has participated in.
         app.MapGet("/api/contractors/{contractorId:guid}/bids",
@@ -57,18 +49,9 @@ public static class BidEndpoints
 
         bids.MapPost("/{id:guid}/status",
             async (Guid id, ChangeBidStatusCommand command, IBidAppService service, CancellationToken ct) =>
-            {
-                try
-                {
-                    return await service.ChangeStatusAsync(id, command, ct) is { } updated
-                        ? Results.Ok(updated)
-                        : Results.NotFound();
-                }
-                catch (InvalidOperationException ex)
-                {
-                    return Results.Conflict(ex.Message);
-                }
-            });
+                await service.ChangeStatusAsync(id, command, ct) is { } updated
+                    ? Results.Ok(updated)
+                    : Results.NotFound());
 
         bids.MapDelete("/{id:guid}",
             async (Guid id, IBidAppService service, CancellationToken ct) =>

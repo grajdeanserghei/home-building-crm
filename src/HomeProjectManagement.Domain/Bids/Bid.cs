@@ -129,7 +129,7 @@ public sealed class Bid : AggregateRoot<BidId>
     {
         if (status == BidStatus.Selected)
         {
-            throw new InvalidOperationException(
+            throw new DomainConflictException(
                 "A bid becomes Selected only via Select, which is coordinated with the competing bids.");
         }
 
@@ -158,7 +158,7 @@ public sealed class Bid : AggregateRoot<BidId>
     {
         if (Status is BidStatus.Withdrawn or BidStatus.Rejected)
         {
-            throw new InvalidOperationException($"A {Status} bid cannot be selected.");
+            throw new DomainConflictException($"A {Status} bid cannot be selected.");
         }
 
         TransitionTo(BidStatus.Selected, now);
@@ -173,7 +173,7 @@ public sealed class Bid : AggregateRoot<BidId>
 
         if (Status == BidStatus.Withdrawn)
         {
-            throw new InvalidOperationException("A withdrawn bid is closed and cannot change status.");
+            throw new DomainConflictException("A withdrawn bid is closed and cannot change status.");
         }
 
         var previous = Status;

@@ -7,9 +7,10 @@ namespace HomeProjectManagement.ApiService.Endpoints;
 /// <see cref="IContractAppService"/> and return DTOs. A contract is an aggregate root addressable by
 /// its own id; posting the winning BoQ to <c>/api/contracts</c> awards it atomically (accept the BoQ,
 /// select its bid, reject the rivals, award the work package). There is at most one contract per work
-/// package (also reachable via <c>/api/work-packages/{id}/contract</c>). Invariant violations the
-/// service surfaces as <see cref="InvalidOperationException"/> (a closed BoQ/bid that cannot be
-/// accepted or selected, a work package already under contract, an illegal status transition) map to 409.
+/// package (also reachable via <c>/api/work-packages/{id}/contract</c>). Domain rule violations (a
+/// closed BoQ/bid that cannot be accepted or selected, a work package already under contract, an
+/// illegal status transition) are raised as domain exceptions and turned into ProblemDetails
+/// (validation → 400, conflict → 409) by the global exception handler, so the endpoints stay thin.
 /// </summary>
 public static class ContractEndpoints
 {
@@ -31,48 +32,21 @@ public static class ContractEndpoints
         // rivals, create the contract, and award the work package (all reached through the BoQ's bid).
         contracts.MapPost("/",
             async (AwardContractCommand command, IContractAppService service, CancellationToken ct) =>
-            {
-                try
-                {
-                    return await service.AwardAsync(command, ct) is { } created
-                        ? Results.Created($"/api/contracts/{created.Id}", created)
-                        : Results.NotFound();
-                }
-                catch (InvalidOperationException ex)
-                {
-                    return Results.Conflict(ex.Message);
-                }
-            });
+                await service.AwardAsync(command, ct) is { } created
+                    ? Results.Created($"/api/contracts/{created.Id}", created)
+                    : Results.NotFound());
 
         contracts.MapPut("/{id:guid}",
             async (Guid id, UpdateContractCommand command, IContractAppService service, CancellationToken ct) =>
-            {
-                try
-                {
-                    return await service.UpdateAsync(id, command, ct) is { } updated
-                        ? Results.Ok(updated)
-                        : Results.NotFound();
-                }
-                catch (InvalidOperationException ex)
-                {
-                    return Results.Conflict(ex.Message);
-                }
-            });
+                await service.UpdateAsync(id, command, ct) is { } updated
+                    ? Results.Ok(updated)
+                    : Results.NotFound());
 
         contracts.MapPost("/{id:guid}/status",
             async (Guid id, ChangeContractStatusCommand command, IContractAppService service, CancellationToken ct) =>
-            {
-                try
-                {
-                    return await service.ChangeStatusAsync(id, command, ct) is { } updated
-                        ? Results.Ok(updated)
-                        : Results.NotFound();
-                }
-                catch (InvalidOperationException ex)
-                {
-                    return Results.Conflict(ex.Message);
-                }
-            });
+                await service.ChangeStatusAsync(id, command, ct) is { } updated
+                    ? Results.Ok(updated)
+                    : Results.NotFound());
 
         contracts.MapDelete("/{id:guid}",
             async (Guid id, IContractAppService service, CancellationToken ct) =>

@@ -249,7 +249,7 @@ public sealed class BillOfQuantitiesAppService(
         var unit = await units.GetAsync(new UnitOfMeasureId(unitOfMeasureId), cancellationToken);
         if (unit is null || !unit.IsActive)
         {
-            throw new InvalidOperationException("The line item must reference an active unit of measure.");
+            throw new DomainConflictException("The line item must reference an active unit of measure.");
         }
     }
 

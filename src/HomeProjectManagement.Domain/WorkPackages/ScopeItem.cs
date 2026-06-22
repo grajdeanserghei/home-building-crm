@@ -62,7 +62,7 @@ public sealed class ScopeItem : Entity<ScopeItemId>
     {
         if (string.IsNullOrWhiteSpace(name))
         {
-            throw new ArgumentException("Scope item name is required.", nameof(name));
+            throw new DomainValidationException("Scope item name is required.", nameof(name));
         }
 
         return name.Trim();

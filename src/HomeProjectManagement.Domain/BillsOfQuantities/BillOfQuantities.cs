@@ -91,7 +91,7 @@ public sealed class BillOfQuantities : AggregateRoot<BoqId>
     {
         if (version < 1)
         {
-            throw new ArgumentOutOfRangeException(nameof(version), "Bill of Quantities version must be 1 or greater.");
+            throw new DomainValidationException("Bill of Quantities version must be 1 or greater.", nameof(version));
         }
 
         EnsureRateMatchesCurrency(exchangeRate, pricingCurrency);
@@ -232,7 +232,7 @@ public sealed class BillOfQuantities : AggregateRoot<BoqId>
 
         if (Status is BoqStatus.Rejected or BoqStatus.Withdrawn)
         {
-            throw new InvalidOperationException(
+            throw new DomainConflictException(
                 $"A {Status} bill of quantities is closed and cannot change status.");
         }
 
@@ -245,7 +245,7 @@ public sealed class BillOfQuantities : AggregateRoot<BoqId>
     {
         if (Status is not (BoqStatus.Draft or BoqStatus.Submitted))
         {
-            throw new InvalidOperationException(
+            throw new DomainConflictException(
                 $"A {Status} bill of quantities can no longer be edited.");
         }
     }
@@ -262,7 +262,7 @@ public sealed class BillOfQuantities : AggregateRoot<BoqId>
 
         if (rate.BaseCurrency != pricingCurrency && rate.QuoteCurrency != pricingCurrency)
         {
-            throw new InvalidOperationException(
+            throw new DomainValidationException(
                 $"The pinned exchange rate must involve the pricing currency ({pricingCurrency}).");
         }
     }

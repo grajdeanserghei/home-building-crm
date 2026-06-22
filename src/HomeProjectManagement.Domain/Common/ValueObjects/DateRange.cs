@@ -13,7 +13,7 @@ public sealed class DateRange : ValueObject
     {
         if (end < start)
         {
-            throw new ArgumentException("DateRange end must not be before start.", nameof(end));
+            throw new DomainValidationException("DateRange end must not be before start.", nameof(end));
         }
 
         Start = start;

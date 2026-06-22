@@ -97,7 +97,7 @@ public sealed class Contractor : AggregateRoot<ContractorId>
     {
         if (string.IsNullOrWhiteSpace(name))
         {
-            throw new ArgumentException("Contractor name is required.", nameof(name));
+            throw new DomainValidationException("Contractor name is required.", nameof(name));
         }
 
         return name.Trim();

@@ -176,7 +176,7 @@ public sealed class WorkPackage : AggregateRoot<WorkPackageId>
             si.Id != excluding && string.Equals(si.Name, name, StringComparison.OrdinalIgnoreCase));
         if (clashes)
         {
-            throw new InvalidOperationException(
+            throw new DomainConflictException(
                 $"A scope item named '{name}' already exists in this work package.");
         }
     }
@@ -190,7 +190,7 @@ public sealed class WorkPackage : AggregateRoot<WorkPackageId>
     {
         if (status == WorkPackageStatus.Awarded)
         {
-            throw new InvalidOperationException(
+            throw new DomainConflictException(
                 "A work package becomes Awarded only via Award, which records the contract.");
         }
 
@@ -210,7 +210,7 @@ public sealed class WorkPackage : AggregateRoot<WorkPackageId>
     {
         if (Status == WorkPackageStatus.Cancelled)
         {
-            throw new InvalidOperationException("A cancelled work package cannot be awarded.");
+            throw new DomainConflictException("A cancelled work package cannot be awarded.");
         }
 
         AwardedContractId = contractId;
@@ -223,7 +223,7 @@ public sealed class WorkPackage : AggregateRoot<WorkPackageId>
     {
         if (Status != WorkPackageStatus.Awarded)
         {
-            throw new InvalidOperationException("Only an awarded work package can be started.");
+            throw new DomainConflictException("Only an awarded work package can be started.");
         }
 
         TransitionTo(WorkPackageStatus.InProgress, now);
@@ -251,7 +251,7 @@ public sealed class WorkPackage : AggregateRoot<WorkPackageId>
     {
         if (string.IsNullOrWhiteSpace(name))
         {
-            throw new ArgumentException("Work package name is required.", nameof(name));
+            throw new DomainValidationException("Work package name is required.", nameof(name));
         }
 
         return name.Trim();
@@ -264,7 +264,7 @@ public sealed class WorkPackage : AggregateRoot<WorkPackageId>
     {
         if (start is not null && end is not null && end < start)
         {
-            throw new ArgumentException("Planned end date must not be before the planned start date.");
+            throw new DomainValidationException("Planned end date must not be before the planned start date.");
         }
     }
 
@@ -272,7 +272,7 @@ public sealed class WorkPackage : AggregateRoot<WorkPackageId>
     {
         if (sequence < 1)
         {
-            throw new ArgumentException("Work package order must be 1 or greater.", nameof(sequence));
+            throw new DomainValidationException("Work package order must be 1 or greater.", nameof(sequence));
         }
     }
 }

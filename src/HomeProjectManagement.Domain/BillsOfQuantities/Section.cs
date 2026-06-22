@@ -112,7 +112,7 @@ public sealed class Section : Entity<SectionId>
     {
         if (unitPrice.Currency != Currency)
         {
-            throw new InvalidOperationException(
+            throw new DomainValidationException(
                 $"Line item price currency ({unitPrice.Currency}) must match the bill's pricing currency ({Currency}).");
         }
     }
@@ -121,7 +121,7 @@ public sealed class Section : Entity<SectionId>
     {
         if (string.IsNullOrWhiteSpace(name))
         {
-            throw new ArgumentException("Section name is required.", nameof(name));
+            throw new DomainValidationException("Section name is required.", nameof(name));
         }
 
         return name.Trim();

@@ -83,7 +83,7 @@ public sealed class LineItem : Entity<LineItemId>
     {
         if (string.IsNullOrWhiteSpace(description))
         {
-            throw new ArgumentException("Line item description is required.", nameof(description));
+            throw new DomainValidationException("Line item description is required.", nameof(description));
         }
 
         return description.Trim();
@@ -93,7 +93,7 @@ public sealed class LineItem : Entity<LineItemId>
     {
         if (quantity < 0m)
         {
-            throw new ArgumentOutOfRangeException(nameof(quantity), "Line item quantity cannot be negative.");
+            throw new DomainValidationException("Line item quantity cannot be negative.", nameof(quantity));
         }
 
         return quantity;
