@@ -1,4 +1,5 @@
 using HomeProjectManagement.Application.Projects;
+using HomeProjectManagement.Application.WorkPackages;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace HomeProjectManagement.Application;
@@ -9,6 +10,7 @@ public static class DependencyInjection
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
         services.AddScoped<IProjectAppService, ProjectAppService>();
+        services.AddScoped<IWorkPackageAppService, WorkPackageAppService>();
         return services;
     }
 }

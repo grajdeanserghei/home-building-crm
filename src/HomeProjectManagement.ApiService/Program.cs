@@ -54,5 +54,6 @@ app.UseCors();
 
 // Map the driving adapters (minimal-API endpoint groups).
 app.MapProjectEndpoints();
+app.MapWorkPackageEndpoints();
 
 app.Run();
