@@ -56,9 +56,13 @@ public sealed class BillOfQuantities : AggregateRoot<BoqId>
     /// </summary>
     public IReadOnlyList<Section> Sections => _sections.AsReadOnly();
 
-    /// <summary>Derived total: the sum of the section subtotals, in the pricing currency.</summary>
+    /// <summary>Derived net total (VAT-exclusive): the sum of the section subtotals, in the pricing currency.</summary>
     public Money Total =>
         _sections.Aggregate(Money.Zero(PricingCurrency), (sum, section) => sum.Add(section.Subtotal));
+
+    /// <summary>Derived gross total (VAT-inclusive): the sum of the section VAT-inclusive subtotals.</summary>
+    public Money TotalWithVat =>
+        _sections.Aggregate(Money.Zero(PricingCurrency), (sum, section) => sum.Add(section.SubtotalWithVat));
 
     // EF Core materialisation constructor.
     private BillOfQuantities()
@@ -164,7 +168,8 @@ public sealed class BillOfQuantities : AggregateRoot<BoqId>
 
     /// <summary>
     /// Add a priced line to a section and return it. Returns null if the section does not exist.
-    /// The <paramref name="unitPrice"/> must be in the BoQ's pricing currency.
+    /// The <paramref name="unitPrice"/> (net, VAT-exclusive) must be in the BoQ's pricing currency;
+    /// the <paramref name="vatRate"/> applied to it is 21% by default.
     /// </summary>
     public LineItem? AddLineItem(
         SectionId sectionId,
@@ -172,12 +177,13 @@ public sealed class BillOfQuantities : AggregateRoot<BoqId>
         decimal quantity,
         UnitOfMeasureId unitOfMeasureId,
         Money unitPrice,
+        VatRate vatRate,
         int sequence,
         string? notes = null)
     {
         EnsureMutable();
         var section = FindSection(sectionId);
-        return section?.AddLineItem(description, quantity, unitOfMeasureId, unitPrice, sequence, notes);
+        return section?.AddLineItem(description, quantity, unitOfMeasureId, unitPrice, vatRate, sequence, notes);
     }
 
     /// <summary>Revise a line item in place. Returns false if the section or line item is absent.</summary>
@@ -188,13 +194,14 @@ public sealed class BillOfQuantities : AggregateRoot<BoqId>
         decimal quantity,
         UnitOfMeasureId unitOfMeasureId,
         Money unitPrice,
+        VatRate vatRate,
         int sequence,
         string? notes)
     {
         EnsureMutable();
         var section = FindSection(sectionId);
         return section is not null
-            && section.ReviseLineItem(lineItemId, description, quantity, unitOfMeasureId, unitPrice, sequence, notes);
+            && section.ReviseLineItem(lineItemId, description, quantity, unitOfMeasureId, unitPrice, vatRate, sequence, notes);
     }
 
     /// <summary>Remove a line item from a section. Returns false if the section or line item is absent.</summary>

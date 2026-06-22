@@ -168,6 +168,7 @@ public sealed class BillOfQuantitiesAppService(
             command.Quantity,
             new UnitOfMeasureId(command.UnitOfMeasureId),
             ToMoney(command.UnitPrice),
+            ToVatRate(command.VatRatePercentage),
             command.Sequence,
             command.Notes);
 
@@ -202,6 +203,7 @@ public sealed class BillOfQuantitiesAppService(
             command.Quantity,
             new UnitOfMeasureId(command.UnitOfMeasureId),
             ToMoney(command.UnitPrice),
+            ToVatRate(command.VatRatePercentage),
             command.Sequence,
             command.Notes);
 
@@ -255,6 +257,10 @@ public sealed class BillOfQuantitiesAppService(
 
     private static Money ToMoney(MoneyDto dto) => new(dto.Amount, dto.Currency);
 
+    // A null/omitted rate falls back to the standard 21% applied to every line by default.
+    private static VatRate ToVatRate(decimal? percentage) =>
+        percentage is { } value ? new VatRate(value) : VatRate.Standard;
+
     private static ExchangeRate? ToExchangeRate(ExchangeRateDto? dto) =>
         dto is null ? null : new ExchangeRate(dto.BaseCurrency, dto.QuoteCurrency, dto.Rate, dto.AsOf);
 
@@ -269,6 +275,7 @@ public sealed class BillOfQuantitiesAppService(
         boq.SubmittedOn,
         boq.ValidUntil,
         ToDto(boq.Total),
+        ToDto(boq.TotalWithVat),
         boq.Sections
             .OrderBy(s => s.Sequence)
             .Select(ToDto)
@@ -281,6 +288,7 @@ public sealed class BillOfQuantitiesAppService(
         section.Sequence,
         section.Description,
         ToDto(section.Subtotal),
+        ToDto(section.SubtotalWithVat),
         section.LineItems
             .OrderBy(li => li.Sequence)
             .Select(ToDto)
@@ -292,7 +300,10 @@ public sealed class BillOfQuantitiesAppService(
         item.Quantity,
         item.UnitOfMeasureId.Value,
         ToDto(item.UnitPrice),
+        item.VatRate.Percentage,
+        ToDto(item.UnitPriceWithVat),
         ToDto(item.LineTotal),
+        ToDto(item.LineTotalWithVat),
         item.Sequence,
         item.Notes);
 

@@ -32,7 +32,7 @@ map onto them cleanly.
 | **Bill of Quantities (BoQ)** | _deviz de cheltuieli / deviz_ | A contractor's priced, itemized cost estimate submitted **within a Bid** (for that Bid's single work package). A Bid may have several BoQ versions over negotiation; each BoQ covers exactly one work package. |
 | **Contract** | _contract / atribuire_ | The award for a work package: when a Bid is selected, a contract is created from that Bid's accepted BoQ. A work package has at most one contract; the contract references the accepted BoQ and thereby its Bid and contractor. |
 | **Section** | _capitol de deviz_ | A grouping of line items **inside a single BoQ** (e.g. Foundation, Structure, Roof within a La Roșu quote). This is the *internal structure of one quote*, distinct from a Work Package (the *procurement unit*). |
-| **Line item** | _articol de deviz_ | A single priced row within a section: description, quantity, unit, unit price, total. |
+| **Line item** | _articol de deviz_ | A single priced row within a section: description, quantity, unit, net unit price, VAT rate (21% by default), and derived net/gross totals. |
 | **Unit of measure** | _unitate de măsură_ | A canonical unit used by line items (m³, m², m, pcs, kg, hrs). Controlled reference vocabulary. |
 | **User / Stakeholder** | — | One of the four people who may access the tool. Handled by authentication; an identity/access concern rather than part of the costing domain. |
 
@@ -366,6 +366,7 @@ immutable.
 | Value object | Fields | Used by |
 | --- | --- | --- |
 | **Money** | `amount` (decimal), `currency` (ISO 4217 code: RON or EUR) | BoQ total, Section subtotal, Line item unit price & total, Contract value |
+| **VatRate** | `percentage` (decimal; 21 = 21%, 0 = exempt) | Line item (net→gross unit price & line total) |
 | **ExchangeRate** | `baseCurrency`, `quoteCurrency`, `rate` (decimal), `asOf` (date) | BoQ (to present EUR and RON side by side) |
 | **Address** | `street`, `city`, `county` (județ), `postalCode`, `country` | Project (site), Contractor |
 | **ContactInfo** | `personName`, `email`, `phone` | Contractor |
@@ -507,8 +508,11 @@ authentication context, not a domain entity.
 | description | string | The work/material item. |
 | quantity | decimal | |
 | unitOfMeasureId | UnitOfMeasureId | Reference to canonical unit (by id). |
-| unitPrice | Money | Price per unit. |
-| lineTotal | Money (derived) | `quantity × unitPrice`. |
+| unitPrice | Money | Net (VAT-exclusive) price per unit. |
+| vatRate | VatRate | VAT rate as a percentage (21% by default; 0 = exempt). |
+| unitPriceWithVat | Money (derived) | `unitPrice × (1 + vatRate)`. |
+| lineTotal | Money (derived) | Net: `quantity × unitPrice`. |
+| lineTotalWithVat | Money (derived) | Gross: `lineTotal × (1 + vatRate)`. |
 | sequence | int | Order within the section. |
 | notes | string | Optional. |
 

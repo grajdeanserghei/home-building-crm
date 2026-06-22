@@ -16,5 +16,21 @@ public interface IWorkPackageAppService
 
     Task<WorkPackageDto?> UpdateAsync(Guid id, UpdateWorkPackageCommand command, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Move the package through its lifecycle (the target dispatches to the matching domain
+    /// transition). Returns null if the package does not exist; an illegal transition (e.g.
+    /// starting an un-awarded package, or targeting Awarded) is a domain conflict → HTTP 409.
+    /// </summary>
+    Task<WorkPackageDto?> ChangeStatusAsync(Guid id, ChangeWorkPackageStatusCommand command, CancellationToken cancellationToken = default);
+
+    /// <summary>Add an owner-defined scope item. Returns null if the package does not exist.</summary>
+    Task<WorkPackageDto?> AddScopeItemAsync(Guid id, ScopeItemCommand command, CancellationToken cancellationToken = default);
+
+    /// <summary>Edit a scope item. Returns null if the package or scope item is absent.</summary>
+    Task<WorkPackageDto?> UpdateScopeItemAsync(Guid id, Guid scopeItemId, ScopeItemCommand command, CancellationToken cancellationToken = default);
+
+    /// <summary>Remove a scope item. Returns false if the package or scope item is absent.</summary>
+    Task<bool> RemoveScopeItemAsync(Guid id, Guid scopeItemId, CancellationToken cancellationToken = default);
+
     Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default);
 }

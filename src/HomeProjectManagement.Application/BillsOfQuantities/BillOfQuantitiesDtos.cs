@@ -18,6 +18,7 @@ public sealed record BillOfQuantitiesDto(
     DateTimeOffset? SubmittedOn,
     DateTimeOffset? ValidUntil,
     MoneyDto Total,
+    MoneyDto TotalWithVat,
     IReadOnlyList<SectionDto> Sections,
     DateTimeOffset CreatedAt);
 
@@ -28,16 +29,24 @@ public sealed record SectionDto(
     int Sequence,
     string? Description,
     MoneyDto Subtotal,
+    MoneyDto SubtotalWithVat,
     IReadOnlyList<LineItemDto> LineItems);
 
-/// <summary>A priced line within a section (mirrors the <c>LineItem</c> entity).</summary>
+/// <summary>
+/// A priced line within a section (mirrors the <c>LineItem</c> entity). <c>UnitPrice</c> and
+/// <c>LineTotal</c> are net (VAT-exclusive); <c>VatRatePercentage</c> (21 by default) yields the
+/// derived gross <c>UnitPriceWithVat</c> and <c>LineTotalWithVat</c>.
+/// </summary>
 public sealed record LineItemDto(
     Guid Id,
     string Description,
     decimal Quantity,
     Guid UnitOfMeasureId,
     MoneyDto UnitPrice,
+    decimal VatRatePercentage,
+    MoneyDto UnitPriceWithVat,
     MoneyDto LineTotal,
+    MoneyDto LineTotalWithVat,
     int Sequence,
     string? Notes);
 
@@ -77,13 +86,16 @@ public sealed record ChangeBoqStatusCommand(BoqStatus Status);
 public sealed record SectionCommand(string Name, int Sequence, string? Description);
 
 /// <summary>
-/// Input for adding or editing a line item. The unit price must be in the BoQ's pricing currency,
-/// and the unit of measure must reference an active canonical unit.
+/// Input for adding or editing a line item. The unit price (net, VAT-exclusive) must be in the
+/// BoQ's pricing currency, and the unit of measure must reference an active canonical unit.
+/// <see cref="VatRatePercentage"/> is the VAT rate as a percentage (e.g. 21 for 21%); when omitted
+/// (null) the standard 21% rate is applied.
 /// </summary>
 public sealed record LineItemCommand(
     string Description,
     decimal Quantity,
     Guid UnitOfMeasureId,
     MoneyDto UnitPrice,
+    decimal? VatRatePercentage,
     int Sequence,
     string? Notes);

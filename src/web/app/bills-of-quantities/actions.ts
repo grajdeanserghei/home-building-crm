@@ -199,6 +199,10 @@ export async function addLineItem(formData: FormData) {
   const amount = Number.parseFloat(
     (formData.get("unitPriceAmount") as string)?.trim() || "0",
   );
+  // The VAT rate (percent). Blank → null, letting the backend apply the standard 21%.
+  const vatRaw = (formData.get("vatRatePercentage") as string)?.trim();
+  const vatRatePercentage =
+    vatRaw === undefined || vatRaw === "" ? null : Number.parseFloat(vatRaw);
   const sequenceRaw = (formData.get("sequence") as string)?.trim();
   const sequence = sequenceRaw ? Number.parseInt(sequenceRaw, 10) : 0;
   // The line price is always in the BoQ's pricing currency (carried as a hidden field).
@@ -209,6 +213,10 @@ export async function addLineItem(formData: FormData) {
     quantity: Number.isNaN(quantity) ? 0 : quantity,
     unitOfMeasureId,
     unitPrice: { amount: Number.isNaN(amount) ? 0 : amount, currency },
+    vatRatePercentage:
+      vatRatePercentage === null || Number.isNaN(vatRatePercentage)
+        ? null
+        : vatRatePercentage,
     sequence: Number.isNaN(sequence) ? 0 : sequence,
     notes: (formData.get("notes") as string)?.trim() || null,
   };

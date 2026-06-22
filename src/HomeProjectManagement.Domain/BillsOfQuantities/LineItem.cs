@@ -13,7 +13,9 @@ namespace HomeProjectManagement.Domain.BillsOfQuantities;
 /// but is never referenced from outside it. Created and revised only through the
 /// <see cref="BillOfQuantities"/> root. It references its <see cref="UnitOfMeasureId"/>
 /// <b>by identity</b> (the canonical unit), never by holding the unit aggregate. The
-/// <see cref="LineTotal"/> is derived (quantity × unit price), never stored as source of truth.
+/// <see cref="UnitPrice"/> is the <b>net (VAT-exclusive)</b> price; the <see cref="VatRate"/>
+/// (21% by default) yields the gross (VAT-inclusive) figures. The <see cref="LineTotal"/> and
+/// <see cref="LineTotalWithVat"/> are derived (quantity × unit price), never stored as source of truth.
 /// </remarks>
 public sealed class LineItem : Entity<LineItemId>
 {
@@ -26,8 +28,11 @@ public sealed class LineItem : Entity<LineItemId>
     /// <summary>The canonical unit this quantity is measured in (by id).</summary>
     public UnitOfMeasureId UnitOfMeasureId { get; private set; }
 
-    /// <summary>Price per unit, in the BoQ's pricing currency.</summary>
+    /// <summary>Net price per unit (VAT-exclusive), in the BoQ's pricing currency.</summary>
     public Money UnitPrice { get; private set; } = null!;
+
+    /// <summary>The VAT rate applied to this line (21% by default).</summary>
+    public VatRate VatRate { get; private set; } = null!;
 
     /// <summary>Order within the section.</summary>
     public int Sequence { get; private set; }
@@ -35,8 +40,14 @@ public sealed class LineItem : Entity<LineItemId>
     /// <summary>Optional remark about the line.</summary>
     public string? Notes { get; private set; }
 
-    /// <summary>Derived line total: <c>quantity × unit price</c>, in the pricing currency.</summary>
+    /// <summary>Derived gross unit price (VAT-inclusive): <c>unit price × (1 + VAT)</c>.</summary>
+    public Money UnitPriceWithVat => VatRate.ApplyTo(UnitPrice);
+
+    /// <summary>Derived net line total (VAT-exclusive): <c>quantity × unit price</c>, in the pricing currency.</summary>
     public Money LineTotal => UnitPrice.Multiply(Quantity);
+
+    /// <summary>Derived gross line total (VAT-inclusive): <c>line total × (1 + VAT)</c>.</summary>
+    public Money LineTotalWithVat => VatRate.ApplyTo(LineTotal);
 
     // EF Core materialisation constructor.
     private LineItem()
@@ -50,6 +61,7 @@ public sealed class LineItem : Entity<LineItemId>
         decimal quantity,
         UnitOfMeasureId unitOfMeasureId,
         Money unitPrice,
+        VatRate vatRate,
         int sequence,
         string? notes) : base(id)
     {
@@ -58,6 +70,7 @@ public sealed class LineItem : Entity<LineItemId>
         Quantity = EnsureNonNegative(quantity);
         UnitOfMeasureId = unitOfMeasureId;
         UnitPrice = unitPrice;
+        VatRate = vatRate;
         Sequence = sequence;
         Notes = Trim(notes);
     }
@@ -68,6 +81,7 @@ public sealed class LineItem : Entity<LineItemId>
         decimal quantity,
         UnitOfMeasureId unitOfMeasureId,
         Money unitPrice,
+        VatRate vatRate,
         int sequence,
         string? notes)
     {
@@ -75,6 +89,7 @@ public sealed class LineItem : Entity<LineItemId>
         Quantity = EnsureNonNegative(quantity);
         UnitOfMeasureId = unitOfMeasureId;
         UnitPrice = unitPrice;
+        VatRate = vatRate;
         Sequence = sequence;
         Notes = Trim(notes);
     }

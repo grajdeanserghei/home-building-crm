@@ -36,9 +36,13 @@ public sealed class Section : Entity<SectionId>
     /// </summary>
     public IReadOnlyList<LineItem> LineItems => _lineItems.AsReadOnly();
 
-    /// <summary>Derived subtotal: the sum of the section's line totals, in the pricing currency.</summary>
+    /// <summary>Derived net subtotal (VAT-exclusive): the sum of the section's line totals, in the pricing currency.</summary>
     public Money Subtotal =>
         _lineItems.Aggregate(Money.Zero(Currency), (sum, item) => sum.Add(item.LineTotal));
+
+    /// <summary>Derived gross subtotal (VAT-inclusive): the sum of the section's VAT-inclusive line totals.</summary>
+    public Money SubtotalWithVat =>
+        _lineItems.Aggregate(Money.Zero(Currency), (sum, item) => sum.Add(item.LineTotalWithVat));
 
     // EF Core materialisation constructor.
     private Section()
@@ -67,11 +71,12 @@ public sealed class Section : Entity<SectionId>
         decimal quantity,
         UnitOfMeasureId unitOfMeasureId,
         Money unitPrice,
+        VatRate vatRate,
         int sequence,
         string? notes)
     {
         EnsureSharedCurrency(unitPrice);
-        var item = new LineItem(LineItemId.New(), description, quantity, unitOfMeasureId, unitPrice, sequence, notes);
+        var item = new LineItem(LineItemId.New(), description, quantity, unitOfMeasureId, unitPrice, vatRate, sequence, notes);
         _lineItems.Add(item);
         return item;
     }
@@ -82,6 +87,7 @@ public sealed class Section : Entity<SectionId>
         decimal quantity,
         UnitOfMeasureId unitOfMeasureId,
         Money unitPrice,
+        VatRate vatRate,
         int sequence,
         string? notes)
     {
@@ -92,7 +98,7 @@ public sealed class Section : Entity<SectionId>
         }
 
         EnsureSharedCurrency(unitPrice);
-        item.Revise(description, quantity, unitOfMeasureId, unitPrice, sequence, notes);
+        item.Revise(description, quantity, unitOfMeasureId, unitPrice, vatRate, sequence, notes);
         return true;
     }
 

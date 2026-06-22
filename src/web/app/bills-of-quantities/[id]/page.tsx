@@ -10,13 +10,19 @@ import {
   removeLineItem,
   removeSection,
 } from "@/app/bills-of-quantities/actions";
+import { awardContract } from "@/app/contracts/actions";
 import {
   BOQ_STATUSES,
   BOQ_STATUS_LABELS,
+  CONTRACT_STATUS_LABELS,
+  CURRENCIES,
   formatMoney,
+  getBid,
   getBillOfQuantities,
+  getContractByWorkPackage,
   getUnitsOfMeasure,
   type BoqStatus,
+  type Contract,
 } from "@/app/lib/api";
 import styles from "@/app/page.module.css";
 
@@ -63,6 +69,18 @@ export default async function BillOfQuantitiesDetailPage({
   const targets = allowedTargets(boq.status);
   const title = `BoQ v${boq.version}${boq.reference ? ` · ${boq.reference}` : ""}`;
 
+  // A contract is awarded from an accepted BoQ. Once this BoQ is accepted, resolve its
+  // owning bid (to reach the work package) and any contract already on that work
+  // package, so we can either link to the award or offer to create it.
+  let awardBid = null;
+  let existingContract: Contract | null = null;
+  if (boq.status === "Accepted") {
+    awardBid = await getBid(boq.bidId);
+    if (awardBid) {
+      existingContract = await getContractByWorkPackage(awardBid.workPackageId);
+    }
+  }
+
   return (
     <main className={styles.main}>
       <Link href={`/bids/${boq.bidId}`} className={styles.backLink}>
@@ -76,7 +94,8 @@ export default async function BillOfQuantitiesDetailPage({
           {BOQ_STATUS_LABELS[boq.status]}
         </span>
         {" · "}
-        <strong>{formatMoney(boq.total)}</strong>
+        <strong>{formatMoney(boq.totalWithVat)}</strong> incl. VAT
+        <span className={styles.muted}> ({formatMoney(boq.total)} excl. VAT)</span>
       </p>
 
       <section className={styles.card}>
@@ -101,8 +120,10 @@ export default async function BillOfQuantitiesDetailPage({
           <dd>{formatDate(boq.submittedOn)}</dd>
           <dt>Valid until</dt>
           <dd>{formatDate(boq.validUntil)}</dd>
-          <dt>Total</dt>
+          <dt>Total excl. VAT</dt>
           <dd>{formatMoney(boq.total)}</dd>
+          <dt>Total incl. VAT</dt>
+          <dd>{formatMoney(boq.totalWithVat)}</dd>
           <dt>Created</dt>
           <dd>{formatDate(boq.createdAt)}</dd>
         </dl>
@@ -152,11 +173,94 @@ export default async function BillOfQuantitiesDetailPage({
         </p>
       </section>
 
+      {boq.status === "Accepted" ? (
+        <section className={styles.card}>
+          <h2>Contract</h2>
+          {existingContract ? (
+            <p>
+              This work package is under contract (
+              <span
+                className={`${styles.badge} ${styles[`status${existingContract.status}`]}`}
+              >
+                {CONTRACT_STATUS_LABELS[existingContract.status]}
+              </span>
+              ).{" "}
+              <Link
+                href={`/contracts/${existingContract.id}`}
+                className={styles.nameLink}
+              >
+                View contract →
+              </Link>
+            </p>
+          ) : (
+            <>
+              <p className={styles.muted}>
+                Award this bid the contract. This accepts this BoQ, selects its bid and
+                rejects the rivals, and marks the work package as awarded. The value
+                defaults to this BoQ&apos;s total when left blank.
+              </p>
+              <form action={awardContract} className={styles.form}>
+                <input type="hidden" name="boqId" value={boq.id} />
+                <input type="hidden" name="bidId" value={boq.bidId} />
+                {awardBid ? (
+                  <input
+                    type="hidden"
+                    name="workPackageId"
+                    value={awardBid.workPackageId}
+                  />
+                ) : null}
+                <input
+                  name="contractNumber"
+                  placeholder="Contract number (optional)"
+                />
+                <span />
+                <label className={styles.fieldLabel}>
+                  Agreed value (optional — defaults to BoQ total)
+                  <input
+                    name="valueAmount"
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    placeholder={String(boq.total.amount)}
+                  />
+                </label>
+                <label className={styles.fieldLabel}>
+                  Currency
+                  <select
+                    name="valueCurrency"
+                    defaultValue={boq.pricingCurrency}
+                  >
+                    {CURRENCIES.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className={styles.fieldLabel}>
+                  Start date
+                  <input name="startDate" type="date" />
+                </label>
+                <label className={styles.fieldLabel}>
+                  Planned end date
+                  <input name="plannedEndDate" type="date" />
+                </label>
+                <input name="notes" placeholder="Notes (optional)" />
+                <button type="submit">Award contract</button>
+              </form>
+            </>
+          )}
+        </section>
+      ) : null}
+
       {boq.sections.map((section) => (
         <section className={styles.card} key={section.id}>
           <h2>
             {section.sequence}. {section.name}{" "}
-            <span className={styles.muted}>· {formatMoney(section.subtotal)}</span>
+            <span className={styles.muted}>
+              · {formatMoney(section.subtotalWithVat)} incl. VAT (
+              {formatMoney(section.subtotal)} excl.)
+            </span>
           </h2>
           {section.description ? (
             <p className={styles.muted}>{section.description}</p>
@@ -170,10 +274,12 @@ export default async function BillOfQuantitiesDetailPage({
                 <tr>
                   <th>#</th>
                   <th>Description</th>
-                  <th>Qty</th>
                   <th>Unit</th>
-                  <th>Unit price</th>
-                  <th>Line total</th>
+                  <th>Qty</th>
+                  <th>Unit price (excl. VAT)</th>
+                  <th>VAT</th>
+                  <th>Line total (excl. VAT)</th>
+                  <th>Line total (incl. VAT)</th>
                   {editable ? <th aria-label="actions" /> : null}
                 </tr>
               </thead>
@@ -187,10 +293,12 @@ export default async function BillOfQuantitiesDetailPage({
                         <div className={styles.muted}>{li.notes}</div>
                       ) : null}
                     </td>
-                    <td>{li.quantity}</td>
                     <td>{unitCode.get(li.unitOfMeasureId) ?? "—"}</td>
+                    <td>{li.quantity}</td>
                     <td>{formatMoney(li.unitPrice)}</td>
+                    <td>{li.vatRatePercentage}%</td>
                     <td>{formatMoney(li.lineTotal)}</td>
+                    <td>{formatMoney(li.lineTotalWithVat)}</td>
                     {editable ? (
                       <td>
                         <div className={styles.actions}>

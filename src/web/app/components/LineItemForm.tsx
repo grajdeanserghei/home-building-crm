@@ -1,4 +1,8 @@
-import { type Currency, type UnitOfMeasure } from "@/app/lib/api";
+import {
+  DEFAULT_VAT_RATE_PERCENTAGE,
+  type Currency,
+  type UnitOfMeasure,
+} from "@/app/lib/api";
 import styles from "@/app/page.module.css";
 
 interface LineItemFormProps {
@@ -17,8 +21,9 @@ interface LineItemFormProps {
 }
 
 /**
- * The add-a-line-item form for a section. The unit price is entered as a bare amount in
- * the BoQ's pricing currency; the unit of measure must be one of the active canonical
+ * The add-a-line-item form for a section. The unit price is entered as a bare net
+ * (VAT-exclusive) amount in the BoQ's pricing currency; the VAT rate defaults to 21% but
+ * can be overridden per line. The unit of measure must be one of the active canonical
  * units (the backend rejects an inactive one).
  */
 export function LineItemForm({
@@ -62,13 +67,26 @@ export function LineItemForm({
         </select>
       </label>
       <label className={styles.fieldLabel}>
-        Unit price ({currency})
+        Unit price excl. VAT ({currency})
         <input
           name="unitPriceAmount"
           type="number"
           min={0}
           step="0.01"
           placeholder="0.00"
+          required
+        />
+      </label>
+      <label className={styles.fieldLabel}>
+        VAT rate (%)
+        <input
+          name="vatRatePercentage"
+          type="number"
+          min={0}
+          max={100}
+          step="0.01"
+          placeholder="21"
+          defaultValue={DEFAULT_VAT_RATE_PERCENTAGE}
           required
         />
       </label>

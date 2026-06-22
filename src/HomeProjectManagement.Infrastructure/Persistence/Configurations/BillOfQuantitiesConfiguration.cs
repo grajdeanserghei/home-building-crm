@@ -47,8 +47,9 @@ public sealed class BillOfQuantitiesConfiguration : IEntityTypeConfiguration<Bil
             rate.Property(r => r.AsOf).HasColumnName("exchange_rate_as_of");
         });
 
-        // The total is derived from the section subtotals; never stored.
+        // The totals are derived from the section subtotals; never stored.
         builder.Ignore(b => b.Total);
+        builder.Ignore(b => b.TotalWithVat);
 
         // Sections are internal entities owned by the BoQ; each section owns its line items in turn.
         builder.OwnsMany(b => b.Sections, sections =>
@@ -64,8 +65,9 @@ public sealed class BillOfQuantitiesConfiguration : IEntityTypeConfiguration<Bil
             sections.Property(s => s.Description).HasMaxLength(1000);
             sections.Property(s => s.Currency).HasConversion<string>().HasMaxLength(3).IsRequired();
 
-            // Subtotal is derived from the line totals; never stored.
+            // Subtotals are derived from the line totals; never stored.
             sections.Ignore(s => s.Subtotal);
+            sections.Ignore(s => s.SubtotalWithVat);
 
             sections.HasIndex("BoqId");
 
@@ -84,10 +86,12 @@ public sealed class BillOfQuantitiesConfiguration : IEntityTypeConfiguration<Bil
                 items.Property(li => li.Sequence).IsRequired();
                 items.Property(li => li.Notes).HasMaxLength(1000);
 
-                // Line total is derived (quantity × unit price); never stored.
+                // Net/gross line totals and the gross unit price are derived; never stored.
                 items.Ignore(li => li.LineTotal);
+                items.Ignore(li => li.LineTotalWithVat);
+                items.Ignore(li => li.UnitPriceWithVat);
 
-                // Unit price is an owned value object flattened into amount + currency columns.
+                // Net unit price is an owned value object flattened into amount + currency columns.
                 items.OwnsOne(li => li.UnitPrice, price =>
                 {
                     price.Property(p => p.Amount).HasColumnName("unit_price_amount").HasPrecision(18, 2);
@@ -95,6 +99,13 @@ public sealed class BillOfQuantitiesConfiguration : IEntityTypeConfiguration<Bil
                         .HasColumnName("unit_price_currency").HasConversion<string>().HasMaxLength(3);
                 });
                 items.Navigation(li => li.UnitPrice).IsRequired();
+
+                // VAT rate is an owned value object flattened into a single percentage column.
+                items.OwnsOne(li => li.VatRate, vat =>
+                {
+                    vat.Property(v => v.Percentage).HasColumnName("vat_rate_percentage").HasPrecision(5, 2);
+                });
+                items.Navigation(li => li.VatRate).IsRequired();
 
                 items.HasIndex("SectionId");
             });

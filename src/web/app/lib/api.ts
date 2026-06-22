@@ -73,9 +73,19 @@ export type WorkPackageStatus =
   | "Completed"
   | "Cancelled";
 
-// The status values are surfaced read-only for now: the backend deliberately omits
-// status from the edit command, since lifecycle transitions (award, etc.) carry
-// invariants and get dedicated endpoints. Labels keep the table and any badge in sync.
+// The statuses in lifecycle order, plus human-readable labels. Shared by the status
+// control on the work-package page and the table badges so they never drift apart. Status
+// is omitted from the edit command — lifecycle transitions go through a dedicated endpoint
+// (see changeWorkPackageStatus). Awarded is reached only via the award flow, not the control.
+export const WORK_PACKAGE_STATUSES: readonly WorkPackageStatus[] = [
+  "Defined",
+  "OpenForBids",
+  "Awarded",
+  "InProgress",
+  "Completed",
+  "Cancelled",
+];
+
 export const WORK_PACKAGE_STATUS_LABELS: Record<WorkPackageStatus, string> = {
   Defined: "Defined",
   OpenForBids: "Open for Bids",
@@ -84,6 +94,31 @@ export const WORK_PACKAGE_STATUS_LABELS: Record<WorkPackageStatus, string> = {
   Completed: "Completed",
   Cancelled: "Cancelled",
 };
+
+// Whether a scope item is mandatory or could be dropped/deferred if the budget is tight.
+// Mirrors the ScopeItemRequirement enum (persisted/serialized as its string name).
+export type ScopeItemRequirement = "Mandatory" | "Optional";
+
+export const SCOPE_ITEM_REQUIREMENTS: readonly ScopeItemRequirement[] = [
+  "Mandatory",
+  "Optional",
+];
+
+export const SCOPE_ITEM_REQUIREMENT_LABELS: Record<ScopeItemRequirement, string> = {
+  Mandatory: "Mandatory",
+  Optional: "Optional",
+};
+
+// An owner-defined sub-scope of a work package (e.g. within "Instalații termice":
+// Încălzire pardoseală, Cameră tehnică gaz). Names are unique within the package. This is
+// the owner's own up-front scoping — distinct from a contractor's BoQ section.
+export interface ScopeItem {
+  id: string;
+  name: string;
+  description?: string | null;
+  requirement: ScopeItemRequirement;
+  sequence: number;
+}
 
 export interface WorkPackage {
   id: string;
@@ -95,6 +130,7 @@ export interface WorkPackage {
   plannedStartDate?: string | null;
   plannedEndDate?: string | null;
   awardedContractId?: string | null;
+  scopeItems: ScopeItem[];
   createdAt: string;
 }
 
@@ -422,25 +458,35 @@ export interface ExchangeRate {
   asOf: string;
 }
 
-// A priced row within a section. `lineTotal` is derived (quantity × unit price).
+// The default VAT rate (percent) applied to a line item — Romania's standard rate.
+export const DEFAULT_VAT_RATE_PERCENTAGE = 21;
+
+// A priced row within a section. `unitPrice` / `lineTotal` are net (VAT-exclusive);
+// `vatRatePercentage` (21 by default) yields the derived `unitPriceWithVat` /
+// `lineTotalWithVat` (VAT-inclusive). `lineTotal` is derived (quantity × unit price).
 export interface LineItem {
   id: string;
   description: string;
   quantity: number;
   unitOfMeasureId: string;
   unitPrice: Money;
+  vatRatePercentage: number;
+  unitPriceWithVat: Money;
   lineTotal: Money;
+  lineTotalWithVat: Money;
   sequence: number;
   notes?: string | null;
 }
 
-// A grouping of line items inside a BoQ. `subtotal` is derived (sum of line totals).
+// A grouping of line items inside a BoQ. `subtotal` (net) / `subtotalWithVat` (gross)
+// are derived (sum of the line totals).
 export interface Section {
   id: string;
   name: string;
   sequence: number;
   description?: string | null;
   subtotal: Money;
+  subtotalWithVat: Money;
   lineItems: LineItem[];
 }
 
@@ -454,7 +500,8 @@ export interface BillOfQuantities {
   exchangeRate?: ExchangeRate | null;
   submittedOn?: string | null;
   validUntil?: string | null;
-  total: Money; // derived: sum of section subtotals
+  total: Money; // derived: sum of section subtotals (net, VAT-exclusive)
+  totalWithVat: Money; // derived: sum of section subtotals (gross, VAT-inclusive)
   sections: Section[];
   createdAt: string;
 }
@@ -495,6 +542,97 @@ export async function getBillOfQuantities(
     throw new Error(
       `Failed to load bill of quantities: ${res.status} ${res.statusText}`,
     );
+  }
+  return res.json();
+}
+
+// Contracts --------------------------------------------------------------
+//
+// A contract is the award for a work package: created when one bid is selected and
+// its BoQ accepted. It references the work package and the accepted BoQ by id (the
+// bid and contractor are reached through that BoQ), carries an agreed `value`
+// (defaulting to the BoQ total) and its own lifecycle that evolves after the award
+// (Draft → Signed → Active → Completed / Terminated). A work package has at most one
+// contract. See docs/architecture/domain-model.md.
+
+export type ContractStatus =
+  | "Draft"
+  | "Signed"
+  | "Active"
+  | "Completed"
+  | "Terminated";
+
+// The statuses in lifecycle order, plus human-readable labels. Shared by the status
+// control and the contracts table so they never drift apart. A contract is born Draft;
+// Completed and Terminated are terminal (closed) — the backend forbids transitioning
+// out of them.
+export const CONTRACT_STATUSES: readonly ContractStatus[] = [
+  "Draft",
+  "Signed",
+  "Active",
+  "Completed",
+  "Terminated",
+];
+
+export const CONTRACT_STATUS_LABELS: Record<ContractStatus, string> = {
+  Draft: "Draft",
+  Signed: "Signed",
+  Active: "Active",
+  Completed: "Completed",
+  Terminated: "Terminated",
+};
+
+export interface Contract {
+  id: string;
+  workPackageId: string;
+  acceptedBoqId: string;
+  contractNumber?: string | null;
+  status: ContractStatus;
+  value: Money;
+  signedOn?: string | null;
+  startDate?: string | null;
+  plannedEndDate?: string | null;
+  actualEndDate?: string | null;
+  notes?: string | null;
+  createdAt: string;
+}
+
+export async function getContracts(): Promise<Contract[]> {
+  const res = await fetch(`${apiBaseUrl()}/api/contracts`, {
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to load contracts: ${res.status} ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function getContract(id: string): Promise<Contract | null> {
+  const res = await fetch(`${apiBaseUrl()}/api/contracts/${id}`, {
+    cache: "no-store",
+  });
+  if (res.status === 404) {
+    return null;
+  }
+  if (!res.ok) {
+    throw new Error(`Failed to load contract: ${res.status} ${res.statusText}`);
+  }
+  return res.json();
+}
+
+// The (at most one) contract awarded for a work package, or null if it has none yet.
+export async function getContractByWorkPackage(
+  workPackageId: string,
+): Promise<Contract | null> {
+  const res = await fetch(
+    `${apiBaseUrl()}/api/work-packages/${workPackageId}/contract`,
+    { cache: "no-store" },
+  );
+  if (res.status === 404) {
+    return null;
+  }
+  if (!res.ok) {
+    throw new Error(`Failed to load contract: ${res.status} ${res.statusText}`);
   }
   return res.json();
 }

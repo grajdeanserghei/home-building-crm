@@ -260,6 +260,18 @@
   color: #16a34a;
 }
 
+/* Work-package scope-item requirement (Mandatory must be done; Optional could be dropped
+   or deferred if the budget is tight). */
+.requirementMandatory {
+  background: color-mix(in srgb, #2563eb 14%, transparent);
+  color: #2563eb;
+}
+
+.requirementOptional {
+  background: color-mix(in srgb, #6b7280 14%, transparent);
+  color: #6b7280;
+}
+
 .statusInactive {
   background: color-mix(in srgb, #6b7280 14%, transparent);
   color: #6b7280;

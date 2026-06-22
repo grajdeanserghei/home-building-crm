@@ -4,7 +4,8 @@ namespace HomeProjectManagement.Application.WorkPackages;
 
 /// <summary>
 /// Read model returned to clients. <c>CreatedAt</c> comes from the aggregate's audit fields;
-/// <c>AwardedContractId</c> is null until the package is awarded.
+/// <c>AwardedContractId</c> is null until the package is awarded. <c>ScopeItems</c> are the
+/// owner-defined sub-scopes, in their intended order.
 /// </summary>
 public sealed record WorkPackageDto(
     Guid Id,
@@ -16,7 +17,20 @@ public sealed record WorkPackageDto(
     DateTimeOffset? PlannedStartDate,
     DateTimeOffset? PlannedEndDate,
     Guid? AwardedContractId,
+    IReadOnlyList<ScopeItemDto> ScopeItems,
     DateTimeOffset CreatedAt);
+
+/// <summary>
+/// An owner-defined sub-scope of a work package (mirrors the <c>ScopeItem</c> entity). Names are
+/// unique within the package; <c>Requirement</c> distinguishes a mandatory scope from one that
+/// could be dropped or deferred if the budget is tight.
+/// </summary>
+public sealed record ScopeItemDto(
+    Guid Id,
+    string Name,
+    string? Description,
+    ScopeItemRequirement Requirement,
+    int Sequence);
 
 /// <summary>
 /// Input for defining a work package within a project. The owning project comes from the
@@ -44,3 +58,20 @@ public sealed record UpdateWorkPackageCommand(
     int Sequence,
     DateTimeOffset? PlannedStartDate,
     DateTimeOffset? PlannedEndDate);
+
+/// <summary>
+/// Input for transitioning a work package's status. The service dispatches each target to the
+/// matching intention-revealing domain method (so invariants hold — e.g. only an awarded package
+/// can start). <c>Awarded</c> is reserved for the award flow and is rejected here (HTTP 409).
+/// </summary>
+public sealed record ChangeWorkPackageStatusCommand(WorkPackageStatus Status);
+
+/// <summary>
+/// Input for adding or editing a scope item. The name must be unique (case-insensitive) within
+/// the work package; <c>Requirement</c> marks it Mandatory or Optional.
+/// </summary>
+public sealed record ScopeItemCommand(
+    string Name,
+    ScopeItemRequirement Requirement,
+    string? Description,
+    int Sequence);

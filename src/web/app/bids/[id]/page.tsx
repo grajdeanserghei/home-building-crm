@@ -150,7 +150,7 @@ export default async function BidDetailPage({
                 <th>Version</th>
                 <th>Reference</th>
                 <th>Status</th>
-                <th>Total</th>
+                <th>Total (incl. VAT)</th>
                 <th aria-label="actions" />
               </tr>
             </thead>
@@ -173,7 +173,7 @@ export default async function BidDetailPage({
                       {BOQ_STATUS_LABELS[boq.status]}
                     </span>
                   </td>
-                  <td>{formatMoney(boq.total)}</td>
+                  <td>{formatMoney(boq.totalWithVat)}</td>
                   <td>
                     <div className={styles.actions}>
                       <Link
