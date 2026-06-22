@@ -10,7 +10,14 @@ var projectsDb = postgres.AddDatabase("projectsdb");
 // .NET Core Web API backend.
 var apiService = builder.AddProject<Projects.HomeProjectManagement_ApiService>("apiservice")
     .WithReference(projectsDb)
-    .WaitFor(projectsDb);
+    .WaitFor(projectsDb)
+    // Add a clickable link to the Scalar OpenAPI UI (served at /scalar in development)
+    // alongside the default endpoint link in the Aspire dashboard.
+    .WithUrlForEndpoint("http", endpoint => new ResourceUrlAnnotation
+    {
+        Url = $"{endpoint.Url}/scalar",
+        DisplayText = "Scalar API Reference",
+    });
 
 // Next.js frontend. AddNextJsApp handles the dev-server port binding and runs `npm run dev`.
 builder.AddNextJsApp("web", "../web")
