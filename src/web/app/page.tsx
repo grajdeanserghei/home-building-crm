@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createProject, deleteProject } from "./actions";
+import { DeleteProjectButton } from "./components/DeleteProjectButton";
 import { ProjectForm } from "./components/ProjectForm";
 import { getProjects, PROJECT_STATUS_LABELS, type Project } from "./lib/api";
 import styles from "./page.module.css";
@@ -74,12 +75,11 @@ export default async function Home() {
                       >
                         Edit
                       </Link>
-                      <form action={deleteProject}>
-                        <input type="hidden" name="id" value={p.id} />
-                        <button type="submit" className={styles.delete}>
-                          Delete
-                        </button>
-                      </form>
+                      <DeleteProjectButton
+                        action={deleteProject}
+                        projectId={p.id}
+                        projectName={p.name}
+                      />
                     </div>
                   </td>
                 </tr>
