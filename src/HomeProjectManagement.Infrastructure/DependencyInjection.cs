@@ -1,6 +1,8 @@
 using HomeProjectManagement.Application.Abstractions;
 using HomeProjectManagement.Domain.Common;
+using HomeProjectManagement.Domain.Contractors;
 using HomeProjectManagement.Domain.Projects;
+using HomeProjectManagement.Domain.UnitsOfMeasure;
 using HomeProjectManagement.Domain.WorkPackages;
 using HomeProjectManagement.Infrastructure.Events;
 using HomeProjectManagement.Infrastructure.ExchangeRates;
@@ -24,6 +26,8 @@ public static class DependencyInjection
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IProjectRepository, ProjectRepository>();
         services.AddScoped<IWorkPackageRepository, WorkPackageRepository>();
+        services.AddScoped<IContractorRepository, ContractorRepository>();
+        services.AddScoped<IUnitOfMeasureRepository, UnitOfMeasureRepository>();
 
         // Cross-cutting driven ports. TimeProvider is the BCL's native clock abstraction
         // (FakeTimeProvider is its test double); no custom IClock/SystemClock needed.

@@ -1,4 +1,6 @@
+using HomeProjectManagement.Domain.Contractors;
 using HomeProjectManagement.Domain.Projects;
+using HomeProjectManagement.Domain.UnitsOfMeasure;
 using HomeProjectManagement.Domain.WorkPackages;
 using HomeProjectManagement.Infrastructure.Persistence.Conversions;
 using Microsoft.EntityFrameworkCore;
@@ -15,6 +17,10 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<Project> Projects => Set<Project>();
 
     public DbSet<WorkPackage> WorkPackages => Set<WorkPackage>();
+
+    public DbSet<Contractor> Contractors => Set<Contractor>();
+
+    public DbSet<UnitOfMeasure> UnitsOfMeasure => Set<UnitOfMeasure>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

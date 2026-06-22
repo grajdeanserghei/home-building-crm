@@ -1,4 +1,6 @@
+using HomeProjectManagement.Application.Contractors;
 using HomeProjectManagement.Application.Projects;
+using HomeProjectManagement.Application.UnitsOfMeasure;
 using HomeProjectManagement.Application.WorkPackages;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -11,6 +13,8 @@ public static class DependencyInjection
     {
         services.AddScoped<IProjectAppService, ProjectAppService>();
         services.AddScoped<IWorkPackageAppService, WorkPackageAppService>();
+        services.AddScoped<IContractorAppService, ContractorAppService>();
+        services.AddScoped<IUnitOfMeasureAppService, UnitOfMeasureAppService>();
         return services;
     }
 }
