@@ -25,7 +25,7 @@ map onto them cleanly.
 | --- | --- | --- |
 | **Project** | — | The duplex build being tracked. The top-level thing everything hangs off. |
 | **Work Package** | _categorie de lucrări / lucrare_ | A defined scope of work within a project that is procured as a unit (e.g. La Roșu, Tâmplărie, Instalații Sanitare, Bransament Gaz). Defined up front, **before** any contractor exists; contractors are then found per work package. Friendly alias: "Scope of Work". |
-| **Feature** | _componentă de lucrare_ | An **owner-defined sub-scope of a single Work Package** (e.g. within "Instalații termice": Încălzire pardoseală, Cameră tehnică gaz, Răcire tavan, Ventilare cu recuperare). Defined up front as part of *your* scoping — distinct from a Section, which is one *contractor's* internal breakdown of their quote. Each Feature is **Mandatory or Optional**, which drives "what can we drop if money is tight?". A contractor's BoQ Sections are allocated to Features so a quote rolls up per feature for side-by-side comparison. |
+| **Scope Item** | _componentă de lucrare_ | An **owner-defined sub-scope of a single Work Package** (e.g. within "Instalații termice": Încălzire pardoseală, Cameră tehnică gaz, Răcire tavan, Ventilare cu recuperare). Defined up front as part of *your* scoping — distinct from a Section, which is one *contractor's* internal breakdown of their quote. Each Scope Item is **Mandatory or Optional**, which drives "what can we drop if money is tight?". A contractor's BoQ Sections are allocated to Scope Items so a quote rolls up per scope item for side-by-side comparison. |
 | **Contractor** | _antreprenor / ofertant_ | A construction **firm** (master data: name, fiscal code, contact). Exists independently of any project, and may bid on — and be selected for — several work packages. The firm is one entity; the *role* it plays per work package is captured by **Bid** (during selection) and **Contract** (after selection), not by duplicating the firm. |
 | **Bid** | _ofertă_ | A contractor's participation in **one work package's selection process**. Created when discussions begin (possibly before any quote), it records the **discussion notes**, carries a **status**, and groups the **BoQ version(s)** that contractor submits. One Bid per (work package, contractor). |
 | **Discussion note** | _notă / minută_ | A timestamped note in a Bid's discussion log (a meeting, call, email, or remark with a contractor about a work package). Lives inside the Bid. |
@@ -41,7 +41,7 @@ map onto them cleanly.
 ```mermaid
 erDiagram
     PROJECT ||--o{ WORK_PACKAGE : "is decomposed into"
-    WORK_PACKAGE ||--o{ FEATURE : "is scoped into"
+    WORK_PACKAGE ||--o{ SCOPE_ITEM : "is scoped into"
     WORK_PACKAGE ||--o{ BID : "receives bids from"
     CONTRACTOR ||--o{ BID : "submits"
     BID ||--o{ BILL_OF_QUANTITIES : "includes versions of"
@@ -50,7 +50,7 @@ erDiagram
     CONTRACT ||--|| BILL_OF_QUANTITIES : "accepts"
     BILL_OF_QUANTITIES ||--o{ SECTION : "is organized into"
     SECTION ||--o{ LINE_ITEM : "contains"
-    SECTION }o--o| FEATURE : "is allocated to"
+    SECTION }o--o| SCOPE_ITEM : "is allocated to"
     LINE_ITEM }o--|| UNIT_OF_MEASURE : "is measured in"
 
     PROJECT {
@@ -73,12 +73,12 @@ erDiagram
         date plannedEndDate
         uuid awardedContractId FK "nullable"
     }
-    FEATURE {
+    SCOPE_ITEM {
         uuid id PK
         uuid workPackageId FK
         string name
         string description
-        FeatureRequirement requirement
+        ScopeItemRequirement requirement
         int sequence
     }
     CONTRACTOR {
@@ -133,7 +133,7 @@ erDiagram
     SECTION {
         uuid id PK
         uuid boqId FK
-        uuid featureId FK "nullable, → WorkPackage.Feature"
+        uuid scopeItemId FK "nullable, → WorkPackage.ScopeItem"
         string name
         int sequence
         Money subtotal "derived"
@@ -164,33 +164,33 @@ and a **Contractor** (who is participating) — one Bid per pair. A Bid records 
 When one Bid is **selected**, a **Contract** is created from its accepted BoQ —
 at most one contract per work package.
 
-A **Work Package** is also broken down into **Features** — owner-defined
+A **Work Package** is also broken down into **Scope Items** — owner-defined
 sub-scopes (e.g. "Instalații termice" → Încălzire pardoseală, Cameră tehnică gaz,
-Ventilare cu recuperare), each flagged **Mandatory** or **Optional**. Features are
-*your* scoping, defined up front, and are not the same as a BoQ's Sections (one
+Ventilare cu recuperare), each flagged **Mandatory** or **Optional**. Scope Items
+are *your* scoping, defined up front, and are not the same as a BoQ's Sections (one
 contractor's internal breakdown). To compare prices per sub-scope, each BoQ
-**Section is allocated to a Feature** (`featureId`), so a contractor's quote rolls
-up per feature. This produces the per-feature comparison overview — e.g. for
-"Instalații termice":
+**Section is allocated to a Scope Item** (`scopeItemId`), so a contractor's quote
+rolls up per scope item. This produces the per-scope-item comparison overview —
+e.g. for "Instalații termice":
 
 ```
-Feature                       Requirement   Offers
+Scope Item                    Requirement   Offers
 Încălzire pardoseală          Mandatory     C1 5k · C2 7k
 Cameră tehnică gaz            Mandatory     C1 7k
 Ventilare cu recuperare       Optional      C2 10k
 ```
 
-The offer count differs per feature because each contractor's BoQ only contains
-sections for the features they actually priced; sections left unallocated
-(`featureId` null) count as general/uncategorized cost. An "offer" for a feature
-is its subtotal within the contractor's **current BoQ version**.
+The offer count differs per scope item because each contractor's BoQ only contains
+sections for the scope items they actually priced; sections left unallocated
+(`scopeItemId` null) count as general/uncategorized cost. An "offer" for a scope
+item is its subtotal within the contractor's **current BoQ version**.
 
 ### Relationship summary
 
 | From | To | Cardinality | Notes |
 | --- | --- | --- | --- |
 | Project | Work Package | one-to-many | A project is decomposed into work packages, defined up front. |
-| Work Package | Feature | one-to-many | A work package is scoped into owner-defined features (mandatory/optional), defined up front. |
+| Work Package | Scope Item | one-to-many | A work package is scoped into owner-defined scope items (mandatory/optional), defined up front. |
 | Work Package | Bid | one-to-many | A work package receives competing bids, one per participating contractor. |
 | Contractor | Bid | one-to-many | A contractor may bid on several work packages. (One Bid per work-package/contractor pair.) |
 | Bid | Discussion note | one-to-many | A bid accumulates a timestamped discussion log. |
@@ -199,7 +199,7 @@ is its subtotal within the contractor's **current BoQ version**.
 | Contract | Bill of Quantities | one-to-one | A contract is created from exactly one accepted BoQ; its bid and contractor are reached through that BoQ. |
 | Bill of Quantities | Section | one-to-many | A BoQ is split into internal sections. |
 | Section | Line item | one-to-many | A section groups individual priced line items. |
-| Section | Feature | many-to-zero-or-one | A BoQ section is optionally allocated to one Work Package feature (loose id reference), so the quote rolls up per feature. |
+| Section | Scope Item | many-to-zero-or-one | A BoQ section is optionally allocated to one Work Package scope item (loose id reference), so the quote rolls up per scope item. |
 | Line item | Unit of measure | many-to-one | Each line item references one canonical unit. |
 
 ### Hierarchy at a glance
@@ -207,13 +207,13 @@ is its subtotal within the contractor's **current BoQ version**.
 ```
 Project (the duplex build)
  └─ Work Package (La Roșu, Tâmplărie, Instalații Sanitare, Bransament Gaz, …)   ← defined first
-     ├─ Feature (owner-defined sub-scope; Mandatory/Optional)   ← defined up front too
+     ├─ Scope Item (owner-defined sub-scope; Mandatory/Optional)   ← defined up front too
      ├─ Bid (one per participating contractor)
      │   │   └─► Contractor (the firm)
      │   ├─ Discussion note (meetings, calls, emails — from first contact)
      │   └─ Bill of Quantities (BoQ version submitted in this bid)
      │       └─ Section (Foundation, Structure, Roof — internal grouping of one quote)
-     │           │   └─► Feature (optional allocation, for per-feature rollup)
+     │           │   └─► Scope Item (optional allocation, for per-scope-item rollup)
      │           └─ Line item (description, qty, unit, unit price, total)
      │               └─► Unit of Measure (reference table)
      └─ Contract (created when one bid is selected; at most one per work package)
@@ -272,7 +272,7 @@ applied here:
 | Aggregate root | Contains (internal entities) | References (by id) | Why a root |
 | --- | --- | --- | --- |
 | **Project** | — | — | The build's own lifecycle; top of the model. |
-| **Work Package** | Feature | Project | Referenced by BoQ and Contract from outside, so it **must** be a root. Defined up front, independent lifecycle. Owns its Features. |
+| **Work Package** | Scope Item | Project | Referenced by BoQ and Contract from outside, so it **must** be a root. Defined up front, independent lifecycle. Owns its Scope Items. |
 | **Contractor** | — | — | A firm exists independently of any project/bid; referenced by Bid. |
 | **Bid** | Discussion note | Work Package, Contractor | The selection process for one work-package/contractor pair. Referenced by BoQ from outside, so it must be a root; owns the discussion log. |
 | **Bill of Quantities** | Section, Line item | Bid | Loaded, priced, and compared as a whole. Its sections/line items have no meaning or external references outside it. |
@@ -288,23 +288,23 @@ own subtotal.)
 **Discussion note** is a **local entity inside the Bid aggregate** — the bid's
 discussion log; it is never referenced from outside the bid.
 
-**Feature** is a **local entity inside the Work Package aggregate** — an
+**Scope Item** is a **local entity inside the Work Package aggregate** — an
 owner-defined sub-scope created, ordered, and deleted with its work package, with
 no lifecycle of its own. It carries a name, a `requirement` (Mandatory/Optional),
-and ordering. A BoQ **Section** may reference a Feature by id (`featureId`) to
+and ordering. A BoQ **Section** may reference a Scope Item by id (`scopeItemId`) to
 allocate its cost to that sub-scope.
 
 > **Deliberate exception:** a `Section` (inside the BoQ aggregate) referencing a
-> `Feature` (a *local entity*, not a root) bends the rule "only aggregate roots
-> are referenced across aggregates." We accept it because a Feature has no
+> `ScopeItem` (a *local entity*, not a root) bends the rule "only aggregate roots
+> are referenced across aggregates." We accept it because a Scope Item has no
 > lifecycle outside its Work Package — promoting every owned sub-list to a root
-> would bloat the model. The reference is **loose**: it is a plain `featureId`
+> would bloat the model. The reference is **loose**: it is a plain `scopeItemId`
 > validated by the **application service** (the same way cross-aggregate parents
-> are already checked), not an EF navigation, and a deleted/absent feature simply
-> degrades the rollup to "unallocated" rather than breaking the BoQ. If we later
-> need to query or manage features independently, Feature can be promoted to its
-> own root referencing the work package by id (mirroring `UnitOfMeasure`) — a
-> cheap refactor. Flag this if preferred.
+> are already checked), not an EF navigation, and a deleted/absent scope item
+> simply degrades the rollup to "unallocated" rather than breaking the BoQ. If we
+> later need to query or manage scope items independently, ScopeItem can be
+> promoted to its own root referencing the work package by id (mirroring
+> `UnitOfMeasure`) — a cheap refactor. Flag this if preferred.
 
 **User / Stakeholder** is **not** part of this domain model — it belongs to the
 authentication/identity concern (a separate bounded context). Where the domain
@@ -321,12 +321,12 @@ needs it, it appears only as a `UserId` value in audit fields (e.g. *created by*
 - **Contract** — at most **one** per Work Package; references an *accepted* BoQ
   whose Bid belongs to the **same** Work Package and is `Selected`.
 - **Work Package** — belongs to exactly one Project; has a status lifecycle
-  (e.g. open for bids → awarded); owns its **Features**, each with a unique name
+  (e.g. open for bids → awarded); owns its **Scope Items**, each with a unique name
   within the work package and a `requirement` (Mandatory/Optional).
-- **Feature** (inside Work Package) — belongs to exactly one Work Package; name
-  unique within that work package. When a BoQ Section sets `featureId`, the
-  application service validates it points at a Feature of the **same** Work Package
-  as the Section's BoQ (reached via Bid → Work Package).
+- **Scope Item** (inside Work Package) — belongs to exactly one Work Package; name
+  unique within that work package. When a BoQ Section sets `scopeItemId`, the
+  application service validates it points at a Scope Item of the **same** Work
+  Package as the Section's BoQ (reached via Bid → Work Package).
 - **Unit of Measure** — unique canonical code; cannot be deleted while a line
   item references it.
 
@@ -392,7 +392,7 @@ authentication context, not a domain entity.
 | --- | --- |
 | **ProjectStatus** | Planning, InProgress, OnHold, Completed |
 | **WorkPackageStatus** | Defined, OpenForBids, Awarded, InProgress, Completed, Cancelled |
-| **FeatureRequirement** | Mandatory, Optional |
+| **ScopeItemRequirement** | Mandatory, Optional |
 | **BidStatus** | InDiscussion, BoqExpected, BoqReceived, Shortlisted, Selected, Rejected, Withdrawn |
 | **NoteType** | Meeting, Call, Email, Note |
 | **BoqStatus** | Draft, Submitted, Accepted, Rejected, Withdrawn |
@@ -424,16 +424,16 @@ authentication context, not a domain entity.
 | plannedStartDate | date | Optional — captures the "milestone"/timeline aspect. |
 | plannedEndDate | date | Optional target completion for this package. |
 | awardedContractId | ContractId? | Null until awarded; convenience reference to the contract. |
-| features | Feature[] | Internal entities (ordered) — the owner-defined sub-scopes. |
+| scopeItems | ScopeItem[] | Internal entities (ordered) — the owner-defined sub-scopes. |
 
-### Feature (inside Work Package)
+### Scope Item (inside Work Package)
 
 | Attribute | Type | Notes |
 | --- | --- | --- |
-| id | FeatureId | Local identity within the Work Package aggregate. |
+| id | ScopeItemId | Local identity within the Work Package aggregate. |
 | name | string | e.g. "Ventilare cu recuperare". Unique within the work package. |
 | description | string | Optional scope notes. |
-| requirement | FeatureRequirement | Mandatory / Optional — drives "what can we drop if money is tight?". |
+| requirement | ScopeItemRequirement | Mandatory / Optional — drives "what can we drop if money is tight?". |
 | sequence | int | Display order within the work package. |
 
 ### Contractor
@@ -492,7 +492,7 @@ authentication context, not a domain entity.
 | Attribute | Type | Notes |
 | --- | --- | --- |
 | id | SectionId | Local identity within the BoQ aggregate. |
-| featureId | FeatureId? | Optional loose reference to a Feature of the BoQ's Work Package, allocating this section's cost to that sub-scope for per-feature rollup. Null = unallocated. Validated in the application service. |
+| scopeItemId | ScopeItemId? | Optional loose reference to a Scope Item of the BoQ's Work Package, allocating this section's cost to that sub-scope for per-scope-item rollup. Null = unallocated. Validated in the application service. |
 | name | string | e.g. "Foundation", "Roof". |
 | sequence | int | Order within the BoQ. |
 | description | string | Optional. |
@@ -562,20 +562,20 @@ authentication context, not a domain entity.
   package, created from the selected bid's accepted BoQ).
 - [x] **One BoQ per work package** — each BoQ covers a single work package; a bid
   may hold several BoQ *versions* of it.
-- [x] **Work Package sub-scopes modelled as `Feature`s** — owner-defined,
+- [x] **Work Package sub-scopes modelled as `ScopeItem`s** — owner-defined,
   Mandatory/Optional, local entities inside the Work Package aggregate. BoQ
-  Sections are loosely allocated to a Feature (`featureId`) so each contractor's
-  quote rolls up per feature for side-by-side comparison. (See the deliberate
-  exception note in [Aggregates](#aggregates).)
-- [ ] **Section-vs-line-item allocation granularity** — Features are allocated at
-  the **Section** level. If a contractor bundles two features in one section,
+  Sections are loosely allocated to a Scope Item (`scopeItemId`) so each
+  contractor's quote rolls up per scope item for side-by-side comparison. (See the
+  deliberate exception note in [Aggregates](#aggregates).)
+- [ ] **Section-vs-line-item allocation granularity** — Scope Items are allocated
+  at the **Section** level. If a contractor bundles two scope items in one section,
   either split the section or (future) allow allocation at the **line-item**
   level. Deferred until reality forces it.
-- [ ] **Budgeting / affordability layer** — the driver for Features is "do we have
-  enough money for *Ventilare cu recuperare*?". A future layer could add a budget
-  per Work Package/Feature and "scenarios" that toggle Optional features in/out and
-  recompute the total. Deferred; `requirement` on Feature is defined now so this
-  needs no remigration later.
+- [ ] **Budgeting / affordability layer** — the driver for Scope Items is "do we
+  have enough money for *Ventilare cu recuperare*?". A future layer could add a
+  budget per Work Package/Scope Item and "scenarios" that toggle Optional scope
+  items in/out and recompute the total. Deferred; `requirement` on Scope Item is
+  defined now so this needs no remigration later.
 - [ ] Whether **actual-cost / payment tracking** is added later (deferred —
   out of scope for the initial estimate-comparison model).
 - [ ] How **User / Stakeholder** relates to the model, if at all, beyond
