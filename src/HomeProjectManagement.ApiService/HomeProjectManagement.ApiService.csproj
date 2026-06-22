@@ -7,16 +7,20 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="13.4.6" />
-    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.9" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.9">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
+    <!-- Aspire-wired Npgsql EF Core DbContext registration (configures the context defined in Infrastructure). -->
+    <PackageReference Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
   </ItemGroup>
 
+  <!--
+    ApiService is the driving adapter + composition root:
+    it depends on Application (use cases) and Infrastructure (adapters), plus ServiceDefaults.
+    It no longer references EF Core directly or owns the domain model.
+  -->
   <ItemGroup>
     <ProjectReference Include="..\HomeProjectManagement.ServiceDefaults\HomeProjectManagement.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\HomeProjectManagement.Application\HomeProjectManagement.Application.csproj" />
+    <ProjectReference Include="..\HomeProjectManagement.Infrastructure\HomeProjectManagement.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

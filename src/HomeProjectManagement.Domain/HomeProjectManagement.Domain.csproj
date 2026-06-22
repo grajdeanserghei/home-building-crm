@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <!--
+    The domain core depends on nothing. No framework references, no NuGet packages.
+    This is the innermost ring of the hexagon; everything points inward to here.
+    See docs/architecture/hexagonal-architecture.md (the dependency rule).
+  -->
+
+</Project>

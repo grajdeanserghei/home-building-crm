@@ -3,5 +3,8 @@
     <Project Path="src/HomeProjectManagement.ApiService/HomeProjectManagement.ApiService.csproj" />
     <Project Path="src/HomeProjectManagement.AppHost/HomeProjectManagement.AppHost.csproj" />
     <Project Path="src/HomeProjectManagement.ServiceDefaults/HomeProjectManagement.ServiceDefaults.csproj" />
+    <Project Path="src/HomeProjectManagement.Domain/HomeProjectManagement.Domain.csproj" />
+    <Project Path="src/HomeProjectManagement.Application/HomeProjectManagement.Application.csproj" />
+    <Project Path="src/HomeProjectManagement.Infrastructure/HomeProjectManagement.Infrastructure.csproj" />
   </Folder>
 </Solution>

@@ -1,6 +1,8 @@
 using System.Text.Json.Serialization;
-using HomeProjectManagement.ApiService.Data;
-using HomeProjectManagement.ApiService.Models;
+using HomeProjectManagement.ApiService.Endpoints;
+using HomeProjectManagement.Application;
+using HomeProjectManagement.Infrastructure;
+using HomeProjectManagement.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -17,7 +19,12 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 builder.Services.AddOpenApi();
 
 // Aspire-wired Npgsql EF Core. "projectsdb" matches the resource name in the AppHost.
+// The DbContext type itself lives in Infrastructure.
 builder.AddNpgsqlDbContext<AppDbContext>("projectsdb");
+
+// Hexagonal composition root: application use cases + infrastructure adapters.
+builder.Services.AddApplication();
+builder.Services.AddInfrastructure();
 
 // Allow the Next.js dev server to call the API from the browser.
 builder.Services.AddCors(options =>
@@ -45,46 +52,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors();
 
-var projects = app.MapGroup("/api/projects");
-
-projects.MapGet("/", async (AppDbContext db) =>
-    await db.Projects.OrderByDescending(p => p.CreatedAt).ToListAsync());
-
-projects.MapGet("/{id:guid}", async (Guid id, AppDbContext db) =>
-    await db.Projects.FindAsync(id) is { } project
-        ? Results.Ok(project)
-        : Results.NotFound());
-
-projects.MapPost("/", async (Project project, AppDbContext db) =>
-{
-    project.Id = Guid.NewGuid();
-    project.CreatedAt = DateTimeOffset.UtcNow;
-    db.Projects.Add(project);
-    await db.SaveChangesAsync();
-    return Results.Created($"/api/projects/{project.Id}", project);
-});
-
-projects.MapPut("/{id:guid}", async (Guid id, Project input, AppDbContext db) =>
-{
-    var project = await db.Projects.FindAsync(id);
-    if (project is null) return Results.NotFound();
-
-    project.Name = input.Name;
-    project.Description = input.Description;
-    project.Status = input.Status;
-    project.DueDate = input.DueDate;
-    await db.SaveChangesAsync();
-    return Results.Ok(project);
-});
-
-projects.MapDelete("/{id:guid}", async (Guid id, AppDbContext db) =>
-{
-    var project = await db.Projects.FindAsync(id);
-    if (project is null) return Results.NotFound();
-
-    db.Projects.Remove(project);
-    await db.SaveChangesAsync();
-    return Results.NoContent();
-});
+// Map the driving adapters (minimal-API endpoint groups).
+app.MapProjectEndpoints();
 
 app.Run();
