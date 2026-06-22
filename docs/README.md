@@ -2,6 +2,9 @@
 
 Specifications and documentation for **Home Project Management**.
 
+Start with the [Project Overview](./project-overview.md) for what this tool is,
+who it is for, and the architecture mandate (DDD + Hexagonal).
+
 ## Tech Stack
 
 - **Frontend** — Next.js
