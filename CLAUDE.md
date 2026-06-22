@@ -47,6 +47,10 @@ There is no test suite at present.
 
 All NuGet packages **must** be managed centrally via [Central Package Management (CPM)](https://learn.microsoft.com/nuget/consume-packages/central-package-management). Package versions live in a single `Directory.Packages.props` at the repository root; individual `.csproj` files declare `<PackageReference Include="..." />` **without** a `Version` attribute. Do not pin or override versions per-project. When adding a dependency, add or update its `<PackageVersion>` entry in `Directory.Packages.props` and reference it (version-less) from the project that needs it. See [`docs/guides/central-package-management.md`](docs/guides/central-package-management.md).
 
+## Shared MSBuild properties
+
+Common project properties are centralized in `Directory.Build.props` at the repository root and apply to **every** project automatically: `TargetFramework` (the .NET version — currently `net10.0`), `Nullable`, and `ImplicitUsings`. Do not redeclare these in individual `.csproj` files; change the .NET version in one place (`Directory.Build.props`) to move the whole solution. Only genuinely project-specific properties belong in a `.csproj` (e.g. `OutputType`, `UserSecretsId`, `IsAspireSharedProject`, `NoWarn`).
+
 ## Next.js version warning
 
 `src/web` uses Next.js 16, which has breaking changes from earlier versions. Per `src/web/AGENTS.md`: read the relevant guide in `src/web/node_modules/next/dist/docs/` before writing frontend code, and heed deprecation notices — do not assume older Next.js conventions.

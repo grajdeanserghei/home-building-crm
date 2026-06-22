@@ -1,11 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-  </PropertyGroup>
-
   <!-- Application depends on Domain only (use-case services, DTOs, driven ports). -->
   <ItemGroup>
     <ProjectReference Include="..\HomeProjectManagement.Domain\HomeProjectManagement.Domain.csproj" />

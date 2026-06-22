@@ -1,0 +1,15 @@
+<Project>
+
+  <!--
+    Shared MSBuild properties applied to every project in the repository.
+    Project-specific properties (OutputType, UserSecretsId, IsAspireSharedProject, NoWarn, ...)
+    stay in their own .csproj. NuGet package versions are centralized separately in
+    Directory.Packages.props. See docs/guides/central-package-management.md.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+</Project>
