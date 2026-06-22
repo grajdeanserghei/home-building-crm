@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using HomeProjectManagement.ApiService.Data;
 using HomeProjectManagement.ApiService.Models;
 using Microsoft.EntityFrameworkCore;
@@ -6,6 +7,11 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Aspire service defaults: telemetry, health checks, service discovery, resilience.
 builder.AddServiceDefaults();
+
+// Serialize/deserialize enums (e.g. ProjectStatus) as their string names so the
+// JSON matches the frontend's TypeScript types and the values stored by EF Core.
+builder.Services.ConfigureHttpJsonOptions(options =>
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
