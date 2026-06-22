@@ -43,6 +43,10 @@ Run all commands from the repository root unless noted.
 
 There is no test suite at present.
 
+## NuGet packages — central management required
+
+All NuGet packages **must** be managed centrally via [Central Package Management (CPM)](https://learn.microsoft.com/nuget/consume-packages/central-package-management). Package versions live in a single `Directory.Packages.props` at the repository root; individual `.csproj` files declare `<PackageReference Include="..." />` **without** a `Version` attribute. Do not pin or override versions per-project. When adding a dependency, add or update its `<PackageVersion>` entry in `Directory.Packages.props` and reference it (version-less) from the project that needs it. See [`docs/guides/central-package-management.md`](docs/guides/central-package-management.md).
+
 ## Next.js version warning
 
 `src/web` uses Next.js 16, which has breaking changes from earlier versions. Per `src/web/AGENTS.md`: read the relevant guide in `src/web/node_modules/next/dist/docs/` before writing frontend code, and heed deprecation notices — do not assume older Next.js conventions.

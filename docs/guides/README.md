@@ -2,6 +2,10 @@
 
 How-to guides for development, setup, and operations.
 
+## Available guides
+
+- [Central Package Management (NuGet)](./central-package-management.md) — all NuGet package versions are managed centrally in a root `Directory.Packages.props`.
+
 Suggested topics:
 
 - Getting started / local development
