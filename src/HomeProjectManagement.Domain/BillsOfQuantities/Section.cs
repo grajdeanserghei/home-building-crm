@@ -1,0 +1,132 @@
+using HomeProjectManagement.Domain.Common;
+using HomeProjectManagement.Domain.Common.ValueObjects;
+using HomeProjectManagement.Domain.UnitsOfMeasure;
+
+namespace HomeProjectManagement.Domain.BillsOfQuantities;
+
+/// <summary>
+/// A grouping of line items inside a single Bill of Quantities (e.g. Foundation, Structure, Roof
+/// within a "La Roșu" quote) — the internal structure of one quote, distinct from a Work Package.
+/// </summary>
+/// <remarks>
+/// A <b>local entity inside the Bill of Quantities aggregate</b>: it has identity within the BoQ
+/// but is never referenced from outside it, so the BoQ root owns its whole lifecycle and that of
+/// its <see cref="LineItem"/>s. It carries the BoQ's pricing <see cref="Currency"/> so its
+/// <see cref="Subtotal"/> is well-defined even when empty and so every line shares one currency.
+/// </remarks>
+public sealed class Section : Entity<SectionId>
+{
+    private readonly List<LineItem> _lineItems = [];
+
+    /// <summary>The section heading (e.g. "Foundation").</summary>
+    public string Name { get; private set; } = null!;
+
+    /// <summary>Order within the BoQ.</summary>
+    public int Sequence { get; private set; }
+
+    /// <summary>Optional notes about the section.</summary>
+    public string? Description { get; private set; }
+
+    /// <summary>The BoQ's pricing currency; every line item in the section shares it.</summary>
+    public Currency Currency { get; private set; }
+
+    /// <summary>
+    /// The line items in this section (internal entities). Mutated only through the
+    /// <see cref="BillOfQuantities"/> root; EF reaches the backing field directly.
+    /// </summary>
+    public IReadOnlyList<LineItem> LineItems => _lineItems.AsReadOnly();
+
+    /// <summary>Derived subtotal: the sum of the section's line totals, in the pricing currency.</summary>
+    public Money Subtotal =>
+        _lineItems.Aggregate(Money.Zero(Currency), (sum, item) => sum.Add(item.LineTotal));
+
+    // EF Core materialisation constructor.
+    private Section()
+    {
+    }
+
+    // Created only by the BillOfQuantities root.
+    internal Section(SectionId id, string name, int sequence, string? description, Currency currency) : base(id)
+    {
+        Id = id;
+        Name = NormalizeName(name);
+        Sequence = sequence;
+        Description = Trim(description);
+        Currency = currency;
+    }
+
+    internal void Update(string name, int sequence, string? description)
+    {
+        Name = NormalizeName(name);
+        Sequence = sequence;
+        Description = Trim(description);
+    }
+
+    internal LineItem AddLineItem(
+        string description,
+        decimal quantity,
+        UnitOfMeasureId unitOfMeasureId,
+        Money unitPrice,
+        int sequence,
+        string? notes)
+    {
+        EnsureSharedCurrency(unitPrice);
+        var item = new LineItem(LineItemId.New(), description, quantity, unitOfMeasureId, unitPrice, sequence, notes);
+        _lineItems.Add(item);
+        return item;
+    }
+
+    internal bool ReviseLineItem(
+        LineItemId lineItemId,
+        string description,
+        decimal quantity,
+        UnitOfMeasureId unitOfMeasureId,
+        Money unitPrice,
+        int sequence,
+        string? notes)
+    {
+        var item = _lineItems.FirstOrDefault(li => li.Id == lineItemId);
+        if (item is null)
+        {
+            return false;
+        }
+
+        EnsureSharedCurrency(unitPrice);
+        item.Revise(description, quantity, unitOfMeasureId, unitPrice, sequence, notes);
+        return true;
+    }
+
+    internal bool RemoveLineItem(LineItemId lineItemId)
+    {
+        var item = _lineItems.FirstOrDefault(li => li.Id == lineItemId);
+        if (item is null)
+        {
+            return false;
+        }
+
+        _lineItems.Remove(item);
+        return true;
+    }
+
+    private void EnsureSharedCurrency(Money unitPrice)
+    {
+        if (unitPrice.Currency != Currency)
+        {
+            throw new InvalidOperationException(
+                $"Line item price currency ({unitPrice.Currency}) must match the bill's pricing currency ({Currency}).");
+        }
+    }
+
+    private static string NormalizeName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            throw new ArgumentException("Section name is required.", nameof(name));
+        }
+
+        return name.Trim();
+    }
+
+    private static string? Trim(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+}

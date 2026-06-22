@@ -1,4 +1,5 @@
 using HomeProjectManagement.Application.Bids;
+using HomeProjectManagement.Application.BillsOfQuantities;
 using HomeProjectManagement.Application.Contractors;
 using HomeProjectManagement.Application.Projects;
 using HomeProjectManagement.Application.UnitsOfMeasure;
@@ -16,6 +17,7 @@ public static class DependencyInjection
         services.AddScoped<IWorkPackageAppService, WorkPackageAppService>();
         services.AddScoped<IContractorAppService, ContractorAppService>();
         services.AddScoped<IBidAppService, BidAppService>();
+        services.AddScoped<IBillOfQuantitiesAppService, BillOfQuantitiesAppService>();
         services.AddScoped<IUnitOfMeasureAppService, UnitOfMeasureAppService>();
         return services;
     }

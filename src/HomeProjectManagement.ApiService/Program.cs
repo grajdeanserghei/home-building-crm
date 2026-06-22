@@ -57,6 +57,7 @@ app.MapProjectEndpoints();
 app.MapWorkPackageEndpoints();
 app.MapContractorEndpoints();
 app.MapBidEndpoints();
+app.MapBillOfQuantitiesEndpoints();
 app.MapUnitOfMeasureEndpoints();
 
 app.Run();
