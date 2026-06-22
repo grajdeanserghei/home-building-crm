@@ -1,17 +1,22 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BidNoteForm } from "@/app/components/BidNoteForm";
+import { BillOfQuantitiesForm } from "@/app/components/BillOfQuantitiesForm";
 import {
   changeBidStatus,
   deleteBid,
   logBidNote,
   removeBidNote,
 } from "@/app/bids/actions";
+import { draftBoq } from "@/app/bills-of-quantities/actions";
 import {
   BID_STATUS_LABELS,
   BID_STATUSES,
+  BOQ_STATUS_LABELS,
   NOTE_TYPE_LABELS,
+  formatMoney,
   getBid,
+  getBillsOfQuantities,
   getContractor,
   getWorkPackage,
   type BidStatus,
@@ -44,9 +49,10 @@ export default async function BidDetailPage({
     notFound();
   }
 
-  const [contractor, workPackage] = await Promise.all([
+  const [contractor, workPackage, boqs] = await Promise.all([
     getContractor(bid.contractorId),
     getWorkPackage(bid.workPackageId),
+    getBillsOfQuantities(bid.id),
   ]);
 
   const contractorName = contractor?.name ?? "Unknown contractor";
@@ -128,6 +134,70 @@ export default async function BidDetailPage({
           Selecting this bid as the winner rejects the other live bids on this
           work package.
         </p>
+      </section>
+
+      <section className={styles.card}>
+        <h2>Bills of quantities</h2>
+        {boqs.length === 0 ? (
+          <p>
+            No bills of quantities yet. Draft the contractor&apos;s first version
+            below.
+          </p>
+        ) : (
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>Version</th>
+                <th>Reference</th>
+                <th>Status</th>
+                <th>Total</th>
+                <th aria-label="actions" />
+              </tr>
+            </thead>
+            <tbody>
+              {boqs.map((boq) => (
+                <tr key={boq.id}>
+                  <td>
+                    <Link
+                      href={`/bills-of-quantities/${boq.id}`}
+                      className={styles.nameLink}
+                    >
+                      <strong>v{boq.version}</strong>
+                    </Link>
+                  </td>
+                  <td>{boq.reference || "—"}</td>
+                  <td>
+                    <span
+                      className={`${styles.badge} ${styles[`status${boq.status}`]}`}
+                    >
+                      {BOQ_STATUS_LABELS[boq.status]}
+                    </span>
+                  </td>
+                  <td>{formatMoney(boq.total)}</td>
+                  <td>
+                    <div className={styles.actions}>
+                      <Link
+                        href={`/bills-of-quantities/${boq.id}`}
+                        className={styles.edit}
+                      >
+                        View
+                      </Link>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
+
+      <section className={styles.card}>
+        <h2>Draft a bill of quantities</h2>
+        <BillOfQuantitiesForm
+          action={draftBoq}
+          bidId={bid.id}
+          submitLabel="Draft BoQ"
+        />
       </section>
 
       <section className={styles.card}>

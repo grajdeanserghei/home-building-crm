@@ -218,6 +218,23 @@
   color: #d97706;
 }
 
+/* Bill-of-quantities statuses (Draft / Submitted / Accepted / Rejected /
+   Withdrawn). Rejected and Withdrawn reuse the bid badge classes above. */
+.statusDraft {
+  background: color-mix(in srgb, #6b7280 14%, transparent);
+  color: #6b7280;
+}
+
+.statusSubmitted {
+  background: color-mix(in srgb, #2563eb 14%, transparent);
+  color: #2563eb;
+}
+
+.statusAccepted {
+  background: color-mix(in srgb, #16a34a 16%, transparent);
+  color: #16a34a;
+}
+
 /* Unit-of-measure active state. */
 .statusActive {
   background: color-mix(in srgb, #16a34a 16%, transparent);

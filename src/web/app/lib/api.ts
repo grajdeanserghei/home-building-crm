@@ -366,3 +366,135 @@ export async function getBid(id: string): Promise<Bid | null> {
   }
   return res.json();
 }
+
+// Bills of quantities ----------------------------------------------------
+//
+// A bill of quantities (BoQ, RO "deviz") is a contractor's priced, itemized cost
+// estimate submitted within a bid; a bid may hold several BoQ versions over
+// negotiation. It is the aggregate root, addressable by its own id, and owns its
+// Sections (e.g. Foundation, Roof) which in turn own priced Line items. Every
+// amount is stored in one `pricingCurrency` (fixed at draft); the other currency is
+// derived via the optional pinned `exchangeRate`. The version collection is nested
+// under its bid. See docs/architecture/domain-model.md.
+
+export type Currency = "RON" | "EUR";
+
+export const CURRENCIES: readonly Currency[] = ["RON", "EUR"];
+
+export type BoqStatus =
+  | "Draft"
+  | "Submitted"
+  | "Accepted"
+  | "Rejected"
+  | "Withdrawn";
+
+// The statuses in lifecycle order, plus human-readable labels. Shared by the status
+// control and the BoQ tables so they never drift apart. A BoQ is born Draft; Accepted
+// is the basis for a contract; Rejected and Withdrawn are terminal (closed) states.
+export const BOQ_STATUSES: readonly BoqStatus[] = [
+  "Draft",
+  "Submitted",
+  "Accepted",
+  "Rejected",
+  "Withdrawn",
+];
+
+export const BOQ_STATUS_LABELS: Record<BoqStatus, string> = {
+  Draft: "Draft",
+  Submitted: "Submitted",
+  Accepted: "Accepted",
+  Rejected: "Rejected",
+  Withdrawn: "Withdrawn",
+};
+
+// A monetary amount in a single currency (mirrors the Money value object).
+export interface Money {
+  amount: number;
+  currency: Currency;
+}
+
+// A pinned EUR↔RON conversion rate (mirrors the ExchangeRate value object). `asOf`
+// is a plain `yyyy-MM-dd` date.
+export interface ExchangeRate {
+  baseCurrency: Currency;
+  quoteCurrency: Currency;
+  rate: number;
+  asOf: string;
+}
+
+// A priced row within a section. `lineTotal` is derived (quantity × unit price).
+export interface LineItem {
+  id: string;
+  description: string;
+  quantity: number;
+  unitOfMeasureId: string;
+  unitPrice: Money;
+  lineTotal: Money;
+  sequence: number;
+  notes?: string | null;
+}
+
+// A grouping of line items inside a BoQ. `subtotal` is derived (sum of line totals).
+export interface Section {
+  id: string;
+  name: string;
+  sequence: number;
+  description?: string | null;
+  subtotal: Money;
+  lineItems: LineItem[];
+}
+
+export interface BillOfQuantities {
+  id: string;
+  bidId: string;
+  reference?: string | null;
+  version: number;
+  status: BoqStatus;
+  pricingCurrency: Currency;
+  exchangeRate?: ExchangeRate | null;
+  submittedOn?: string | null;
+  validUntil?: string | null;
+  total: Money; // derived: sum of section subtotals
+  sections: Section[];
+  createdAt: string;
+}
+
+// Format a Money amount for display, e.g. "12,500.50 RON".
+export function formatMoney(money: Money): string {
+  return `${money.amount.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })} ${money.currency}`;
+}
+
+export async function getBillsOfQuantities(
+  bidId: string,
+): Promise<BillOfQuantities[]> {
+  const res = await fetch(
+    `${apiBaseUrl()}/api/bids/${bidId}/bills-of-quantities`,
+    { cache: "no-store" },
+  );
+  if (!res.ok) {
+    throw new Error(
+      `Failed to load bills of quantities: ${res.status} ${res.statusText}`,
+    );
+  }
+  return res.json();
+}
+
+export async function getBillOfQuantities(
+  id: string,
+): Promise<BillOfQuantities | null> {
+  const res = await fetch(`${apiBaseUrl()}/api/bills-of-quantities/${id}`, {
+    cache: "no-store",
+  });
+  if (res.status === 404) {
+    return null;
+  }
+  if (!res.ok) {
+    throw new Error(
+      `Failed to load bill of quantities: ${res.status} ${res.statusText}`,
+    );
+  }
+  return res.json();
+}
