@@ -6,6 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Home Project Management: a .NET Aspire application orchestrating a minimal-API backend, a PostgreSQL database, and a Next.js frontend. The single domain entity is `Project` (name, description, status, due date) with full CRUD.
 
+**Purpose:** a private, internal tool for the four people building a duplex together (the owner, the owner's spouse, and two friends) to track and coordinate the build. It is internal-only and must require authentication — access is restricted to those four stakeholders; there is no open sign-up. See [`docs/project-overview.md`](docs/project-overview.md).
+
+**Architecture mandate:** the backend must follow **Domain-Driven Design** and **Hexagonal architecture** (ports and adapters), keeping the domain core isolated from infrastructure. This is a hard requirement and the target direction — the current minimal-API/EF-Core code (described below) does **not** yet follow it, so expect restructuring rather than assuming the mandate is already implemented.
+
 ## Architecture
 
 The system is wired together by the **Aspire AppHost** (`src/HomeProjectManagement.AppHost/AppHost.cs`), which is the entry point that launches everything. Understanding the dependency chain there is the key to the whole project:
