@@ -15,7 +15,7 @@ interface WorkPackageFormProps {
   projectId: string;
   // When editing, the work package whose fields seed the form. Omit to render a blank "create" form.
   workPackage?: WorkPackage;
-  // For a new package, the suggested next sequence (count of existing packages).
+  // For a new package, the suggested next sequence (one past the existing packages, 1-based).
   defaultSequence?: number;
   submitLabel: string;
 }
@@ -52,10 +52,10 @@ export function WorkPackageForm({
       <input
         name="sequence"
         type="number"
-        min={0}
+        min={1}
         step={1}
         placeholder="Order"
-        defaultValue={workPackage?.sequence ?? defaultSequence ?? 0}
+        defaultValue={workPackage?.sequence ?? defaultSequence ?? 1}
       />
       <label className={styles.fieldLabel}>
         Planned start

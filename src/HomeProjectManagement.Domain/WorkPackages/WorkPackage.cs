@@ -71,10 +71,12 @@ public sealed class WorkPackage : AggregateRoot<WorkPackageId>
         string name,
         DateTimeOffset now,
         string? description = null,
-        int sequence = 0,
+        int sequence = 1,
         DateTimeOffset? plannedStartDate = null,
         DateTimeOffset? plannedEndDate = null)
     {
+        EnsureSequenceValid(sequence);
+
         var workPackage = new WorkPackage(WorkPackageId.New(), projectId, NormalizeName(name))
         {
             Description = Trim(description),
@@ -95,8 +97,12 @@ public sealed class WorkPackage : AggregateRoot<WorkPackageId>
     /// <summary>Update the free-text scope notes.</summary>
     public void Describe(string? description) => Description = Trim(description);
 
-    /// <summary>Change the display/intended order within the project.</summary>
-    public void Reorder(int sequence) => Sequence = sequence;
+    /// <summary>Change the display/intended order within the project (1-based).</summary>
+    public void Reorder(int sequence)
+    {
+        EnsureSequenceValid(sequence);
+        Sequence = sequence;
+    }
 
     /// <summary>Set or clear the planned start and end dates.</summary>
     public void Reschedule(DateTimeOffset? plannedStartDate, DateTimeOffset? plannedEndDate)
@@ -259,6 +265,14 @@ public sealed class WorkPackage : AggregateRoot<WorkPackageId>
         if (start is not null && end is not null && end < start)
         {
             throw new ArgumentException("Planned end date must not be before the planned start date.");
+        }
+    }
+
+    private static void EnsureSequenceValid(int sequence)
+    {
+        if (sequence < 1)
+        {
+            throw new ArgumentException("Work package order must be 1 or greater.", nameof(sequence));
         }
     }
 }

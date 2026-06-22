@@ -54,7 +54,7 @@ export default async function ProjectDetailPage({
         <WorkPackageForm
           action={defineWorkPackage}
           projectId={project.id}
-          defaultSequence={workPackages.length}
+          defaultSequence={workPackages.length + 1}
           submitLabel="Add work package"
         />
       </section>
