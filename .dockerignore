@@ -1,0 +1,9 @@
+**/bin/
+**/obj/
+**/node_modules/
+**/.next/
+.git/
+.vs/
+.vscode/
+.claude/
+**/*.user
