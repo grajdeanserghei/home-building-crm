@@ -38,9 +38,10 @@ flowchart LR
 - **Domain** — pure C#, no framework references. Aggregates, entities, value
   objects, domain events, and **port interfaces** (repositories).
 - **Application** — depends on Domain only. Use-case services, DTOs, and
-  secondary ports for external services (clock, exchange rate, current user).
+  secondary ports for external services (exchange rate, current user). Time
+  comes from the BCL `TimeProvider`, so no custom clock port is needed.
 - **Infrastructure** — depends on Application + Domain. Implements the ports:
-  EF Core persistence, exchange-rate source, clock, etc.
+  EF Core persistence, exchange-rate source, etc.
 - **ApiService** — depends on Application + Infrastructure. Minimal-API endpoints
   (the driving adapter) and the DI composition root. Also keeps the existing
   Aspire `ServiceDefaults` wiring and the `projectsdb` connection.
@@ -102,7 +103,7 @@ Domain/
 ```
 Application/
   Abstractions/
-    IClock.cs                 (driven port: time)
+    (time: use the BCL TimeProvider directly — no custom clock port)
     ICurrentUser.cs           (driven port: who is acting → UserId for audit)
     IExchangeRateProvider.cs  (driven port: EUR↔RON rate — manual entry)
     IDomainEventDispatcher.cs (driven port: dispatch domain events post-commit)
@@ -134,7 +135,6 @@ Infrastructure/
     Migrations/                           (EF Core migrations live here)
     Seed/UnitOfMeasureSeeder.cs
   ExchangeRates/  ManualExchangeRateProvider.cs   (initial: rate entered per BoQ)
-  Time/           SystemClock.cs
   Identity/       CurrentUser.cs          (reads the authenticated stakeholder)
   DependencyInjection.cs                  (AddInfrastructure extension)
 ```
@@ -161,7 +161,7 @@ No EF Core or domain logic in the host.
 | `IProjectRepository`, `IBidRepository`, … | Driven (secondary) | Domain | EF Core repositories | Infrastructure |
 | `IUnitOfWork` | Driven | Domain (or Application) | EF `SaveChanges` transaction | Infrastructure |
 | `IExchangeRateProvider` | Driven | Application | Manual entry (rate captured per BoQ) | Infrastructure |
-| `IClock` | Driven | Application | `SystemClock` | Infrastructure |
+| `TimeProvider` (BCL) | Driven | .NET BCL | `TimeProvider.System` | registered in Infrastructure DI |
 | `ICurrentUser` | Driven | Application | Reads auth principal → `UserId` | Infrastructure |
 | `IDomainEventDispatcher` | Driven | Application | In-process handler registry, post-commit | Infrastructure |
 
@@ -192,7 +192,7 @@ shared kernel inside the domain.
   intention-revealing methods that enforce invariants (e.g.
   `bid.LogNote(...)`, `bid.AddBoqVersion(...)`, `boq.AddSection(...)`,
   `workPackage.Award(contract)`). Construction goes through factory methods that
-  validate (e.g. `Bid.Start(workPackageId, contractorId, clock)`).
+  validate (e.g. `Bid.Start(workPackageId, contractorId, timeProvider)`).
   *This replaces the current anemic, public-setter `Project` class.*
 - **Strongly-typed IDs.** Each root has an id type, e.g.
   `public readonly record struct BidId(Guid Value)`. References across aggregates
@@ -211,7 +211,7 @@ shared kernel inside the domain.
 
 Application services are thin orchestration over the domain. They open a unit of
 work, load aggregate(s) via repository ports, invoke domain behaviour, and commit.
-Audit fields are stamped from `ICurrentUser` + `IClock`.
+Audit fields are stamped from `ICurrentUser` + `TimeProvider`.
 
 The **award** use case spans three aggregates (Bid, Contract, Work Package) and
 is the canonical example:
@@ -223,7 +223,7 @@ public sealed class AwardWorkPackageService(
     IContractRepository contracts,
     IWorkPackageRepository workPackages,
     IUnitOfWork uow,
-    IClock clock,
+    TimeProvider timeProvider,
     ICurrentUser user) : IAwardWorkPackageService
 {
     public async Task<ContractId> AwardAsync(BidId winningBidId, BoqId acceptedBoqId)
@@ -236,7 +236,7 @@ public sealed class AwardWorkPackageService(
         foreach (var other in siblings) other.RejectIfNotSelected(bid.Id);
         bid.Select(boq.Id);                                    // BidStatus → Selected
 
-        var contract = Contract.CreateFrom(bid, boq, clock.UtcNow);
+        var contract = Contract.CreateFrom(bid, boq, timeProvider.GetUtcNow());
         wp.Award(contract.Id);                                 // WP status → Awarded
 
         contracts.Add(contract);
@@ -277,7 +277,7 @@ The backend today is a single project with an inline minimal API, an anemic
    (private setters, factory, behaviour); add `ProjectId`. Keep `ProjectStatus`.
 3. **Move `AppDbContext` + Migrations** into Infrastructure; add the
    configuration + repository for Project; add `IProjectRepository`,
-   `IUnitOfWork`, `IClock`, `ICurrentUser`.
+   `IUnitOfWork`, `ICurrentUser` (time via the BCL `TimeProvider`).
 4. **Add `ProjectAppService`**; convert the `/api/projects` endpoints to call it
    (move them into `Endpoints/ProjectEndpoints.cs`). ApiService no longer touches
    EF Core directly.

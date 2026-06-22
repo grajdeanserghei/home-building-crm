@@ -8,7 +8,10 @@ namespace HomeProjectManagement.Application.Projects;
 /// port, invoke domain behaviour, commit through the unit of work. Audit fields are
 /// stamped inside the unit of work from the current user + clock.
 /// </summary>
-public sealed class ProjectAppService(IProjectRepository repository, IUnitOfWork unitOfWork) : IProjectAppService
+public sealed class ProjectAppService(
+    IProjectRepository repository,
+    IUnitOfWork unitOfWork,
+    TimeProvider timeProvider) : IProjectAppService
 {
     public async Task<IReadOnlyList<ProjectDto>> ListAsync(CancellationToken cancellationToken = default)
     {
@@ -26,6 +29,7 @@ public sealed class ProjectAppService(IProjectRepository repository, IUnitOfWork
     {
         var project = Project.Create(
             command.Name,
+            timeProvider.GetUtcNow(),
             command.Description,
             command.Status,
             targetCompletionDate: command.DueDate);
@@ -48,7 +52,7 @@ public sealed class ProjectAppService(IProjectRepository repository, IUnitOfWork
 
         project.Rename(command.Name);
         project.Describe(command.Description);
-        project.ChangeStatus(command.Status);
+        project.ChangeStatus(command.Status, timeProvider.GetUtcNow());
         project.Reschedule(project.StartDate, command.DueDate);
 
         await unitOfWork.CommitAsync(cancellationToken);

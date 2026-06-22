@@ -35,9 +35,13 @@ public sealed class Project : AggregateRoot<ProjectId>
         Name = name;
     }
 
-    /// <summary>Factory: create a new project, validating its invariants.</summary>
+    /// <summary>
+    /// Factory: create a new project, validating its invariants. <paramref name="now"/> is
+    /// supplied by the caller (from <c>TimeProvider</c>) rather than read inside the domain.
+    /// </summary>
     public static Project Create(
         string name,
+        DateTimeOffset now,
         string? description = null,
         ProjectStatus status = ProjectStatus.Planned,
         DateTimeOffset? startDate = null,
@@ -54,7 +58,7 @@ public sealed class Project : AggregateRoot<ProjectId>
         };
 
         EnsureDatesConsistent(project.StartDate, project.TargetCompletionDate);
-        project.Raise(new ProjectCreated(project.Id, project.Name, DateTimeOffset.UtcNow));
+        project.Raise(new ProjectCreated(project.Id, project.Name, now));
         return project;
     }
 
@@ -65,7 +69,7 @@ public sealed class Project : AggregateRoot<ProjectId>
     public void Describe(string? description) => Description = Trim(description);
 
     /// <summary>Transition the project to a new status, raising an event if it changed.</summary>
-    public void ChangeStatus(ProjectStatus status)
+    public void ChangeStatus(ProjectStatus status, DateTimeOffset now)
     {
         if (status == Status)
         {
@@ -74,7 +78,7 @@ public sealed class Project : AggregateRoot<ProjectId>
 
         var previous = Status;
         Status = status;
-        Raise(new ProjectStatusChanged(Id, previous, status, DateTimeOffset.UtcNow));
+        Raise(new ProjectStatusChanged(Id, previous, status, now));
     }
 
     /// <summary>Set or clear the planned start and target completion dates.</summary>

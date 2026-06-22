@@ -23,7 +23,7 @@ public abstract class AggregateRoot<TId> : Entity<TId>, IAggregateRoot
     /// <summary>Events raised but not yet dispatched. Cleared post-commit by the unit of work.</summary>
     public IReadOnlyCollection<IDomainEvent> DomainEvents => _domainEvents.AsReadOnly();
 
-    // ----- Audit fields (stamped by the unit of work from ICurrentUser + IClock) -----
+    // ----- Audit fields (stamped by the unit of work from ICurrentUser + TimeProvider) -----
     public DateTimeOffset CreatedOn { get; private set; }
     public UserId CreatedBy { get; private set; }
     public DateTimeOffset ModifiedOn { get; private set; }

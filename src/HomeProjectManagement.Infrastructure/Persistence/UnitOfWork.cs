@@ -11,7 +11,7 @@ namespace HomeProjectManagement.Infrastructure.Persistence;
 /// </summary>
 public sealed class UnitOfWork(
     AppDbContext db,
-    IClock clock,
+    TimeProvider timeProvider,
     ICurrentUser currentUser,
     IDomainEventDispatcher dispatcher) : IUnitOfWork
 {
@@ -34,7 +34,7 @@ public sealed class UnitOfWork(
 
     private void StampAudit()
     {
-        var now = clock.UtcNow;
+        var now = timeProvider.GetUtcNow();
         var who = currentUser.UserId;
 
         foreach (var entry in db.ChangeTracker.Entries<IAggregateRoot>())

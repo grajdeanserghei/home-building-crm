@@ -6,7 +6,6 @@ using HomeProjectManagement.Infrastructure.ExchangeRates;
 using HomeProjectManagement.Infrastructure.Identity;
 using HomeProjectManagement.Infrastructure.Persistence;
 using HomeProjectManagement.Infrastructure.Persistence.Repositories;
-using HomeProjectManagement.Infrastructure.Time;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace HomeProjectManagement.Infrastructure;
@@ -24,8 +23,9 @@ public static class DependencyInjection
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IProjectRepository, ProjectRepository>();
 
-        // Cross-cutting driven ports.
-        services.AddSingleton<IClock, SystemClock>();
+        // Cross-cutting driven ports. TimeProvider is the BCL's native clock abstraction
+        // (FakeTimeProvider is its test double); no custom IClock/SystemClock needed.
+        services.AddSingleton(TimeProvider.System);
         services.AddScoped<ICurrentUser, StubCurrentUser>();
         services.AddSingleton<IExchangeRateProvider, ManualExchangeRateProvider>();
         services.AddScoped<IDomainEventDispatcher, InProcessDomainEventDispatcher>();
