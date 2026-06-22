@@ -33,6 +33,30 @@ public sealed class WorkPackageConfiguration : IEntityTypeConfiguration<WorkPack
         builder.Property(wp => wp.PlannedStartDate);
         builder.Property(wp => wp.PlannedEndDate);
 
+        // Scope items are internal entities owned by the work package: a child table whose rows live
+        // and die with the package and are loaded with it.
+        builder.OwnsMany(wp => wp.ScopeItems, scopeItems =>
+        {
+            scopeItems.ToTable("work_package_scope_items");
+
+            scopeItems.WithOwner().HasForeignKey("WorkPackageId");
+            scopeItems.HasKey(si => si.Id);
+            scopeItems.Property(si => si.Id).ValueGeneratedNever();
+
+            scopeItems.Property(si => si.Name).HasMaxLength(200).IsRequired();
+            scopeItems.Property(si => si.Description).HasMaxLength(2000);
+            scopeItems.Property(si => si.Requirement).HasConversion<string>().HasMaxLength(16).IsRequired();
+            scopeItems.Property(si => si.Sequence).IsRequired();
+
+            // Name unique within the work package (the scope item's headline invariant).
+            scopeItems.HasIndex("WorkPackageId", "Name").IsUnique();
+        });
+
+        // The scope items collection is mutated only through the aggregate; EF reaches the backing field.
+        builder.Navigation(wp => wp.ScopeItems)
+            .HasField("_scopeItems")
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+
         // Audit fields stamped by the unit of work.
         builder.Property(wp => wp.CreatedOn).IsRequired();
         builder.Property(wp => wp.CreatedBy).IsRequired();

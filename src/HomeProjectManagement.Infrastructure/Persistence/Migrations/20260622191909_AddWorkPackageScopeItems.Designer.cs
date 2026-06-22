@@ -3,6 +3,7 @@ using System;
 using HomeProjectManagement.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace HomeProjectManagement.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260622191909_AddWorkPackageScopeItems")]
+    partial class AddWorkPackageScopeItems
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -160,62 +163,6 @@ namespace HomeProjectManagement.Infrastructure.Persistence.Migrations
                     b.HasIndex("Name");
 
                     b.ToTable("contractors", (string)null);
-                });
-
-            modelBuilder.Entity("HomeProjectManagement.Domain.Contracts.Contract", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("AcceptedBoqId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset?>("ActualEndDate")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("ContractNumber")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<Guid>("CreatedBy")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset>("CreatedOn")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("ModifiedBy")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset>("ModifiedOn")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Notes")
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)");
-
-                    b.Property<DateTimeOffset?>("PlannedEndDate")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTimeOffset?>("SignedOn")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTimeOffset?>("StartDate")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.Property<Guid>("WorkPackageId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("WorkPackageId")
-                        .IsUnique();
-
-                    b.ToTable("contracts", (string)null);
                 });
 
             modelBuilder.Entity("HomeProjectManagement.Domain.Projects.Project", b =>
@@ -612,36 +559,6 @@ namespace HomeProjectManagement.Infrastructure.Persistence.Migrations
                     b.Navigation("Address");
 
                     b.Navigation("Contact");
-                });
-
-            modelBuilder.Entity("HomeProjectManagement.Domain.Contracts.Contract", b =>
-                {
-                    b.OwnsOne("HomeProjectManagement.Domain.Common.ValueObjects.Money", "Value", b1 =>
-                        {
-                            b1.Property<Guid>("ContractId")
-                                .HasColumnType("uuid");
-
-                            b1.Property<decimal>("Amount")
-                                .HasPrecision(18, 2)
-                                .HasColumnType("numeric(18,2)")
-                                .HasColumnName("value_amount");
-
-                            b1.Property<string>("Currency")
-                                .IsRequired()
-                                .HasMaxLength(3)
-                                .HasColumnType("character varying(3)")
-                                .HasColumnName("value_currency");
-
-                            b1.HasKey("ContractId");
-
-                            b1.ToTable("contracts");
-
-                            b1.WithOwner()
-                                .HasForeignKey("ContractId");
-                        });
-
-                    b.Navigation("Value")
-                        .IsRequired();
                 });
 
             modelBuilder.Entity("HomeProjectManagement.Domain.Projects.Project", b =>

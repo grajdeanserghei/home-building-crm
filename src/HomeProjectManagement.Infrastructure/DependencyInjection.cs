@@ -3,6 +3,7 @@ using HomeProjectManagement.Domain.BillsOfQuantities;
 using HomeProjectManagement.Domain.Bids;
 using HomeProjectManagement.Domain.Common;
 using HomeProjectManagement.Domain.Contractors;
+using HomeProjectManagement.Domain.Contracts;
 using HomeProjectManagement.Domain.Projects;
 using HomeProjectManagement.Domain.UnitsOfMeasure;
 using HomeProjectManagement.Domain.WorkPackages;
@@ -31,6 +32,7 @@ public static class DependencyInjection
         services.AddScoped<IContractorRepository, ContractorRepository>();
         services.AddScoped<IBidRepository, BidRepository>();
         services.AddScoped<IBillOfQuantitiesRepository, BillOfQuantitiesRepository>();
+        services.AddScoped<IContractRepository, ContractRepository>();
         services.AddScoped<IUnitOfMeasureRepository, UnitOfMeasureRepository>();
 
         // Cross-cutting driven ports. TimeProvider is the BCL's native clock abstraction

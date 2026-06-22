@@ -1,6 +1,7 @@
 using HomeProjectManagement.Domain.BillsOfQuantities;
 using HomeProjectManagement.Domain.Bids;
 using HomeProjectManagement.Domain.Contractors;
+using HomeProjectManagement.Domain.Contracts;
 using HomeProjectManagement.Domain.Projects;
 using HomeProjectManagement.Domain.UnitsOfMeasure;
 using HomeProjectManagement.Domain.WorkPackages;
@@ -25,6 +26,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<Bid> Bids => Set<Bid>();
 
     public DbSet<BillOfQuantities> BillsOfQuantities => Set<BillOfQuantities>();
+
+    public DbSet<Contract> Contracts => Set<Contract>();
 
     public DbSet<UnitOfMeasure> UnitsOfMeasure => Set<UnitOfMeasure>();
 

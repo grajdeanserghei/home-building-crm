@@ -18,6 +18,8 @@ namespace HomeProjectManagement.Domain.WorkPackages;
 /// </remarks>
 public sealed class WorkPackage : AggregateRoot<WorkPackageId>
 {
+    private readonly List<ScopeItem> _scopeItems = [];
+
     /// <summary>The owning project (by id).</summary>
     public ProjectId ProjectId { get; private set; }
 
@@ -39,6 +41,13 @@ public sealed class WorkPackage : AggregateRoot<WorkPackageId>
     /// presence is the invariant counterpart of <see cref="WorkPackageStatus.Awarded"/>.
     /// </summary>
     public ContractId? AwardedContractId { get; private set; }
+
+    /// <summary>
+    /// The owner-defined sub-scopes (internal entities, ordered by <see cref="ScopeItem.Sequence"/>).
+    /// Mutated only through <see cref="AddScopeItem"/>, <see cref="UpdateScopeItem"/> and
+    /// <see cref="RemoveScopeItem"/>; EF reaches the backing field directly.
+    /// </summary>
+    public IReadOnlyList<ScopeItem> ScopeItems => _scopeItems.AsReadOnly();
 
     // EF Core materialisation constructor.
     private WorkPackage()
@@ -95,6 +104,75 @@ public sealed class WorkPackage : AggregateRoot<WorkPackageId>
         EnsureDatesConsistent(plannedStartDate, plannedEndDate);
         PlannedStartDate = plannedStartDate;
         PlannedEndDate = plannedEndDate;
+    }
+
+    /// <summary>
+    /// Add an owner-defined sub-scope and return it, enforcing the "name unique within the work
+    /// package" invariant (case-insensitive). <paramref name="now"/> is supplied by the caller and
+    /// stamps the raised event.
+    /// </summary>
+    public ScopeItem AddScopeItem(
+        string name,
+        ScopeItemRequirement requirement,
+        DateTimeOffset now,
+        string? description = null,
+        int sequence = 0)
+    {
+        var normalized = ScopeItem.NormalizeName(name);
+        EnsureScopeItemNameUnique(normalized, null);
+
+        var scopeItem = new ScopeItem(ScopeItemId.New(), normalized, requirement, sequence, description);
+        _scopeItems.Add(scopeItem);
+        Raise(new ScopeItemAdded(Id, scopeItem.Id, scopeItem.Name, requirement, now));
+        return scopeItem;
+    }
+
+    /// <summary>
+    /// Update an existing sub-scope, keeping the unique-name invariant (the item itself excluded
+    /// from the check). Returns false if no scope item with that id exists.
+    /// </summary>
+    public bool UpdateScopeItem(
+        ScopeItemId scopeItemId,
+        string name,
+        ScopeItemRequirement requirement,
+        string? description = null,
+        int sequence = 0)
+    {
+        var scopeItem = _scopeItems.FirstOrDefault(si => si.Id == scopeItemId);
+        if (scopeItem is null)
+        {
+            return false;
+        }
+
+        var normalized = ScopeItem.NormalizeName(name);
+        EnsureScopeItemNameUnique(normalized, scopeItemId);
+
+        scopeItem.Update(normalized, requirement, sequence, description);
+        return true;
+    }
+
+    /// <summary>Remove a sub-scope. Returns false if no scope item with that id exists.</summary>
+    public bool RemoveScopeItem(ScopeItemId scopeItemId)
+    {
+        var scopeItem = _scopeItems.FirstOrDefault(si => si.Id == scopeItemId);
+        if (scopeItem is null)
+        {
+            return false;
+        }
+
+        _scopeItems.Remove(scopeItem);
+        return true;
+    }
+
+    private void EnsureScopeItemNameUnique(string name, ScopeItemId? excluding)
+    {
+        var clashes = _scopeItems.Any(si =>
+            si.Id != excluding && string.Equals(si.Name, name, StringComparison.OrdinalIgnoreCase));
+        if (clashes)
+        {
+            throw new InvalidOperationException(
+                $"A scope item named '{name}' already exists in this work package.");
+        }
     }
 
     /// <summary>
