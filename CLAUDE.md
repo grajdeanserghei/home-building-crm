@@ -71,3 +71,5 @@ Common project properties are centralized in `Directory.Build.props` at the repo
 ## Documentation
 
 `docs/` holds specs (`specifications/`, start from `_template.md`), architecture notes (`architecture/`), and guides (`guides/`). Use kebab-case filenames, one document per topic.
+
+See [`docs/INDEX.md`](docs/INDEX.md) for a complete, annotated index of every document. Keep it updated when you add or remove a doc.
