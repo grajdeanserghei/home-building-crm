@@ -1,8 +1,12 @@
 import Link from "next/link";
-import { createProject, deleteProject } from "./actions";
+import { deleteProject } from "./actions";
 import { DeleteProjectButton } from "./components/DeleteProjectButton";
-import { ProjectForm } from "./components/ProjectForm";
-import { getProjects, PROJECT_STATUS_LABELS, type Project } from "./lib/api";
+import {
+  getProjects,
+  PROJECT_STATUS_LABELS,
+  PROJECT_STATUSES,
+  type Project,
+} from "./lib/api";
 import { formatDate } from "./lib/format";
 import { t } from "./lib/i18n";
 import styles from "./page.module.css";
@@ -17,14 +21,41 @@ export default async function Home() {
     error = e instanceof Error ? e.message : t("common.unknownError");
   }
 
+  // Count projects per status for the dashboard summary strip (computed from the
+  // already-loaded list — no extra request).
+  const countByStatus = projects.reduce<Record<string, number>>((acc, p) => {
+    acc[p.status] = (acc[p.status] ?? 0) + 1;
+    return acc;
+  }, {});
+
   return (
     <main className={styles.main}>
-      <h1 style={{ marginBottom: 32 }}>{t("meta.title")}</h1>
+      <div className={styles.toolbar}>
+        <div>
+          <h1>{t("meta.title")}</h1>
+          <p className={styles.subtitle}>{t("projects.subtitle")}</p>
+        </div>
+        <Link href="/projects/new" className={styles.primaryButton}>
+          {t("projects.add")}
+        </Link>
+      </div>
 
-      <section className={styles.card}>
-        <h2>{t("projects.new")}</h2>
-        <ProjectForm action={createProject} submitLabel={t("projects.add")} />
-      </section>
+      {!error && projects.length > 0 ? (
+        <section className={styles.stats}>
+          <div className={styles.stat}>
+            <span className={styles.statValue}>{projects.length}</span>
+            <span className={styles.statLabel}>{t("projects.summaryTotal")}</span>
+          </div>
+          {PROJECT_STATUSES.map((s) => (
+            <div key={s} className={styles.stat}>
+              <span className={styles.statValue}>{countByStatus[s] ?? 0}</span>
+              <span className={styles.statLabel}>
+                {PROJECT_STATUS_LABELS[s]}
+              </span>
+            </div>
+          ))}
+        </section>
+      ) : null}
 
       <section className={styles.card}>
         <h2>{t("projects.title")}</h2>

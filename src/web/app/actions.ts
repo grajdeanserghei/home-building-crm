@@ -26,7 +26,9 @@ export async function createProject(formData: FormData) {
     throw new Error(await describeApiError(res, "common.actionError"));
   }
 
+  // The create form lives on its own route (/projects/new); return to the list.
   revalidatePath("/");
+  redirect("/");
 }
 
 export async function updateProject(formData: FormData) {
