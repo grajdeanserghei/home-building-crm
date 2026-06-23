@@ -17,7 +17,7 @@ export const ro = {
   // — Ubiquitous-language glossary (domain terms) ————————————————————————
   "glossary.project": "Proiect",
   "glossary.workPackage": "Pachet de lucrări",
-  "glossary.scopeItem": "Articol de scop",
+  "glossary.scopeItem": "Lucrare",
   "glossary.contractor": "Antreprenor",
   "glossary.bid": "Ofertă",
   "glossary.boq": "Listă de cantități",
@@ -124,7 +124,7 @@ export const ro = {
   // re-interpolated from the response's `params` extension. Codes not listed here fall
   // back to the English `detail` (partial coverage is safe — see the localization spec).
   "errors.ScopeItemNameDuplicate":
-    "Există deja un articol de scop cu numele „{name}” în acest pachet de lucrări.",
+    "Există deja o lucrare cu numele „{name}” în acest pachet de lucrări.",
   "errors.BoqClosed":
     "O listă de cantități în starea {status} este închisă și nu își poate schimba starea.",
   "errors.BoqNotEditable":
@@ -242,11 +242,11 @@ export const ro = {
   "scopeItems.title": "Cerințe de execuție",
   "scopeItems.subtitle":
     "Sub-domeniile definite de proprietar pentru acest pachet de lucrări — ce trebuie făcut și ce ar putea fi eliminat sau amânat dacă bugetul este limitat.",
-  "scopeItems.empty": "Niciun articol de scop încă. Adaugă primul mai jos.",
+  "scopeItems.empty": "Nicio lucrare încă. Adaug-o pe prima mai jos.",
   "scopeItems.requirement": "Cerință",
-  "scopeItems.add": "Adaugă articol de scop",
+  "scopeItems.add": "Adaugă lucrare",
   "scopeItems.namePlaceholder":
-    "Numele articolului de scop (ex. Încălzire pardoseală)",
+    "Numele lucrării (ex. Încălzire pardoseală)",
   "scopeItems.orderPlaceholder": "Ordine",
   "scopeItems.notesPlaceholder": "Note (opțional)",
 
