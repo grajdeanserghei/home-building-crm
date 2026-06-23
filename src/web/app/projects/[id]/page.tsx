@@ -46,6 +46,12 @@ export default async function ProjectDetailPage({
         {project.description || t("projects.workPackagesSubtitle")}
       </p>
 
+      <p>
+        <Link href={`/projects/${project.id}/budget`} className={styles.edit}>
+          {t("budget.link")} →
+        </Link>
+      </p>
+
       <section className={styles.card}>
         <h2>{t("workPackages.new")}</h2>
         <WorkPackageForm

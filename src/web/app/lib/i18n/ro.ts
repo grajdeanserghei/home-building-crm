@@ -191,6 +191,30 @@ export const ro = {
   "workPackages.plannedStart": "Început planificat",
   "workPackages.plannedEnd": "Sfârșit planificat",
 
+  // — Project budget (cost rollup per work package) ——————————————————————
+  "budget.link": "Buget",
+  "budget.backToProject": "← Înapoi la proiect",
+  "budget.title": "Buget — {name}",
+  "budget.subtitle":
+    "Costul proiectat al lucrării, pe pachete de lucrări: valoarea contractată acolo unde s-a atribuit, altfel intervalul ofertelor primite.",
+  "budget.linesTitle": "Pachete de lucrări",
+  "budget.empty": "Niciun pachet de lucrări de bugetat încă.",
+  "budget.col.committed": "Contractat",
+  "budget.col.candidates": "Oferte candidate",
+  "budget.kind.pending": "Preț în așteptare",
+  "budget.kind.none": "Fără oferte",
+  "budget.bidCountOne": "1 ofertă",
+  "budget.bidCountMany": "{count} oferte",
+  "budget.totalsTitle": "Total proiectat, pe monedă",
+  "budget.totals.currency": "Monedă",
+  "budget.totals.committed": "Contractat",
+  "budget.totals.estimated": "Estimat (deschise)",
+  "budget.totals.projected": "Total proiectat",
+  "budget.unpricedNote":
+    "{count} pachete de lucrări nu au încă un preț și nu sunt incluse în estimare.",
+  "budget.unpricedNoteOne":
+    "Un pachet de lucrări nu are încă un preț și nu este inclus în estimare.",
+
   // — Scope items (within a work package) ————————————————————————————————
   "scopeItems.title": "Articole de scop",
   "scopeItems.subtitle":

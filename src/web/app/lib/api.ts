@@ -639,3 +639,73 @@ export async function getContractByWorkPackage(
   }
   return res.json();
 }
+
+// Project budget ---------------------------------------------------------
+//
+// A read model assembled by the backend across work packages, their bids' bills
+// of quantities, and any awarded contract — the project's projected cost. Each
+// work-package line picks its figure server-side: an awarded contract's value
+// wins; otherwise the range of received BoQ totals; otherwise it is pending (bids
+// but no price) or has none. Money is reported per currency (RON/EUR are never
+// summed together). Headline figures are net (VAT-exclusive). See
+// docs/specifications/project-budget-view.md.
+
+// How a work-package line derives its figure (mirrors the BudgetLineKind enum).
+export type BudgetLineKind = "Contract" | "Bids" | "Pending" | "None";
+
+// The spread of candidate bid prices for one work package in one currency. `low`/
+// `high` are net (VAT-exclusive); the `withVat` pair is the same two bids' gross
+// totals. `bidCount` is how many bids in this currency carry a priced BoQ.
+export interface CandidateRange {
+  currency: Currency;
+  low: Money;
+  high: Money;
+  lowWithVat: Money;
+  highWithVat: Money;
+  bidCount: number;
+}
+
+export interface WorkPackageBudgetLine {
+  workPackageId: string;
+  name: string;
+  status: WorkPackageStatus;
+  sequence: number;
+  kind: BudgetLineKind;
+  committed?: Money | null; // set only when kind === "Contract"
+  candidates: CandidateRange[]; // one per currency, only when kind === "Bids"
+}
+
+// Project-level projection for one currency: committed contracts, the estimated
+// band for work packages still out to bid, and the projected band (committed +
+// estimated). All net (VAT-exclusive).
+export interface CurrencyTotals {
+  currency: Currency;
+  committed: Money;
+  estimatedLow: Money;
+  estimatedHigh: Money;
+  projectedLow: Money;
+  projectedHigh: Money;
+}
+
+export interface ProjectBudget {
+  projectId: string;
+  projectName: string;
+  lines: WorkPackageBudgetLine[];
+  totalsByCurrency: CurrencyTotals[];
+  unpricedWorkPackageCount: number; // work packages with no figure (pending / no bids)
+}
+
+export async function getProjectBudget(
+  projectId: string,
+): Promise<ProjectBudget | null> {
+  const res = await fetch(`${apiBaseUrl()}/api/projects/${projectId}/budget`, {
+    cache: "no-store",
+  });
+  if (res.status === 404) {
+    return null;
+  }
+  if (!res.ok) {
+    throw new Error(`${res.status} ${res.statusText}`);
+  }
+  return res.json();
+}

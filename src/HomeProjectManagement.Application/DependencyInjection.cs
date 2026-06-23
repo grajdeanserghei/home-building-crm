@@ -1,5 +1,6 @@
 using HomeProjectManagement.Application.Bids;
 using HomeProjectManagement.Application.BillsOfQuantities;
+using HomeProjectManagement.Application.Budgeting;
 using HomeProjectManagement.Application.Contractors;
 using HomeProjectManagement.Application.Contracts;
 using HomeProjectManagement.Application.Projects;
@@ -21,6 +22,7 @@ public static class DependencyInjection
         services.AddScoped<IBillOfQuantitiesAppService, BillOfQuantitiesAppService>();
         services.AddScoped<IContractAppService, ContractAppService>();
         services.AddScoped<IUnitOfMeasureAppService, UnitOfMeasureAppService>();
+        services.AddScoped<IProjectBudgetQuery, ProjectBudgetQuery>();
         return services;
     }
 }
