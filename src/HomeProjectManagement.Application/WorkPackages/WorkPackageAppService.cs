@@ -1,5 +1,7 @@
+using HomeProjectManagement.Application.Trades;
 using HomeProjectManagement.Domain.Common;
 using HomeProjectManagement.Domain.Projects;
+using HomeProjectManagement.Domain.Trades;
 using HomeProjectManagement.Domain.WorkPackages;
 
 namespace HomeProjectManagement.Application.WorkPackages;
@@ -12,6 +14,7 @@ namespace HomeProjectManagement.Application.WorkPackages;
 public sealed class WorkPackageAppService(
     IWorkPackageRepository repository,
     IProjectRepository projects,
+    ITradeRepository trades,
     IUnitOfWork unitOfWork,
     TimeProvider timeProvider) : IWorkPackageAppService
 {
@@ -41,6 +44,9 @@ public sealed class WorkPackageAppService(
             return null;
         }
 
+        // Validate the required trades against the shared vocabulary before tagging the package.
+        var tradeIds = await TradeAssignment.ResolveAsync(trades, command.RequiredTradeIds, cancellationToken);
+
         var workPackage = WorkPackage.Define(
             project.Id,
             command.Name,
@@ -49,6 +55,8 @@ public sealed class WorkPackageAppService(
             command.Sequence,
             command.PlannedStartDate,
             command.PlannedEndDate);
+
+        workPackage.SetRequiredTrades(tradeIds);
 
         repository.Add(workPackage);
         await unitOfWork.CommitAsync(cancellationToken);
@@ -70,6 +78,52 @@ public sealed class WorkPackageAppService(
         workPackage.Describe(command.Description);
         workPackage.Reorder(command.Sequence);
         workPackage.Reschedule(command.PlannedStartDate, command.PlannedEndDate);
+
+        // Required trades are a set-replace, but only when supplied: a null RequiredTradeIds leaves
+        // the existing set untouched (so the edit form, which manages trades incrementally elsewhere,
+        // doesn't clobber them); a non-null list — including an empty one — replaces the whole set.
+        if (command.RequiredTradeIds is not null)
+        {
+            workPackage.SetRequiredTrades(
+                await TradeAssignment.ResolveAsync(trades, command.RequiredTradeIds, cancellationToken));
+        }
+
+        await unitOfWork.CommitAsync(cancellationToken);
+        return ToDto(workPackage);
+    }
+
+    public async Task<WorkPackageDto?> AddRequiredTradeAsync(
+        Guid id,
+        Guid tradeId,
+        CancellationToken cancellationToken = default)
+    {
+        var workPackage = await repository.GetAsync(new WorkPackageId(id), cancellationToken);
+        if (workPackage is null)
+        {
+            return null;
+        }
+
+        // Validate the trade exists and is active before requiring it.
+        var resolved = await TradeAssignment.ResolveAsync(trades, [tradeId], cancellationToken);
+        workPackage.RequireTrade(resolved[0]);
+
+        await unitOfWork.CommitAsync(cancellationToken);
+        return ToDto(workPackage);
+    }
+
+    public async Task<WorkPackageDto?> RemoveRequiredTradeAsync(
+        Guid id,
+        Guid tradeId,
+        CancellationToken cancellationToken = default)
+    {
+        var workPackage = await repository.GetAsync(new WorkPackageId(id), cancellationToken);
+        if (workPackage is null)
+        {
+            return null;
+        }
+
+        // Removal is idempotent and needs no vocabulary check — a now-retired trade can still be dropped.
+        workPackage.RemoveRequiredTrade(new TradeId(tradeId));
 
         await unitOfWork.CommitAsync(cancellationToken);
         return ToDto(workPackage);
@@ -200,6 +254,7 @@ public sealed class WorkPackageAppService(
             .OrderBy(si => si.Sequence)
             .Select(ToDto)
             .ToList(),
+        workPackage.RequiredTradeIds.Select(t => t.Value).ToArray(),
         workPackage.CreatedOn);
 
     private static ScopeItemDto ToDto(ScopeItem scopeItem) => new(

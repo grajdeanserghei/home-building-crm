@@ -47,6 +47,9 @@ export async function Nav() {
           <Link href="/units-of-measure" className={styles.link}>
             {t("nav.unitsOfMeasure")}
           </Link>
+          <Link href="/trades" className={styles.link}>
+            {t("nav.trades")}
+          </Link>
         </div>
       </div>
     </nav>

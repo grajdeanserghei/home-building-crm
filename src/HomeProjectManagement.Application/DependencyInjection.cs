@@ -4,6 +4,7 @@ using HomeProjectManagement.Application.Budgeting;
 using HomeProjectManagement.Application.Contractors;
 using HomeProjectManagement.Application.Contracts;
 using HomeProjectManagement.Application.Projects;
+using HomeProjectManagement.Application.Trades;
 using HomeProjectManagement.Application.UnitsOfMeasure;
 using HomeProjectManagement.Application.WorkPackages;
 using Microsoft.Extensions.DependencyInjection;
@@ -22,6 +23,7 @@ public static class DependencyInjection
         services.AddScoped<IBillOfQuantitiesAppService, BillOfQuantitiesAppService>();
         services.AddScoped<IContractAppService, ContractAppService>();
         services.AddScoped<IUnitOfMeasureAppService, UnitOfMeasureAppService>();
+        services.AddScoped<ITradeAppService, TradeAppService>();
         services.AddScoped<IProjectBudgetQuery, ProjectBudgetQuery>();
         return services;
     }

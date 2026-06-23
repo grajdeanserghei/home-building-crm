@@ -2,21 +2,26 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BidForm } from "@/app/components/BidForm";
 import { ScopeItemForm } from "@/app/components/ScopeItemForm";
+import { TradeChips } from "@/app/components/TradeChips";
 import { openBid } from "@/app/bids/actions";
 import {
+  addRequiredTrade,
   addScopeItem,
   changeWorkPackageStatus,
+  removeRequiredTrade,
   removeScopeItem,
 } from "@/app/work-packages/actions";
 import {
   BID_STATUS_LABELS,
   getBids,
   getContractors,
+  getTrades,
   getWorkPackage,
   SCOPE_ITEM_REQUIREMENT_LABELS,
   WORK_PACKAGE_STATUS_LABELS,
   type Bid,
   type Contractor,
+  type Trade,
   type WorkPackageStatus,
 } from "@/app/lib/api";
 import { formatDate } from "@/app/lib/format";
@@ -55,16 +60,30 @@ export default async function WorkPackageDetailPage({
 
   let bids: Bid[] = [];
   let contractors: Contractor[] = [];
+  let trades: Trade[] = [];
   let error: string | null = null;
 
   try {
-    [bids, contractors] = await Promise.all([
+    [bids, contractors, trades] = await Promise.all([
       getBids(id),
       getContractors(),
+      getTrades(),
     ]);
   } catch (e) {
     error = e instanceof Error ? e.message : t("common.unknownError");
   }
+
+  // Resolve the package's required-trade ids to names (all trades, so a retired-but-still-required
+  // trade still shows a label) and offer the active, not-yet-required ones in the add control.
+  const tradeNameById = new Map(trades.map((tr) => [tr.id, tr.name]));
+  const assignedTrades = workPackage.requiredTradeIds.map((tid) => ({
+    id: tid,
+    name: tradeNameById.get(tid) ?? tid,
+  }));
+  const requiredIds = new Set(workPackage.requiredTradeIds);
+  const availableTrades = trades
+    .filter((tr) => tr.isActive && !requiredIds.has(tr.id))
+    .map((tr) => ({ id: tr.id, name: tr.name }));
 
   // Map contractor id → name for the bids table, and offer only contractors that don't
   // already have a bid here (the backend rejects a duplicate pair with a 409).
@@ -105,6 +124,23 @@ export default async function WorkPackageDetailPage({
           </p>
         </section>
       ) : null}
+
+      <section className={styles.card}>
+        <h2>{t("workPackages.requiredTrades")}</h2>
+        <TradeChips
+          assigned={assignedTrades}
+          available={availableTrades}
+          ownerFieldName="workPackageId"
+          ownerId={workPackage.id}
+          addAction={addRequiredTrade}
+          removeAction={removeRequiredTrade}
+          emptyLabel={t("workPackages.requiredTradesEmpty")}
+          addLabel={t("workPackages.addRequiredTrade")}
+          selectPlaceholder={t("workPackages.selectTrade")}
+          allAssignedLabel={t("workPackages.allTradesRequired")}
+          removeAriaLabel={(name) => t("workPackages.removeTradeAria", { name })}
+        />
+      </section>
 
       <section className={styles.card}>
         <h2>{t("workPackages.changeStatusTitle")}</h2>

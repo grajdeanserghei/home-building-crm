@@ -74,5 +74,6 @@ app.MapBidEndpoints();
 app.MapBillOfQuantitiesEndpoints();
 app.MapContractEndpoints();
 app.MapUnitOfMeasureEndpoints();
+app.MapTradeEndpoints();
 
 app.Run();

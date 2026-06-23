@@ -1,6 +1,8 @@
+using HomeProjectManagement.Application.Trades;
 using HomeProjectManagement.Domain.Common;
 using HomeProjectManagement.Domain.Common.ValueObjects;
 using HomeProjectManagement.Domain.Contractors;
+using HomeProjectManagement.Domain.Trades;
 
 namespace HomeProjectManagement.Application.Contractors;
 
@@ -12,6 +14,7 @@ namespace HomeProjectManagement.Application.Contractors;
 /// </summary>
 public sealed class ContractorAppService(
     IContractorRepository repository,
+    ITradeRepository trades,
     IUnitOfWork unitOfWork,
     TimeProvider timeProvider) : IContractorAppService
 {
@@ -31,6 +34,9 @@ public sealed class ContractorAppService(
         RegisterContractorCommand command,
         CancellationToken cancellationToken = default)
     {
+        // Validate the referenced trades against the shared vocabulary before tagging the firm.
+        var tradeIds = await TradeAssignment.ResolveAsync(trades, command.TradeIds, cancellationToken);
+
         var contractor = Contractor.Register(
             command.Name,
             timeProvider.GetUtcNow(),
@@ -39,6 +45,8 @@ public sealed class ContractorAppService(
             ToContact(command.Contact),
             ToAddress(command.Address),
             command.Notes);
+
+        contractor.SetTrades(tradeIds);
 
         repository.Add(contractor);
         await unitOfWork.CommitAsync(cancellationToken);
@@ -61,6 +69,45 @@ public sealed class ContractorAppService(
         contractor.ChangeContact(ToContact(command.Contact));
         contractor.Relocate(ToAddress(command.Address));
         contractor.Annotate(command.Notes);
+
+        // Trades are a set-replace, but only when supplied: a null TradeIds leaves the existing set
+        // untouched (so the edit form, which manages trades incrementally elsewhere, doesn't clobber
+        // them); a non-null list — including an empty one — replaces the whole set.
+        if (command.TradeIds is not null)
+        {
+            contractor.SetTrades(await TradeAssignment.ResolveAsync(trades, command.TradeIds, cancellationToken));
+        }
+
+        await unitOfWork.CommitAsync(cancellationToken);
+        return ToDto(contractor);
+    }
+
+    public async Task<ContractorDto?> AddTradeAsync(Guid id, Guid tradeId, CancellationToken cancellationToken = default)
+    {
+        var contractor = await repository.GetAsync(new ContractorId(id), cancellationToken);
+        if (contractor is null)
+        {
+            return null;
+        }
+
+        // Validate the trade exists and is active before tagging the firm with it.
+        var resolved = await TradeAssignment.ResolveAsync(trades, [tradeId], cancellationToken);
+        contractor.AssignTrade(resolved[0]);
+
+        await unitOfWork.CommitAsync(cancellationToken);
+        return ToDto(contractor);
+    }
+
+    public async Task<ContractorDto?> RemoveTradeAsync(Guid id, Guid tradeId, CancellationToken cancellationToken = default)
+    {
+        var contractor = await repository.GetAsync(new ContractorId(id), cancellationToken);
+        if (contractor is null)
+        {
+            return null;
+        }
+
+        // Removal is idempotent and needs no vocabulary check — a now-retired trade can still be dropped.
+        contractor.RemoveTrade(new TradeId(tradeId));
 
         await unitOfWork.CommitAsync(cancellationToken);
         return ToDto(contractor);
@@ -109,5 +156,6 @@ public sealed class ContractorAppService(
                 contractor.Address.PostalCode,
                 contractor.Address.Country),
         contractor.Notes,
+        contractor.TradeIds.Select(t => t.Value).ToArray(),
         contractor.CreatedOn);
 }

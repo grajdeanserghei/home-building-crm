@@ -3,6 +3,7 @@ using HomeProjectManagement.Domain.Bids;
 using HomeProjectManagement.Domain.Contractors;
 using HomeProjectManagement.Domain.Contracts;
 using HomeProjectManagement.Domain.Projects;
+using HomeProjectManagement.Domain.Trades;
 using HomeProjectManagement.Domain.UnitsOfMeasure;
 using HomeProjectManagement.Domain.WorkPackages;
 using HomeProjectManagement.Infrastructure.Persistence.Conversions;
@@ -30,6 +31,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<Contract> Contracts => Set<Contract>();
 
     public DbSet<UnitOfMeasure> UnitsOfMeasure => Set<UnitOfMeasure>();
+
+    public DbSet<Trade> Trades => Set<Trade>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

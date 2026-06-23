@@ -446,3 +446,45 @@
   gap: 8px;
   justify-content: flex-end;
 }
+
+/* Trade chips ---------------------------------------------------------- */
+/* A wrap-around list of assigned trades; each chip is itself a remove form. */
+.chipList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 4px 0 16px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px 4px 12px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  background: color-mix(in srgb, #2563eb 10%, transparent);
+  color: inherit;
+  border: 1px solid color-mix(in srgb, #2563eb 25%, transparent);
+}
+
+.chipRemove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.chipRemove:hover {
+  background: #ef4444;
+  color: white;
+}

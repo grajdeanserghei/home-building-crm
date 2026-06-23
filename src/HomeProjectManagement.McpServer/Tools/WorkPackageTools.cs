@@ -37,9 +37,11 @@ public static class WorkPackageTools
         [Description("Display/intended order within the project (1-based). Defaults to 1.")] int sequence = 1,
         [Description("Optional planned start (absolute ISO timestamp).")] DateTimeOffset? plannedStartDate = null,
         [Description("Optional planned end (absolute ISO timestamp). Must not precede the start.")] DateTimeOffset? plannedEndDate = null,
+        [Description("Ids of the trades this package requires (from list_trades). Each must be an existing, active trade. May be empty.")]
+        IReadOnlyList<Guid>? requiredTradeIds = null,
         CancellationToken ct = default)
     {
-        var command = new DefineWorkPackageCommand(name, description, sequence, plannedStartDate, plannedEndDate);
+        var command = new DefineWorkPackageCommand(name, description, sequence, plannedStartDate, plannedEndDate, requiredTradeIds);
         return await service.DefineAsync(projectId, command, ct)
                ?? throw new McpException($"No project exists with id {projectId}.");
     }
@@ -56,10 +58,37 @@ public static class WorkPackageTools
         [Description("Display/intended order within the project (1-based). Defaults to 1.")] int sequence = 1,
         [Description("Planned start (absolute ISO timestamp).")] DateTimeOffset? plannedStartDate = null,
         [Description("Planned end (absolute ISO timestamp). Must not precede the start.")] DateTimeOffset? plannedEndDate = null,
+        [Description("The full set of trade ids this package requires (from list_trades); replaces the existing set. " +
+            "Omit (null) to leave the existing required trades unchanged; pass an empty list to clear them. To add " +
+            "or remove a single trade, prefer add_work_package_trade / remove_work_package_trade. Each must be active.")]
+        IReadOnlyList<Guid>? requiredTradeIds = null,
         CancellationToken ct = default)
     {
-        var command = new UpdateWorkPackageCommand(name, description, sequence, plannedStartDate, plannedEndDate);
+        var command = new UpdateWorkPackageCommand(name, description, sequence, plannedStartDate, plannedEndDate, requiredTradeIds);
         return await service.UpdateAsync(workPackageId, command, ct)
                ?? throw new McpException($"No work package exists with id {workPackageId}.");
     }
+
+    [McpServerTool(Name = "add_work_package_trade"), Description(
+        "Require one trade for a work package, without disturbing its other required trades. Resolve the " +
+        "tradeId with list_trades first (or create it with define_trade). Idempotent — adding a trade the " +
+        "package already requires is a no-op. Returns the updated work package.")]
+    public static async Task<WorkPackageDto> AddWorkPackageTrade(
+        IWorkPackageAppService service,
+        [Description("The work package id (from list_work_packages).")] Guid workPackageId,
+        [Description("The id of the trade to require (from list_trades). Must be an existing, active trade.")] Guid tradeId,
+        CancellationToken ct = default)
+        => await service.AddRequiredTradeAsync(workPackageId, tradeId, ct)
+           ?? throw new McpException($"No work package exists with id {workPackageId}.");
+
+    [McpServerTool(Name = "remove_work_package_trade"), Description(
+        "Drop one required trade from a work package, leaving its other required trades in place. Idempotent — " +
+        "removing a trade the package does not require is a no-op. Returns the updated work package.")]
+    public static async Task<WorkPackageDto> RemoveWorkPackageTrade(
+        IWorkPackageAppService service,
+        [Description("The work package id (from list_work_packages).")] Guid workPackageId,
+        [Description("The id of the trade to drop.")] Guid tradeId,
+        CancellationToken ct = default)
+        => await service.RemoveRequiredTradeAsync(workPackageId, tradeId, ct)
+           ?? throw new McpException($"No work package exists with id {workPackageId}.");
 }

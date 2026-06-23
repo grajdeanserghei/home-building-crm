@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getContractor, type Address } from "@/app/lib/api";
+import { TradeChips } from "@/app/components/TradeChips";
+import { getContractor, getTrades, type Address, type Trade } from "@/app/lib/api";
 import { formatDate } from "@/app/lib/format";
 import { t } from "@/app/lib/i18n";
 import styles from "@/app/page.module.css";
+import { addContractorTrade, removeContractorTrade } from "../actions";
 
 // Join the populated parts of an address into a single human-readable line,
 // returning null when nothing is recorded.
@@ -33,6 +35,26 @@ export default async function ContractorDetailPage({
 
   const contact = contractor.contact;
   const address = formatAddress(contractor.address);
+
+  // Load the vocabulary to resolve the firm's trade ids to names (all trades, so a
+  // retired-but-still-assigned trade still shows a label) and to offer the active,
+  // not-yet-assigned ones in the add control. Tolerate an API hiccup with empty lists.
+  let allTrades: Trade[] = [];
+  try {
+    allTrades = await getTrades();
+  } catch {
+    allTrades = [];
+  }
+
+  const tradeNameById = new Map(allTrades.map((tr) => [tr.id, tr.name]));
+  const assignedTrades = contractor.tradeIds.map((tid) => ({
+    id: tid,
+    name: tradeNameById.get(tid) ?? tid,
+  }));
+  const assignedIds = new Set(contractor.tradeIds);
+  const availableTrades = allTrades
+    .filter((tr) => tr.isActive && !assignedIds.has(tr.id))
+    .map((tr) => ({ id: tr.id, name: tr.name }));
 
   return (
     <main className={styles.main}>
@@ -80,6 +102,23 @@ export default async function ContractorDetailPage({
           <dt>{t("common.created")}</dt>
           <dd>{formatDate(contractor.createdAt)}</dd>
         </dl>
+      </section>
+
+      <section className={styles.card}>
+        <h2>{t("contractors.trades")}</h2>
+        <TradeChips
+          assigned={assignedTrades}
+          available={availableTrades}
+          ownerFieldName="id"
+          ownerId={contractor.id}
+          addAction={addContractorTrade}
+          removeAction={removeContractorTrade}
+          emptyLabel={t("contractors.tradesEmpty")}
+          addLabel={t("contractors.addTrade")}
+          selectPlaceholder={t("contractors.selectTrade")}
+          allAssignedLabel={t("contractors.allTradesAssigned")}
+          removeAriaLabel={(name) => t("contractors.removeTradeAria", { name })}
+        />
       </section>
 
       <Link href={`/contractors/${contractor.id}/edit`} className={styles.edit}>

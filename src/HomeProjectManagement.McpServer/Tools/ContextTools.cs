@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using HomeProjectManagement.Application.Contractors;
 using HomeProjectManagement.Application.Projects;
+using HomeProjectManagement.Application.Trades;
 using HomeProjectManagement.Application.UnitsOfMeasure;
 using HomeProjectManagement.Application.WorkPackages;
 using ModelContextProtocol.Server;
@@ -43,5 +44,13 @@ public static class ContextTools
         "to get the unitOfMeasureId needed by revise_boq_line_item.")]
     public static async Task<IReadOnlyList<UnitOfMeasureDto>> ListUnitsOfMeasure(
         IUnitOfMeasureAppService service, CancellationToken ct)
+        => await service.ListAsync(includeInactive: false, ct);
+
+    [McpServerTool(Name = "list_trades"), Description(
+        "List the active trades (the controlled vocabulary of construction specializations, e.g. Zidărie, " +
+        "Instalații Electrice). Call this to resolve the tradeId(s) you pass when registering/updating a " +
+        "contractor (trades performed) or defining/updating a work package (trades required).")]
+    public static async Task<IReadOnlyList<TradeDto>> ListTrades(
+        ITradeAppService service, CancellationToken ct)
         => await service.ListAsync(includeInactive: false, ct);
 }

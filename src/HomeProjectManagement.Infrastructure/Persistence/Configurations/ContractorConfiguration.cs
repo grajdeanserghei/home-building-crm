@@ -41,11 +41,34 @@ public sealed class ContractorConfiguration : IEntityTypeConfiguration<Contracto
             address.Property(a => a.Country).HasColumnName("address_country").HasMaxLength(100);
         });
 
+        // Trades performed: a set of references (by id) to the shared Trade vocabulary, persisted as
+        // a join table of owned links that live and die with the contractor and are loaded with it.
+        builder.OwnsMany(c => c.Trades, trades =>
+        {
+            trades.ToTable("contractor_trades");
+
+            trades.WithOwner().HasForeignKey("ContractorId");
+            // Composite key (owner + trade) keeps the set distinct at the database level too.
+            trades.HasKey("ContractorId", "TradeId");
+            trades.Property(t => t.TradeId).HasColumnName("TradeId");
+
+            // Match contractors capable of a trade efficiently.
+            trades.HasIndex("TradeId");
+        });
+
+        // The trades collection is mutated only through the aggregate; EF reaches the backing field.
+        builder.Navigation(c => c.Trades)
+            .HasField("_trades")
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+
         // Audit fields stamped by the unit of work.
         builder.Property(c => c.CreatedOn).IsRequired();
         builder.Property(c => c.CreatedBy).IsRequired();
         builder.Property(c => c.ModifiedOn).IsRequired();
         builder.Property(c => c.ModifiedBy).IsRequired();
+
+        // Convenience projection over the owned Trades links; not a mapped member.
+        builder.Ignore(c => c.TradeIds);
 
         // Domain events are an in-memory concern, never persisted.
         builder.Ignore(c => c.DomainEvents);

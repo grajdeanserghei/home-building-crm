@@ -1,6 +1,7 @@
 using HomeProjectManagement.Domain.Common;
 using HomeProjectManagement.Domain.Contracts;
 using HomeProjectManagement.Domain.Projects;
+using HomeProjectManagement.Domain.Trades;
 using HomeProjectManagement.Domain.WorkPackages.Events;
 
 namespace HomeProjectManagement.Domain.WorkPackages;
@@ -19,6 +20,7 @@ namespace HomeProjectManagement.Domain.WorkPackages;
 public sealed class WorkPackage : AggregateRoot<WorkPackageId>
 {
     private readonly List<ScopeItem> _scopeItems = [];
+    private readonly List<WorkPackageTrade> _requiredTrades = [];
 
     /// <summary>The owning project (by id).</summary>
     public ProjectId ProjectId { get; private set; }
@@ -48,6 +50,18 @@ public sealed class WorkPackage : AggregateRoot<WorkPackageId>
     /// <see cref="RemoveScopeItem"/>; EF reaches the backing field directly.
     /// </summary>
     public IReadOnlyList<ScopeItem> ScopeItems => _scopeItems.AsReadOnly();
+
+    /// <summary>
+    /// The trades this package requires, as owned links to the shared <see cref="Trade"/> vocabulary
+    /// (by id; many-to-many via the <c>work_package_trades</c> join table). A distinct set that may be
+    /// empty (a utility-connection package may need no trade). Mutated only through
+    /// <see cref="RequireTrade"/>/<see cref="RemoveRequiredTrade"/>/<see cref="SetRequiredTrades"/>;
+    /// EF reaches the backing field directly. Drives matching capable contractors to the package.
+    /// </summary>
+    public IReadOnlyList<WorkPackageTrade> RequiredTrades => _requiredTrades.AsReadOnly();
+
+    /// <summary>The ids of the trades this package requires (convenience projection over <see cref="RequiredTrades"/>).</summary>
+    public IEnumerable<TradeId> RequiredTradeIds => _requiredTrades.Select(t => t.TradeId);
 
     // EF Core materialisation constructor.
     private WorkPackage()
@@ -168,6 +182,50 @@ public sealed class WorkPackage : AggregateRoot<WorkPackageId>
 
         _scopeItems.Remove(scopeItem);
         return true;
+    }
+
+    /// <summary>
+    /// Require a trade for this package (referenced by id). No-op if it is already required — the
+    /// set stays distinct. Validating that the trade exists and is active is the application
+    /// service's responsibility (against the shared vocabulary).
+    /// </summary>
+    public bool RequireTrade(TradeId tradeId)
+    {
+        if (_requiredTrades.Any(t => t.TradeId == tradeId))
+        {
+            return false;
+        }
+
+        _requiredTrades.Add(new WorkPackageTrade(tradeId));
+        return true;
+    }
+
+    /// <summary>Drop a required trade. No-op (returns false) if the package did not require it.</summary>
+    public bool RemoveRequiredTrade(TradeId tradeId)
+    {
+        var existing = _requiredTrades.FirstOrDefault(t => t.TradeId == tradeId);
+        if (existing is null)
+        {
+            return false;
+        }
+
+        _requiredTrades.Remove(existing);
+        return true;
+    }
+
+    /// <summary>
+    /// Replace the whole set of required trades in one operation, keeping it distinct (duplicate ids
+    /// collapse). Validating the ids against the shared vocabulary is the application service's job.
+    /// </summary>
+    public void SetRequiredTrades(IEnumerable<TradeId> tradeIds)
+    {
+        ArgumentNullException.ThrowIfNull(tradeIds);
+
+        _requiredTrades.Clear();
+        foreach (var tradeId in tradeIds.Distinct())
+        {
+            _requiredTrades.Add(new WorkPackageTrade(tradeId));
+        }
     }
 
     private void EnsureScopeItemNameUnique(string name, ScopeItemId? excluding)

@@ -18,6 +18,7 @@ public sealed record WorkPackageDto(
     DateTimeOffset? PlannedEndDate,
     Guid? AwardedContractId,
     IReadOnlyList<ScopeItemDto> ScopeItems,
+    IReadOnlyCollection<Guid> RequiredTradeIds,
     DateTimeOffset CreatedAt);
 
 /// <summary>
@@ -41,7 +42,8 @@ public sealed record DefineWorkPackageCommand(
     string? Description,
     int Sequence,
     DateTimeOffset? PlannedStartDate,
-    DateTimeOffset? PlannedEndDate);
+    DateTimeOffset? PlannedEndDate,
+    IReadOnlyCollection<Guid>? RequiredTradeIds);
 
 /// <summary>
 /// Input for editing a work package's descriptive fields and schedule.
@@ -52,12 +54,18 @@ public sealed record DefineWorkPackageCommand(
 /// belong on dedicated transition endpoints introduced with the award flow — not on a
 /// free-form edit, unlike <c>Project</c>.
 /// </remarks>
+/// <remarks>
+/// <c>RequiredTradeIds</c>, when non-null, replaces the whole set of trades the package requires
+/// (each must be an existing, active trade); a <c>null</c> leaves the existing trades unchanged
+/// (they are managed incrementally via the add/remove-required-trade operations).
+/// </remarks>
 public sealed record UpdateWorkPackageCommand(
     string Name,
     string? Description,
     int Sequence,
     DateTimeOffset? PlannedStartDate,
-    DateTimeOffset? PlannedEndDate);
+    DateTimeOffset? PlannedEndDate,
+    IReadOnlyCollection<Guid>? RequiredTradeIds);
 
 /// <summary>
 /// Input for transitioning a work package's status. The service dispatches each target to the

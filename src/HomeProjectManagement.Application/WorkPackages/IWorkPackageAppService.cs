@@ -32,5 +32,14 @@ public interface IWorkPackageAppService
     /// <summary>Remove a scope item. Returns false if the package or scope item is absent.</summary>
     Task<bool> RemoveScopeItemAsync(Guid id, Guid scopeItemId, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Require one more trade for the package (idempotent). Returns null if the package does not
+    /// exist; an unknown or inactive trade is a validation error (HTTP 400).
+    /// </summary>
+    Task<WorkPackageDto?> AddRequiredTradeAsync(Guid id, Guid tradeId, CancellationToken cancellationToken = default);
+
+    /// <summary>Drop one required trade (idempotent). Returns null if the package does not exist.</summary>
+    Task<WorkPackageDto?> RemoveRequiredTradeAsync(Guid id, Guid tradeId, CancellationToken cancellationToken = default);
+
     Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default);
 }

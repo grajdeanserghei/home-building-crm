@@ -57,6 +57,28 @@ public sealed class WorkPackageConfiguration : IEntityTypeConfiguration<WorkPack
             .HasField("_scopeItems")
             .UsePropertyAccessMode(PropertyAccessMode.Field);
 
+        // Required trades: a set of references (by id) to the shared Trade vocabulary, persisted as a
+        // join table of owned links that live and die with the package and are loaded with it.
+        builder.OwnsMany(wp => wp.RequiredTrades, trades =>
+        {
+            trades.ToTable("work_package_trades");
+
+            trades.WithOwner().HasForeignKey("WorkPackageId");
+            // Composite key (owner + trade) keeps the set distinct at the database level too.
+            trades.HasKey("WorkPackageId", "TradeId");
+            trades.Property(t => t.TradeId).HasColumnName("TradeId");
+
+            // Match work packages requiring a trade efficiently.
+            trades.HasIndex("TradeId");
+        });
+
+        builder.Navigation(wp => wp.RequiredTrades)
+            .HasField("_requiredTrades")
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        // Convenience projection over the owned RequiredTrades links; not a mapped member.
+        builder.Ignore(wp => wp.RequiredTradeIds);
+
         // Audit fields stamped by the unit of work.
         builder.Property(wp => wp.CreatedOn).IsRequired();
         builder.Property(wp => wp.CreatedBy).IsRequired();

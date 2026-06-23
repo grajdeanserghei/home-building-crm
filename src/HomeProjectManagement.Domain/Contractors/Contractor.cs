@@ -1,6 +1,7 @@
 using HomeProjectManagement.Domain.Common;
 using HomeProjectManagement.Domain.Common.ValueObjects;
 using HomeProjectManagement.Domain.Contractors.Events;
+using HomeProjectManagement.Domain.Trades;
 
 namespace HomeProjectManagement.Domain.Contractors;
 
@@ -19,6 +20,8 @@ namespace HomeProjectManagement.Domain.Contractors;
 /// </remarks>
 public sealed class Contractor : AggregateRoot<ContractorId>
 {
+    private readonly List<ContractorTrade> _trades = [];
+
     /// <summary>Company name.</summary>
     public string Name { get; private set; } = null!;
 
@@ -36,6 +39,17 @@ public sealed class Contractor : AggregateRoot<ContractorId>
 
     /// <summary>Free-text notes. Optional.</summary>
     public string? Notes { get; private set; }
+
+    /// <summary>
+    /// The trades this firm performs, as owned links to the shared <see cref="Trade"/> vocabulary
+    /// (by id; many-to-many via the <c>contractor_trades</c> join table). A distinct set that may be
+    /// empty. Mutated only through <see cref="AssignTrade"/>/<see cref="RemoveTrade"/>/<see cref="SetTrades"/>;
+    /// EF reaches the backing field directly. Drives "filter contractors by type of work".
+    /// </summary>
+    public IReadOnlyList<ContractorTrade> Trades => _trades.AsReadOnly();
+
+    /// <summary>The ids of the trades this firm performs (convenience projection over <see cref="Trades"/>).</summary>
+    public IEnumerable<TradeId> TradeIds => _trades.Select(t => t.TradeId);
 
     // EF Core materialisation constructor.
     private Contractor()
@@ -92,6 +106,50 @@ public sealed class Contractor : AggregateRoot<ContractorId>
 
     /// <summary>Update the free-text notes.</summary>
     public void Annotate(string? notes) => Notes = Trim(notes);
+
+    /// <summary>
+    /// Tag the firm with a trade it performs (referenced by id). No-op if it already performs that
+    /// trade — the set stays distinct. Validating that the trade exists and is active is the
+    /// application service's responsibility (against the shared vocabulary).
+    /// </summary>
+    public bool AssignTrade(TradeId tradeId)
+    {
+        if (_trades.Any(t => t.TradeId == tradeId))
+        {
+            return false;
+        }
+
+        _trades.Add(new ContractorTrade(tradeId));
+        return true;
+    }
+
+    /// <summary>Remove a trade tag. No-op (returns false) if the firm did not perform that trade.</summary>
+    public bool RemoveTrade(TradeId tradeId)
+    {
+        var existing = _trades.FirstOrDefault(t => t.TradeId == tradeId);
+        if (existing is null)
+        {
+            return false;
+        }
+
+        _trades.Remove(existing);
+        return true;
+    }
+
+    /// <summary>
+    /// Replace the whole set of performed trades in one operation, keeping it distinct (duplicate
+    /// ids collapse). Validating the ids against the shared vocabulary is the application service's job.
+    /// </summary>
+    public void SetTrades(IEnumerable<TradeId> tradeIds)
+    {
+        ArgumentNullException.ThrowIfNull(tradeIds);
+
+        _trades.Clear();
+        foreach (var tradeId in tradeIds.Distinct())
+        {
+            _trades.Add(new ContractorTrade(tradeId));
+        }
+    }
 
     private static string NormalizeName(string name)
     {

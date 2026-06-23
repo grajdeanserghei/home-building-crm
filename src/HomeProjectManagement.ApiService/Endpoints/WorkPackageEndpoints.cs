@@ -75,6 +75,20 @@ public static class WorkPackageEndpoints
                     ? Results.NoContent()
                     : Results.NotFound());
 
+        // Required trades: tagged incrementally as sub-resources of the package. An unknown or
+        // inactive trade surfaces as a 400 via the global exception handler.
+        workPackages.MapPost("/{id:guid}/trades/{tradeId:guid}",
+            async (Guid id, Guid tradeId, IWorkPackageAppService service, CancellationToken ct) =>
+                await service.AddRequiredTradeAsync(id, tradeId, ct) is { } updated
+                    ? Results.Ok(updated)
+                    : Results.NotFound());
+
+        workPackages.MapDelete("/{id:guid}/trades/{tradeId:guid}",
+            async (Guid id, Guid tradeId, IWorkPackageAppService service, CancellationToken ct) =>
+                await service.RemoveRequiredTradeAsync(id, tradeId, ct) is { } updated
+                    ? Results.Ok(updated)
+                    : Results.NotFound());
+
         return app;
     }
 }

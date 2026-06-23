@@ -12,6 +12,7 @@ public sealed record ContractorDto(
     ContactInfoDto? Contact,
     AddressDto? Address,
     string? Notes,
+    IReadOnlyCollection<Guid> TradeIds,
     DateTimeOffset CreatedAt);
 
 /// <summary>Primary contact person (mirrors the <c>ContactInfo</c> value object).</summary>
@@ -25,20 +26,30 @@ public sealed record AddressDto(
     string? PostalCode,
     string? Country);
 
-/// <summary>Input for registering a contractor firm. Only the name is required.</summary>
+/// <summary>
+/// Input for registering a contractor firm. Only the name is required. <c>TradeIds</c> are the
+/// trades the firm performs (referenced by id; each must be an existing, active trade); null or
+/// empty means none captured yet.
+/// </summary>
 public sealed record RegisterContractorCommand(
     string Name,
     string? FiscalCode,
     string? RegistrationNumber,
     ContactInfoDto? Contact,
     AddressDto? Address,
-    string? Notes);
+    string? Notes,
+    IReadOnlyCollection<Guid>? TradeIds);
 
-/// <summary>Input for editing a contractor's master data.</summary>
+/// <summary>
+/// Input for editing a contractor's master data. <c>TradeIds</c>, when non-null, replaces the whole
+/// set of trades the firm performs (each must be an existing, active trade); a <c>null</c> leaves the
+/// existing trades unchanged (they are managed incrementally via the add/remove-trade operations).
+/// </summary>
 public sealed record UpdateContractorCommand(
     string Name,
     string? FiscalCode,
     string? RegistrationNumber,
     ContactInfoDto? Contact,
     AddressDto? Address,
-    string? Notes);
+    string? Notes,
+    IReadOnlyCollection<Guid>? TradeIds);

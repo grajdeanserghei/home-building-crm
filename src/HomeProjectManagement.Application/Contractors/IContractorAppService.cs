@@ -15,5 +15,14 @@ public interface IContractorAppService
 
     Task<ContractorDto?> UpdateAsync(Guid id, UpdateContractorCommand command, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Tag the firm with one more trade it performs (idempotent). Returns null if the contractor
+    /// does not exist; an unknown or inactive trade is a validation error (HTTP 400).
+    /// </summary>
+    Task<ContractorDto?> AddTradeAsync(Guid id, Guid tradeId, CancellationToken cancellationToken = default);
+
+    /// <summary>Remove one trade tag (idempotent). Returns null if the contractor does not exist.</summary>
+    Task<ContractorDto?> RemoveTradeAsync(Guid id, Guid tradeId, CancellationToken cancellationToken = default);
+
     Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default);
 }

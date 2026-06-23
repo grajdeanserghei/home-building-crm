@@ -20,6 +20,9 @@ function workPackagePayload(formData: FormData) {
     sequence: Number.isNaN(sequence) ? 0 : sequence,
     plannedStartDate: (formData.get("plannedStartDate") as string) || null,
     plannedEndDate: (formData.get("plannedEndDate") as string) || null,
+    // Required trades are managed incrementally on the detail page (addRequiredTrade /
+    // removeRequiredTrade), so they are intentionally omitted here — an update with no
+    // requiredTradeIds field leaves the package's trades untouched.
   };
 }
 
@@ -150,6 +153,45 @@ export async function removeScopeItem(formData: FormData) {
 
   const res = await fetch(
     `${apiBaseUrl()}/api/work-packages/${workPackageId}/scope-items/${scopeItemId}`,
+    { method: "DELETE" },
+  );
+
+  if (!res.ok && res.status !== 404) {
+    throw new Error(await describeApiError(res, "common.actionError"));
+  }
+
+  revalidatePath(`/work-packages/${workPackageId}`);
+}
+
+// Required trades ---------------------------------------------------------
+
+// Require one trade for the package (idempotent server-side). The select offers only active,
+// not-yet-required trades; an unknown/inactive trade comes back as a 400.
+export async function addRequiredTrade(formData: FormData) {
+  const workPackageId = formData.get("workPackageId") as string;
+  const tradeId = formData.get("tradeId") as string;
+  if (!workPackageId || !tradeId) return;
+
+  const res = await fetch(
+    `${apiBaseUrl()}/api/work-packages/${workPackageId}/trades/${tradeId}`,
+    { method: "POST" },
+  );
+
+  if (!res.ok) {
+    throw new Error(await describeApiError(res, "common.actionError"));
+  }
+
+  revalidatePath(`/work-packages/${workPackageId}`);
+}
+
+// Drop one required trade (idempotent). A 404 (already gone) is treated as success.
+export async function removeRequiredTrade(formData: FormData) {
+  const workPackageId = formData.get("workPackageId") as string;
+  const tradeId = formData.get("tradeId") as string;
+  if (!workPackageId || !tradeId) return;
+
+  const res = await fetch(
+    `${apiBaseUrl()}/api/work-packages/${workPackageId}/trades/${tradeId}`,
     { method: "DELETE" },
   );
 

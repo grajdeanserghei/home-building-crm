@@ -42,6 +42,20 @@ public static class ContractorEndpoints
                     ? Results.NoContent()
                     : Results.NotFound());
 
+        // Trades performed: tagged incrementally as sub-resources of the contractor. An unknown or
+        // inactive trade surfaces as a 400 via the global exception handler.
+        contractors.MapPost("/{id:guid}/trades/{tradeId:guid}",
+            async (Guid id, Guid tradeId, IContractorAppService service, CancellationToken ct) =>
+                await service.AddTradeAsync(id, tradeId, ct) is { } updated
+                    ? Results.Ok(updated)
+                    : Results.NotFound());
+
+        contractors.MapDelete("/{id:guid}/trades/{tradeId:guid}",
+            async (Guid id, Guid tradeId, IContractorAppService service, CancellationToken ct) =>
+                await service.RemoveTradeAsync(id, tradeId, ct) is { } updated
+                    ? Results.Ok(updated)
+                    : Results.NotFound());
+
         return app;
     }
 }
