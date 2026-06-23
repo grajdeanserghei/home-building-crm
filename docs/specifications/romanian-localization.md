@@ -1,6 +1,8 @@
 # Romanian Localization (Romanian-only UI)
 
-- **Status:** Draft <!-- Draft | In Review | Approved | Implemented | Deprecated -->
+- **Status:** Implemented <!-- Draft | In Review | Approved | Implemented | Deprecated -->
+  <!-- Code for all phases is in (see "Implementation" below). Glossary/enum terms marked
+       **⚠ ratify** are shipped with the proposed Romanian but still await stakeholder sign-off. -->
 - **Author:** Serghei Grajdean
 - **Date:** 2026-06-22
 - **Related:** [`docs/architecture/domain-model.md`](../architecture/domain-model.md), [`docs/architecture/hexagonal-architecture.md`](../architecture/hexagonal-architecture.md), [`docs/project-overview.md`](../project-overview.md)
@@ -117,11 +119,15 @@ Keyed by English member name (the wire value). One presentation map per enum.
 | Member | Romanian | Notes |
 |---|---|---|
 | InDiscussion | În discuție | |
-| Quoted | Ofertat | **⚠ ratify** — price received (alt. *Cotat*) |
+| BoqExpected | Deviz așteptat | the contractor committed to send a priced BoQ (*deviz*) |
+| BoqReceived | Deviz primit | a priced BoQ arrived — supersedes the former `Quoted` |
 | Shortlisted | Preselectat | |
 | Selected | Selectat | |
 | Rejected | Respins | |
 | Withdrawn | Retras | |
+
+> Note: `BidStatus` was refactored after this spec's first draft — the former `Quoted` member
+> was split into `BoqExpected` / `BoqReceived`. The labels above reflect the current enum.
 
 **NoteType**
 
@@ -210,8 +216,22 @@ The domain stays pure; the frontend translates.
 
 ## Open Questions
 
-- **Bill of Quantities** term: *Listă de cantități*, *Antemăsurătoare*, or *Deviz*? (The MCP spec already uses *deviz* for the priced PDF — do BoQ and *deviz* mean the same thing here, or is *deviz* specifically the priced/submitted variant?)
-- **Scope item** — confirm the on-site term.
-- **BidStatus.Quoted** — *Ofertat* vs *Cotat*?
-- **Currency display** — ISO code (`RON`) or symbol (`lei`)?
+- **Bill of Quantities** term: *Listă de cantități*, *Antemăsurătoare*, or *Deviz*? (The MCP spec already uses *deviz* for the priced PDF — do BoQ and *deviz* mean the same thing here, or is *deviz* specifically the priced/submitted variant?) *Shipped as:* glossary term **Listă de cantități**, with **deviz** used for a specific priced version on the bid/BoQ screens — confirm this split.
+- **Scope item** — confirm the on-site term. *Shipped as:* **Articol de scop**.
+- **BidStatus** — `Quoted` no longer exists (see enum table); confirm **Deviz așteptat** / **Deviz primit**.
+- **Currency display** — ISO code (`RON`) or symbol (`lei`)? *Shipped as:* **ISO code** (`Intl.NumberFormat('ro-RO', { currencyDisplay: 'code' })` → `12.500,50 RON` / `12.500,50 EUR`), for consistent RON/EUR rendering. Switch to symbol later by dropping `currencyDisplay`.
 - Any term where the team already has an established habit that should override the proposals above.
+
+## Implementation
+
+All phases are implemented. Presentation-only: the domain, EF Core and JSON wire stay English/invariant.
+
+**Backend** (`src/HomeProjectManagement.*`):
+- `Money.ToString()` / `VatRate.ToString()` pinned to `CultureInfo.InvariantCulture`.
+- `DomainException` gained a stable `Code` + `Parameters` bag (interpolated values passed as params, not baked into the message); `DomainValidationException` / `DomainConflictException` thread them through. `DomainExceptionHandler` surfaces `code` and `params` as ProblemDetails extensions. Codes assigned so far: `ScopeItemNameDuplicate`, `BoqClosed`, `BoqNotEditable`, `BoqExchangeRateCurrencyMismatch`, `LineItemCurrencyMismatch`, `BidInvalidStatusTransition`, `ContractClosed` (more added incrementally; untranslated codes fall back to the English `detail`).
+
+**Frontend** (`src/web/app`):
+- `lib/i18n/ro.ts` — the single Romanian catalog (glossary, enum labels, common UI, nav/metadata, error templates, per-feature copy). `lib/i18n/index.ts` — the `t(key, params?)` helper.
+- `lib/format.ts` — shared `ro-RO` `formatDate` / `formatDateTime` / `formatNumber` / `formatMoney` / `formatPercent` (replaced ~11 duplicated `formatDate` copies and the locale-less `formatMoney`).
+- `lib/errors.ts` — `describeApiError(res)` maps a ProblemDetails `code`+`params` to a Romanian template, falling back to the English `detail`.
+- The enum label maps in `lib/api.ts` are repointed at the catalog; `app/layout.tsx` sets `<html lang="ro">` + Romanian metadata and loads the `latin-ext` font subset for diacritics. All page/component inline literals were extracted to `t()`.

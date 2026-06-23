@@ -3,6 +3,7 @@ import {
   UNIT_CATEGORY_LABELS,
   type UnitOfMeasure,
 } from "@/app/lib/api";
+import { t } from "@/app/lib/i18n";
 import styles from "@/app/page.module.css";
 
 interface UnitOfMeasureFormProps {
@@ -36,16 +37,20 @@ export function UnitOfMeasureForm({
         // resubmitted) rather than as an editable field.
         <input
           name="code"
-          placeholder="Code"
+          placeholder={t("unitsOfMeasure.code")}
           defaultValue={unit?.code ?? ""}
           disabled
         />
       ) : (
-        <input name="code" placeholder="Code (e.g. m, mp, buc)" required />
+        <input
+          name="code"
+          placeholder={t("unitsOfMeasure.codePlaceholder")}
+          required
+        />
       )}
       <input
         name="name"
-        placeholder="Name (e.g. metre, square metre)"
+        placeholder={t("unitsOfMeasure.namePlaceholder")}
         defaultValue={unit?.name ?? ""}
         required
       />
@@ -58,7 +63,7 @@ export function UnitOfMeasureForm({
       </select>
       <input
         name="aliases"
-        placeholder="Aliases, comma-separated (optional)"
+        placeholder={t("unitsOfMeasure.aliasesPlaceholder")}
         defaultValue={unit?.aliases.join(", ") ?? ""}
       />
       <button type="submit">{submitLabel}</button>

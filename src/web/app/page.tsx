@@ -3,12 +3,9 @@ import { createProject, deleteProject } from "./actions";
 import { DeleteProjectButton } from "./components/DeleteProjectButton";
 import { ProjectForm } from "./components/ProjectForm";
 import { getProjects, PROJECT_STATUS_LABELS, type Project } from "./lib/api";
+import { formatDate } from "./lib/format";
+import { t } from "./lib/i18n";
 import styles from "./page.module.css";
-
-function formatDate(value?: string | null): string {
-  if (!value) return "—";
-  return new Date(value).toLocaleDateString();
-}
 
 export default async function Home() {
   let projects: Project[] = [];
@@ -17,33 +14,33 @@ export default async function Home() {
   try {
     projects = await getProjects();
   } catch (e) {
-    error = e instanceof Error ? e.message : "Unknown error";
+    error = e instanceof Error ? e.message : t("common.unknownError");
   }
 
   return (
     <main className={styles.main}>
-      <h1 style={{ marginBottom: 32 }}>Home Project Management</h1>
+      <h1 style={{ marginBottom: 32 }}>{t("meta.title")}</h1>
 
       <section className={styles.card}>
-        <h2>New project</h2>
-        <ProjectForm action={createProject} submitLabel="Add project" />
+        <h2>{t("projects.new")}</h2>
+        <ProjectForm action={createProject} submitLabel={t("projects.add")} />
       </section>
 
       <section className={styles.card}>
-        <h2>Projects</h2>
+        <h2>{t("projects.title")}</h2>
         {error ? (
-          <p className={styles.error}>Could not reach the API: {error}</p>
+          <p className={styles.error}>{t("common.apiError", { error })}</p>
         ) : projects.length === 0 ? (
-          <p>No projects yet. Add your first one above.</p>
+          <p>{t("projects.empty")}</p>
         ) : (
           <table className={styles.table}>
             <thead>
               <tr>
-                <th>Name</th>
-                <th>Status</th>
-                <th>Due</th>
-                <th>Created</th>
-                <th aria-label="actions" />
+                <th>{t("common.name")}</th>
+                <th>{t("common.status")}</th>
+                <th>{t("projects.col.due")}</th>
+                <th>{t("common.created")}</th>
+                <th aria-label={t("common.actions")} />
               </tr>
             </thead>
             <tbody>
@@ -70,7 +67,7 @@ export default async function Home() {
                         href={`/projects/${p.id}/edit`}
                         className={styles.edit}
                       >
-                        Edit
+                        {t("common.edit")}
                       </Link>
                       <DeleteProjectButton
                         action={deleteProject}

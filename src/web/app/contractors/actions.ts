@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { apiBaseUrl } from "../lib/api";
+import { describeApiError } from "../lib/errors";
 
 // Build the JSON body shared by register and update — the two backend commands are
 // identical. Contact and address are sent as nested objects; the backend collapses
@@ -40,7 +41,7 @@ export async function registerContractor(formData: FormData) {
   });
 
   if (!res.ok) {
-    throw new Error(`Failed to register contractor: ${res.status}`);
+    throw new Error(await describeApiError(res, "common.actionError"));
   }
 
   revalidatePath("/contractors");
@@ -58,7 +59,7 @@ export async function updateContractor(formData: FormData) {
   });
 
   if (!res.ok) {
-    throw new Error(`Failed to update contractor: ${res.status}`);
+    throw new Error(await describeApiError(res, "common.actionError"));
   }
 
   // Refresh the list, then return to it (the edit form lives on its own route).
@@ -75,7 +76,7 @@ export async function deleteContractor(formData: FormData) {
   });
 
   if (!res.ok && res.status !== 404) {
-    throw new Error(`Failed to delete contractor: ${res.status}`);
+    throw new Error(await describeApiError(res, "common.actionError"));
   }
 
   revalidatePath("/contractors");

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { updateProject } from "@/app/actions";
 import { ProjectForm } from "@/app/components/ProjectForm";
 import { getProject } from "@/app/lib/api";
+import { t } from "@/app/lib/i18n";
 import styles from "@/app/page.module.css";
 
 export default async function EditProjectPage({
@@ -19,19 +20,19 @@ export default async function EditProjectPage({
 
   return (
     <main className={styles.main}>
-      <h1>Edit project</h1>
+      <h1>{t("projects.edit")}</h1>
       <p className={styles.subtitle}>
-        Update the details for &ldquo;{project.name}&rdquo;.
+        {t("projects.editSubtitle", { name: project.name })}
       </p>
 
       <section className={styles.card}>
         <ProjectForm
           action={updateProject}
           project={project}
-          submitLabel="Save changes"
+          submitLabel={t("common.saveChanges")}
         />
         <Link href="/" className={styles.backLink}>
-          Cancel
+          {t("common.cancel")}
         </Link>
       </section>
     </main>

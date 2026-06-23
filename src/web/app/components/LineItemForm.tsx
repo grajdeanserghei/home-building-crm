@@ -3,6 +3,7 @@ import {
   type Currency,
   type UnitOfMeasure,
 } from "@/app/lib/api";
+import { t } from "@/app/lib/i18n";
 import styles from "@/app/page.module.css";
 
 interface LineItemFormProps {
@@ -42,7 +43,7 @@ export function LineItemForm({
 
       <input
         name="description"
-        placeholder="Line description (e.g. C25/30 concrete)"
+        placeholder={t("lineItems.descriptionPlaceholder")}
         required
       />
       <input
@@ -50,14 +51,14 @@ export function LineItemForm({
         type="number"
         min={0}
         step="any"
-        placeholder="Quantity"
+        placeholder={t("lineItems.quantityPlaceholder")}
         required
       />
       <label className={styles.fieldLabel}>
-        Unit
+        {t("lineItems.col.unit")}
         <select name="unitOfMeasureId" required defaultValue="">
           <option value="" disabled>
-            Select a unit…
+            {t("lineItems.selectUnit")}
           </option>
           {units.map((u) => (
             <option key={u.id} value={u.id}>
@@ -67,7 +68,7 @@ export function LineItemForm({
         </select>
       </label>
       <label className={styles.fieldLabel}>
-        Unit price excl. VAT ({currency})
+        {t("lineItems.unitPriceExclVatLabel", { currency })}
         <input
           name="unitPriceAmount"
           type="number"
@@ -78,7 +79,7 @@ export function LineItemForm({
         />
       </label>
       <label className={styles.fieldLabel}>
-        VAT rate (%)
+        {t("lineItems.vatRateLabel")}
         <input
           name="vatRatePercentage"
           type="number"
@@ -95,11 +96,11 @@ export function LineItemForm({
         type="number"
         min={1}
         step={1}
-        placeholder="Order"
+        placeholder={t("sections.orderPlaceholder")}
         defaultValue={defaultSequence ?? 1}
       />
-      <input name="notes" placeholder="Notes (optional)" />
-      <button type="submit">Add line item</button>
+      <input name="notes" placeholder={t("boq.notesPlaceholder")} />
+      <button type="submit">{t("lineItems.add")}</button>
     </form>
   );
 }

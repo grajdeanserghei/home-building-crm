@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { apiBaseUrl, type ContractStatus, type Currency } from "../lib/api";
+import { describeApiError } from "@/app/lib/errors";
 
 // An <input type="date"> yields a bare `yyyy-MM-dd`. A contract's signed/start/end
 // dates are DateTimeOffset on the backend, whose System.Text.Json converter wants a
@@ -51,7 +52,7 @@ export async function awardContract(formData: FormData) {
   });
 
   if (!res.ok) {
-    throw new Error(`Failed to award contract: ${res.status}`);
+    throw new Error(await describeApiError(res, "common.actionError"));
   }
 
   const created = await res.json();
@@ -94,7 +95,7 @@ export async function updateContract(formData: FormData) {
   });
 
   if (!res.ok) {
-    throw new Error(`Failed to update contract: ${res.status}`);
+    throw new Error(await describeApiError(res, "common.actionError"));
   }
 
   // Refresh the detail, then return to it (the edit form is its own route).
@@ -123,7 +124,7 @@ export async function changeContractStatus(formData: FormData) {
   });
 
   if (!res.ok) {
-    throw new Error(`Failed to change contract status: ${res.status}`);
+    throw new Error(await describeApiError(res, "common.actionError"));
   }
 
   revalidatePath(`/contracts/${id}`);
@@ -138,7 +139,7 @@ export async function deleteContract(formData: FormData) {
   });
 
   if (!res.ok && res.status !== 404) {
-    throw new Error(`Failed to delete contract: ${res.status}`);
+    throw new Error(await describeApiError(res, "common.actionError"));
   }
 
   // The detail page is gone; return to the contracts list.

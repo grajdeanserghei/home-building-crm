@@ -2,13 +2,10 @@ import Link from "next/link";
 import { ContractorForm } from "../components/ContractorForm";
 import { DeleteContractorButton } from "../components/DeleteContractorButton";
 import { getContractors, type Contractor } from "../lib/api";
+import { formatDate } from "../lib/format";
+import { t } from "../lib/i18n";
 import styles from "../page.module.css";
 import { deleteContractor, registerContractor } from "./actions";
-
-function formatDate(value?: string | null): string {
-  if (!value) return "—";
-  return new Date(value).toLocaleDateString();
-}
 
 // Pick the most useful contact detail to show in the list row, falling back through
 // person → email → phone, then an em dash when nothing is recorded.
@@ -24,36 +21,37 @@ export default async function ContractorsPage() {
   try {
     contractors = await getContractors();
   } catch (e) {
-    error = e instanceof Error ? e.message : "Unknown error";
+    error = e instanceof Error ? e.message : t("common.unknownError");
   }
 
   return (
     <main className={styles.main}>
-      <h1>Contractors</h1>
-      <p className={styles.subtitle}>
-        Firms that bid on and carry out work packages.
-      </p>
+      <h1>{t("contractors.title")}</h1>
+      <p className={styles.subtitle}>{t("contractors.subtitle")}</p>
 
       <section className={styles.card}>
-        <h2>New contractor</h2>
-        <ContractorForm action={registerContractor} submitLabel="Add contractor" />
+        <h2>{t("contractors.new")}</h2>
+        <ContractorForm
+          action={registerContractor}
+          submitLabel={t("contractors.add")}
+        />
       </section>
 
       <section className={styles.card}>
-        <h2>All contractors</h2>
+        <h2>{t("contractors.all")}</h2>
         {error ? (
-          <p className={styles.error}>Could not reach the API: {error}</p>
+          <p className={styles.error}>{t("common.apiError", { error })}</p>
         ) : contractors.length === 0 ? (
-          <p>No contractors yet. Add your first one above.</p>
+          <p>{t("contractors.empty")}</p>
         ) : (
           <table className={styles.table}>
             <thead>
               <tr>
-                <th>Name</th>
-                <th>Contact</th>
-                <th>Fiscal code</th>
-                <th>Created</th>
-                <th aria-label="actions" />
+                <th>{t("common.name")}</th>
+                <th>{t("contractors.contact")}</th>
+                <th>{t("contractors.fiscalCode")}</th>
+                <th>{t("common.created")}</th>
+                <th aria-label={t("common.actions")} />
               </tr>
             </thead>
             <tbody>
@@ -76,7 +74,7 @@ export default async function ContractorsPage() {
                         href={`/contractors/${c.id}/edit`}
                         className={styles.edit}
                       >
-                        Edit
+                        {t("common.edit")}
                       </Link>
                       <DeleteContractorButton
                         action={deleteContractor}
@@ -93,7 +91,7 @@ export default async function ContractorsPage() {
       </section>
 
       <Link href="/" className={styles.backLink}>
-        ← Projects
+        ← {t("contractors.backToProjects")}
       </Link>
     </main>
   );

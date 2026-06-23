@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { t } from "@/app/lib/i18n";
 import styles from "@/app/page.module.css";
 
 interface DeleteContractorButtonProps {
@@ -31,7 +32,7 @@ export function DeleteContractorButton({
         className={styles.delete}
         onClick={() => setOpen(true)}
       >
-        Delete
+        {t("common.delete")}
       </button>
 
       {open ? (
@@ -45,10 +46,13 @@ export function DeleteContractorButton({
             className={styles.confirmDialog}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className={styles.confirmTitle}>Delete contractor?</h3>
+            <h3 className={styles.confirmTitle}>
+              {t("contractors.deleteTitle")}
+            </h3>
             <p className={styles.confirmBody}>
-              This will permanently delete <strong>{contractorName}</strong>.
-              This action cannot be undone.
+              {t("contractors.deleteBodyBefore")}{" "}
+              <strong>{contractorName}</strong>
+              {t("contractors.deleteBodyAfter")}
             </p>
             <div className={styles.confirmActions}>
               <button
@@ -56,12 +60,12 @@ export function DeleteContractorButton({
                 className={styles.edit}
                 onClick={() => setOpen(false)}
               >
-                Cancel
+                {t("common.cancel")}
               </button>
               <form action={action}>
                 <input type="hidden" name="id" value={contractorId} />
                 <button type="submit" className={styles.delete}>
-                  Delete
+                  {t("common.delete")}
                 </button>
               </form>
             </div>

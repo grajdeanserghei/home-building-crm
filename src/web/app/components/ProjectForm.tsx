@@ -3,6 +3,7 @@ import {
   PROJECT_STATUS_LABELS,
   type Project,
 } from "@/app/lib/api";
+import { t } from "@/app/lib/i18n";
 import styles from "@/app/page.module.css";
 
 // Turn an ISO timestamp (or null) into the `yyyy-MM-dd` value an <input type="date">
@@ -30,13 +31,13 @@ export function ProjectForm({ action, project, submitLabel }: ProjectFormProps) 
       {project ? <input type="hidden" name="id" value={project.id} /> : null}
       <input
         name="name"
-        placeholder="Project name"
+        placeholder={t("projects.namePlaceholder")}
         defaultValue={project?.name ?? ""}
         required
       />
       <input
         name="description"
-        placeholder="Description (optional)"
+        placeholder={t("projects.descriptionPlaceholder")}
         defaultValue={project?.description ?? ""}
       />
       <select name="status" defaultValue={project?.status ?? "Planned"}>

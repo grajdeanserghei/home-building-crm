@@ -7,8 +7,11 @@ namespace HomeProjectManagement.Domain.Common;
 /// </summary>
 public sealed class DomainConflictException : DomainException
 {
-    public DomainConflictException(string message)
-        : base(message)
+    public DomainConflictException(
+        string message,
+        string? code = null,
+        IReadOnlyDictionary<string, object?>? parameters = null)
+        : base(message, code, parameters)
     {
     }
 }

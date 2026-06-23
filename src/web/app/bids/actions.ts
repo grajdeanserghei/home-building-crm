@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { apiBaseUrl, type BidStatus, type NoteType } from "../lib/api";
+import { describeApiError } from "@/app/lib/errors";
 
 // Open a new bid for a contractor on a work package. The collection is nested under
 // the work package, so the contractor (and optional first contact / summary) is the
@@ -28,7 +29,7 @@ export async function openBid(formData: FormData) {
   );
 
   if (!res.ok) {
-    throw new Error(`Failed to open bid: ${res.status}`);
+    throw new Error(await describeApiError(res, "common.actionError"));
   }
 
   revalidatePath(`/work-packages/${workPackageId}`);
@@ -52,7 +53,7 @@ export async function updateBid(formData: FormData) {
   });
 
   if (!res.ok) {
-    throw new Error(`Failed to update bid: ${res.status}`);
+    throw new Error(await describeApiError(res, "common.actionError"));
   }
 
   // Refresh the bid detail, then return to it (the edit form is its own route).
@@ -75,7 +76,7 @@ export async function changeBidStatus(formData: FormData) {
   });
 
   if (!res.ok) {
-    throw new Error(`Failed to change bid status: ${res.status}`);
+    throw new Error(await describeApiError(res, "common.actionError"));
   }
 
   revalidatePath(`/bids/${id}`);
@@ -94,7 +95,7 @@ export async function deleteBid(formData: FormData) {
   });
 
   if (!res.ok && res.status !== 404) {
-    throw new Error(`Failed to delete bid: ${res.status}`);
+    throw new Error(await describeApiError(res, "common.actionError"));
   }
 
   // The bid detail page is gone; return to the work package's bid list.
@@ -125,7 +126,7 @@ export async function logBidNote(formData: FormData) {
   });
 
   if (!res.ok) {
-    throw new Error(`Failed to log note: ${res.status}`);
+    throw new Error(await describeApiError(res, "common.actionError"));
   }
 
   revalidatePath(`/bids/${bidId}`);
@@ -142,7 +143,7 @@ export async function removeBidNote(formData: FormData) {
   );
 
   if (!res.ok && res.status !== 404) {
-    throw new Error(`Failed to remove note: ${res.status}`);
+    throw new Error(await describeApiError(res, "common.actionError"));
   }
 
   revalidatePath(`/bids/${bidId}`);

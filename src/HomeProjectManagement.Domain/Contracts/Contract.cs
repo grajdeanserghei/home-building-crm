@@ -159,7 +159,9 @@ public sealed class Contract : AggregateRoot<ContractId>
         if (Status is ContractStatus.Completed or ContractStatus.Terminated)
         {
             throw new DomainConflictException(
-                $"A {Status} contract is closed and can no longer change.");
+                $"A {Status} contract is closed and can no longer change.",
+                code: "ContractClosed",
+                parameters: new Dictionary<string, object?> { ["status"] = Status.ToString() });
         }
     }
 

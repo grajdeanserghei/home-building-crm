@@ -7,6 +7,7 @@ import {
   type ScopeItemRequirement,
   type WorkPackageStatus,
 } from "../lib/api";
+import { describeApiError } from "@/app/lib/errors";
 
 // Build the JSON body shared by define and update. Status is intentionally absent:
 // the backend command omits it (lifecycle transitions live on dedicated endpoints).
@@ -37,7 +38,7 @@ export async function defineWorkPackage(formData: FormData) {
   );
 
   if (!res.ok) {
-    throw new Error(`Failed to define work package: ${res.status}`);
+    throw new Error(await describeApiError(res, "common.actionError"));
   }
 
   revalidatePath(`/projects/${projectId}`);
@@ -56,7 +57,7 @@ export async function updateWorkPackage(formData: FormData) {
   });
 
   if (!res.ok) {
-    throw new Error(`Failed to update work package: ${res.status}`);
+    throw new Error(await describeApiError(res, "common.actionError"));
   }
 
   // Refresh the project's list, then return to it (the edit form is its own route).
@@ -74,7 +75,7 @@ export async function deleteWorkPackage(formData: FormData) {
   });
 
   if (!res.ok && res.status !== 404) {
-    throw new Error(`Failed to delete work package: ${res.status}`);
+    throw new Error(await describeApiError(res, "common.actionError"));
   }
 
   revalidatePath(`/projects/${projectId}`);
@@ -98,7 +99,7 @@ export async function changeWorkPackageStatus(formData: FormData) {
   });
 
   if (!res.ok) {
-    throw new Error(`Failed to change work package status: ${res.status}`);
+    throw new Error(await describeApiError(res, "common.actionError"));
   }
 
   revalidatePath(`/work-packages/${id}`);
@@ -136,7 +137,7 @@ export async function addScopeItem(formData: FormData) {
   );
 
   if (!res.ok) {
-    throw new Error(`Failed to add scope item: ${res.status}`);
+    throw new Error(await describeApiError(res, "common.actionError"));
   }
 
   revalidatePath(`/work-packages/${workPackageId}`);
@@ -153,7 +154,7 @@ export async function removeScopeItem(formData: FormData) {
   );
 
   if (!res.ok && res.status !== 404) {
-    throw new Error(`Failed to remove scope item: ${res.status}`);
+    throw new Error(await describeApiError(res, "common.actionError"));
   }
 
   revalidatePath(`/work-packages/${workPackageId}`);

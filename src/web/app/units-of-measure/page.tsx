@@ -6,13 +6,10 @@ import {
   UNIT_CATEGORY_LABELS,
   type UnitOfMeasure,
 } from "../lib/api";
+import { formatDate } from "../lib/format";
+import { t } from "../lib/i18n";
 import styles from "../page.module.css";
 import { defineUnitOfMeasure, setUnitOfMeasureActive } from "./actions";
-
-function formatDate(value?: string | null): string {
-  if (!value) return "—";
-  return new Date(value).toLocaleDateString();
-}
 
 export default async function UnitsOfMeasurePage() {
   let units: UnitOfMeasure[] = [];
@@ -21,38 +18,39 @@ export default async function UnitsOfMeasurePage() {
   try {
     units = await getUnitsOfMeasure();
   } catch (e) {
-    error = e instanceof Error ? e.message : "Unknown error";
+    error = e instanceof Error ? e.message : t("common.unknownError");
   }
 
   return (
     <main className={styles.main}>
-      <h1>Units of measure</h1>
-      <p className={styles.subtitle}>
-        Canonical units used to quantify bill-of-quantities lines.
-      </p>
+      <h1>{t("unitsOfMeasure.title")}</h1>
+      <p className={styles.subtitle}>{t("unitsOfMeasure.subtitle")}</p>
 
       <section className={styles.card}>
-        <h2>New unit</h2>
-        <UnitOfMeasureForm action={defineUnitOfMeasure} submitLabel="Add unit" />
+        <h2>{t("unitsOfMeasure.new")}</h2>
+        <UnitOfMeasureForm
+          action={defineUnitOfMeasure}
+          submitLabel={t("unitsOfMeasure.add")}
+        />
       </section>
 
       <section className={styles.card}>
-        <h2>All units</h2>
+        <h2>{t("unitsOfMeasure.title")}</h2>
         {error ? (
-          <p className={styles.error}>Could not reach the API: {error}</p>
+          <p className={styles.error}>{t("common.apiError", { error })}</p>
         ) : units.length === 0 ? (
-          <p>No units yet. Add your first one above.</p>
+          <p>{t("unitsOfMeasure.empty")}</p>
         ) : (
           <table className={styles.table}>
             <thead>
               <tr>
-                <th>Code</th>
-                <th>Name</th>
-                <th>Category</th>
-                <th>Aliases</th>
-                <th>Status</th>
-                <th>Created</th>
-                <th aria-label="actions" />
+                <th>{t("unitsOfMeasure.code")}</th>
+                <th>{t("common.name")}</th>
+                <th>{t("unitsOfMeasure.category")}</th>
+                <th>{t("unitsOfMeasure.aliases")}</th>
+                <th>{t("common.status")}</th>
+                <th>{t("common.created")}</th>
+                <th aria-label={t("common.actions")} />
               </tr>
             </thead>
             <tbody>
@@ -81,7 +79,9 @@ export default async function UnitsOfMeasurePage() {
                         u.isActive ? styles.statusActive : styles.statusInactive
                       }`}
                     >
-                      {u.isActive ? "Active" : "Inactive"}
+                      {u.isActive
+                        ? t("unitsOfMeasure.active")
+                        : t("unitsOfMeasure.inactive")}
                     </span>
                   </td>
                   <td>{formatDate(u.createdAt)}</td>
@@ -91,7 +91,7 @@ export default async function UnitsOfMeasurePage() {
                         href={`/units-of-measure/${u.id}/edit`}
                         className={styles.edit}
                       >
-                        Edit
+                        {t("common.edit")}
                       </Link>
                       <UnitOfMeasureActiveToggle
                         action={setUnitOfMeasureActive}
@@ -107,7 +107,7 @@ export default async function UnitsOfMeasurePage() {
       </section>
 
       <Link href="/" className={styles.backLink}>
-        ← Projects
+        {t("unitsOfMeasure.backToProjects")}
       </Link>
     </main>
   );

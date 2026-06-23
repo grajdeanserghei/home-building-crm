@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ContractorForm } from "@/app/components/ContractorForm";
 import { getContractor } from "@/app/lib/api";
+import { t } from "@/app/lib/i18n";
 import styles from "@/app/page.module.css";
 import { updateContractor } from "../../actions";
 
@@ -19,19 +20,20 @@ export default async function EditContractorPage({
 
   return (
     <main className={styles.main}>
-      <h1>Edit contractor</h1>
+      <h1>{t("contractors.editContractor")}</h1>
       <p className={styles.subtitle}>
-        Update the details for &ldquo;{contractor.name}&rdquo;.
+        {t("contractors.editSubtitleBefore")}&ldquo;{contractor.name}&rdquo;
+        {t("contractors.editSubtitleAfter")}
       </p>
 
       <section className={styles.card}>
         <ContractorForm
           action={updateContractor}
           contractor={contractor}
-          submitLabel="Save changes"
+          submitLabel={t("common.saveChanges")}
         />
         <Link href="/contractors" className={styles.backLink}>
-          Cancel
+          {t("common.cancel")}
         </Link>
       </section>
     </main>

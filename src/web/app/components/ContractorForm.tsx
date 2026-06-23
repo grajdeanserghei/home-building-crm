@@ -1,4 +1,5 @@
 import { type Contractor } from "@/app/lib/api";
+import { t } from "@/app/lib/i18n";
 import styles from "@/app/page.module.css";
 
 interface ContractorFormProps {
@@ -30,64 +31,64 @@ export function ContractorForm({
       ) : null}
       <input
         name="name"
-        placeholder="Company name"
+        placeholder={t("contractors.companyName")}
         defaultValue={contractor?.name ?? ""}
         required
       />
       <input
         name="fiscalCode"
-        placeholder="Fiscal code / CUI (optional)"
+        placeholder={t("contractors.fiscalCodePlaceholder")}
         defaultValue={contractor?.fiscalCode ?? ""}
       />
       <input
         name="registrationNumber"
-        placeholder="Trade register no. / J (optional)"
+        placeholder={t("contractors.registrationNumberPlaceholder")}
         defaultValue={contractor?.registrationNumber ?? ""}
       />
       <input
         name="personName"
-        placeholder="Contact person (optional)"
+        placeholder={t("contractors.contactPersonPlaceholder")}
         defaultValue={contact?.personName ?? ""}
       />
       <input
         name="email"
         type="email"
-        placeholder="Email (optional)"
+        placeholder={t("contractors.emailPlaceholder")}
         defaultValue={contact?.email ?? ""}
       />
       <input
         name="phone"
-        placeholder="Phone (optional)"
+        placeholder={t("contractors.phonePlaceholder")}
         defaultValue={contact?.phone ?? ""}
       />
       <input
         name="street"
-        placeholder="Street (optional)"
+        placeholder={t("contractors.streetPlaceholder")}
         defaultValue={address?.street ?? ""}
       />
       <input
         name="city"
-        placeholder="City (optional)"
+        placeholder={t("contractors.cityPlaceholder")}
         defaultValue={address?.city ?? ""}
       />
       <input
         name="county"
-        placeholder="County / județ (optional)"
+        placeholder={t("contractors.countyPlaceholder")}
         defaultValue={address?.county ?? ""}
       />
       <input
         name="postalCode"
-        placeholder="Postal code (optional)"
+        placeholder={t("contractors.postalCodePlaceholder")}
         defaultValue={address?.postalCode ?? ""}
       />
       <input
         name="country"
-        placeholder="Country (optional)"
+        placeholder={t("contractors.countryPlaceholder")}
         defaultValue={address?.country ?? ""}
       />
       <input
         name="notes"
-        placeholder="Notes (optional)"
+        placeholder={t("contractors.notesPlaceholder")}
         defaultValue={contractor?.notes ?? ""}
       />
       <button type="submit">{submitLabel}</button>

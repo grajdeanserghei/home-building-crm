@@ -1,4 +1,5 @@
 import { type UnitOfMeasure } from "@/app/lib/api";
+import { t } from "@/app/lib/i18n";
 import styles from "@/app/page.module.css";
 
 interface UnitOfMeasureActiveToggleProps {
@@ -25,7 +26,9 @@ export function UnitOfMeasureActiveToggle({
         type="submit"
         className={unit.isActive ? styles.delete : styles.edit}
       >
-        {unit.isActive ? "Deactivate" : "Activate"}
+        {unit.isActive
+          ? t("unitsOfMeasure.deactivate")
+          : t("unitsOfMeasure.activate")}
       </button>
     </form>
   );

@@ -119,7 +119,13 @@ public sealed class Section : Entity<SectionId>
         if (unitPrice.Currency != Currency)
         {
             throw new DomainValidationException(
-                $"Line item price currency ({unitPrice.Currency}) must match the bill's pricing currency ({Currency}).");
+                $"Line item price currency ({unitPrice.Currency}) must match the bill's pricing currency ({Currency}).",
+                code: "LineItemCurrencyMismatch",
+                parameters: new Dictionary<string, object?>
+                {
+                    ["lineCurrency"] = unitPrice.Currency.ToString(),
+                    ["billCurrency"] = Currency.ToString(),
+                });
         }
     }
 

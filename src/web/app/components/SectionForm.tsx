@@ -1,3 +1,4 @@
+import { t } from "@/app/lib/i18n";
 import styles from "@/app/page.module.css";
 
 interface SectionFormProps {
@@ -23,7 +24,7 @@ export function SectionForm({
       <input type="hidden" name="boqId" value={boqId} />
       <input
         name="name"
-        placeholder="Section name (e.g. Foundation)"
+        placeholder={t("sections.namePlaceholder")}
         required
       />
       <input
@@ -31,14 +32,14 @@ export function SectionForm({
         type="number"
         min={1}
         step={1}
-        placeholder="Order"
+        placeholder={t("sections.orderPlaceholder")}
         defaultValue={defaultSequence ?? 1}
       />
       <input
         name="description"
-        placeholder="Notes (optional)"
+        placeholder={t("boq.notesPlaceholder")}
       />
-      <button type="submit">Add section</button>
+      <button type="submit">{t("sections.add")}</button>
     </form>
   );
 }

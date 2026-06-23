@@ -19,12 +19,9 @@ import {
   type Contractor,
   type WorkPackageStatus,
 } from "@/app/lib/api";
+import { formatDate } from "@/app/lib/format";
+import { t } from "@/app/lib/i18n";
 import styles from "@/app/page.module.css";
-
-function formatDate(value?: string | null): string {
-  if (!value) return "—";
-  return new Date(value).toLocaleDateString();
-}
 
 // The statuses a package may move to from its current one, given the lifecycle. Awarded is
 // excluded — it is reached only through the award flow (selecting a bid, creating a
@@ -66,7 +63,7 @@ export default async function WorkPackageDetailPage({
       getContractors(),
     ]);
   } catch (e) {
-    error = e instanceof Error ? e.message : "Unknown error";
+    error = e instanceof Error ? e.message : t("common.unknownError");
   }
 
   // Map contractor id → name for the bids table, and offer only contractors that don't
@@ -81,11 +78,11 @@ export default async function WorkPackageDetailPage({
   return (
     <main className={styles.main}>
       <Link href={`/projects/${workPackage.projectId}`} className={styles.backLink}>
-        ← Back to project
+        {t("workPackages.backToProject")}
       </Link>
       <h1>{workPackage.name}</h1>
       <p className={styles.subtitle}>
-        {workPackage.description || "Bids for this work package."}
+        {workPackage.description || t("workPackages.detailSubtitle")}
         {" · "}
         <span
           className={`${styles.badge} ${styles[`status${workPackage.status}`]}`}
@@ -96,26 +93,26 @@ export default async function WorkPackageDetailPage({
 
       {workPackage.awardedContractId ? (
         <section className={styles.card}>
-          <h2>Contract</h2>
+          <h2>{t("workPackages.contractTitle")}</h2>
           <p>
-            This work package has been awarded.{" "}
+            {t("workPackages.awardedNotice")}{" "}
             <Link
               href={`/contracts/${workPackage.awardedContractId}`}
               className={styles.nameLink}
             >
-              View contract →
+              {t("workPackages.viewContract")}
             </Link>
           </p>
         </section>
       ) : null}
 
       <section className={styles.card}>
-        <h2>Change status</h2>
+        <h2>{t("workPackages.changeStatusTitle")}</h2>
         {targets.length === 0 ? (
           <p className={styles.muted}>
-            This work package is{" "}
-            {WORK_PACKAGE_STATUS_LABELS[workPackage.status].toLowerCase()} — its status is
-            final.
+            {t("workPackages.statusFinal", {
+              status: WORK_PACKAGE_STATUS_LABELS[workPackage.status].toLowerCase(),
+            })}
           </p>
         ) : (
           <form action={changeWorkPackageStatus} className={styles.form}>
@@ -128,31 +125,25 @@ export default async function WorkPackageDetailPage({
                 </option>
               ))}
             </select>
-            <button type="submit">Update status</button>
+            <button type="submit">{t("workPackages.updateStatus")}</button>
           </form>
         )}
-        <p className={styles.muted}>
-          Awarding happens automatically when a bid is selected and its contract created —
-          it is not set here.
-        </p>
+        <p className={styles.muted}>{t("workPackages.awardingHint")}</p>
       </section>
 
       <section className={styles.card}>
-        <h2>Scope items</h2>
-        <p className={styles.muted}>
-          The owner-defined sub-scopes of this work package — what must be done, and what
-          could be dropped or deferred if the budget is tight.
-        </p>
+        <h2>{t("scopeItems.title")}</h2>
+        <p className={styles.muted}>{t("scopeItems.subtitle")}</p>
         {scopeItems.length === 0 ? (
-          <p>No scope items yet. Add the first one below.</p>
+          <p>{t("scopeItems.empty")}</p>
         ) : (
           <table className={styles.table}>
             <thead>
               <tr>
                 <th>#</th>
-                <th>Name</th>
-                <th>Requirement</th>
-                <th aria-label="actions" />
+                <th>{t("common.name")}</th>
+                <th>{t("scopeItems.requirement")}</th>
+                <th aria-label={t("common.actions")} />
               </tr>
             </thead>
             <tbody>
@@ -184,7 +175,7 @@ export default async function WorkPackageDetailPage({
                         />
                         <input type="hidden" name="scopeItemId" value={si.id} />
                         <button type="submit" className={styles.delete}>
-                          Remove
+                          {t("common.remove")}
                         </button>
                       </form>
                     </div>
@@ -195,7 +186,7 @@ export default async function WorkPackageDetailPage({
           </table>
         )}
 
-        <h2 style={{ marginTop: 20 }}>Add scope item</h2>
+        <h2 style={{ marginTop: 20 }}>{t("scopeItems.add")}</h2>
         <ScopeItemForm
           action={addScopeItem}
           workPackageId={workPackage.id}
@@ -204,38 +195,38 @@ export default async function WorkPackageDetailPage({
       </section>
 
       <section className={styles.card}>
-        <h2>New bid</h2>
+        <h2>{t("workPackages.newBidTitle")}</h2>
         {available.length === 0 ? (
           <p className={styles.muted}>
             {contractors.length === 0
-              ? "No contractors registered yet — add one under Contractors first."
-              : "Every registered contractor already has a bid on this work package."}
+              ? t("workPackages.noContractors")
+              : t("workPackages.allContractorsBid")}
           </p>
         ) : (
           <BidForm
             action={openBid}
             workPackageId={workPackage.id}
             contractors={available}
-            submitLabel="Open bid"
+            submitLabel={t("workPackages.openBid")}
           />
         )}
       </section>
 
       <section className={styles.card}>
-        <h2>Bids</h2>
+        <h2>{t("workPackages.bidsTitle")}</h2>
         {error ? (
-          <p className={styles.error}>Could not reach the API: {error}</p>
+          <p className={styles.error}>{t("common.apiError", { error })}</p>
         ) : bids.length === 0 ? (
-          <p>No bids yet. Open one with a contractor above.</p>
+          <p>{t("workPackages.bidsEmpty")}</p>
         ) : (
           <table className={styles.table}>
             <thead>
               <tr>
-                <th>Contractor</th>
-                <th>Status</th>
-                <th>First contact</th>
-                <th>Notes</th>
-                <th aria-label="actions" />
+                <th>{t("workPackages.bidContractor")}</th>
+                <th>{t("common.status")}</th>
+                <th>{t("workPackages.bidFirstContact")}</th>
+                <th>{t("common.notes")}</th>
+                <th aria-label={t("common.actions")} />
               </tr>
             </thead>
             <tbody>
@@ -244,7 +235,8 @@ export default async function WorkPackageDetailPage({
                   <td>
                     <Link href={`/bids/${b.id}`} className={styles.nameLink}>
                       <strong>
-                        {contractorName.get(b.contractorId) ?? "Unknown contractor"}
+                        {contractorName.get(b.contractorId) ??
+                          t("workPackages.unknownContractor")}
                       </strong>
                     </Link>
                     {b.summary ? (
@@ -263,7 +255,7 @@ export default async function WorkPackageDetailPage({
                   <td>
                     <div className={styles.actions}>
                       <Link href={`/bids/${b.id}`} className={styles.edit}>
-                        View
+                        {t("workPackages.bidView")}
                       </Link>
                     </div>
                   </td>

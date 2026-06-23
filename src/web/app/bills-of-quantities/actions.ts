@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { apiBaseUrl, type BoqStatus, type Currency } from "../lib/api";
+import { describeApiError } from "@/app/lib/errors";
 
 // An <input type="date"> yields a bare `yyyy-MM-dd`. The BoQ's submittedOn / validUntil
 // are DateTimeOffset on the backend, whose System.Text.Json converter wants a full ISO
@@ -60,7 +61,7 @@ export async function draftBoq(formData: FormData) {
   );
 
   if (!res.ok) {
-    throw new Error(`Failed to draft bill of quantities: ${res.status}`);
+    throw new Error(await describeApiError(res, "common.actionError"));
   }
 
   const created = await res.json();
@@ -80,7 +81,7 @@ export async function updateBoq(formData: FormData) {
   });
 
   if (!res.ok) {
-    throw new Error(`Failed to update bill of quantities: ${res.status}`);
+    throw new Error(await describeApiError(res, "common.actionError"));
   }
 
   // Refresh the detail, then return to it (the edit form is its own route).
@@ -106,7 +107,7 @@ export async function changeBoqStatus(formData: FormData) {
   );
 
   if (!res.ok) {
-    throw new Error(`Failed to change BoQ status: ${res.status}`);
+    throw new Error(await describeApiError(res, "common.actionError"));
   }
 
   revalidatePath(`/bills-of-quantities/${id}`);
@@ -125,7 +126,7 @@ export async function deleteBoq(formData: FormData) {
   });
 
   if (!res.ok && res.status !== 404) {
-    throw new Error(`Failed to delete bill of quantities: ${res.status}`);
+    throw new Error(await describeApiError(res, "common.actionError"));
   }
 
   // The detail page is gone; return to the bid's BoQ list.
@@ -161,7 +162,7 @@ export async function addSection(formData: FormData) {
   );
 
   if (!res.ok) {
-    throw new Error(`Failed to add section: ${res.status}`);
+    throw new Error(await describeApiError(res, "common.actionError"));
   }
 
   revalidatePath(`/bills-of-quantities/${boqId}`);
@@ -178,7 +179,7 @@ export async function removeSection(formData: FormData) {
   );
 
   if (!res.ok && res.status !== 404) {
-    throw new Error(`Failed to remove section: ${res.status}`);
+    throw new Error(await describeApiError(res, "common.actionError"));
   }
 
   revalidatePath(`/bills-of-quantities/${boqId}`);
@@ -231,7 +232,7 @@ export async function addLineItem(formData: FormData) {
   );
 
   if (!res.ok) {
-    throw new Error(`Failed to add line item: ${res.status}`);
+    throw new Error(await describeApiError(res, "common.actionError"));
   }
 
   revalidatePath(`/bills-of-quantities/${boqId}`);
@@ -249,7 +250,7 @@ export async function removeLineItem(formData: FormData) {
   );
 
   if (!res.ok && res.status !== 404) {
-    throw new Error(`Failed to remove line item: ${res.status}`);
+    throw new Error(await describeApiError(res, "common.actionError"));
   }
 
   revalidatePath(`/bills-of-quantities/${boqId}`);

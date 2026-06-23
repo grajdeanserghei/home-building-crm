@@ -44,6 +44,19 @@ internal sealed class DomainExceptionHandler(IProblemDetailsService problemDetai
             problemDetails.Extensions["parameter"] = parameterName;
         }
 
+        // Surface the stable code and its interpolation params so the frontend can render a
+        // localized (Romanian) message for known codes, falling back to the English Detail
+        // for the long tail. See docs/specifications/romanian-localization.md.
+        if (domainException.Code is { } code)
+        {
+            problemDetails.Extensions["code"] = code;
+        }
+
+        if (domainException.Parameters is { Count: > 0 } parameters)
+        {
+            problemDetails.Extensions["params"] = parameters;
+        }
+
         return await problemDetailsService.TryWriteAsync(new ProblemDetailsContext
         {
             HttpContext = httpContext,

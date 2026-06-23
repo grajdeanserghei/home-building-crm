@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { apiBaseUrl, type ProjectStatus } from "./lib/api";
+import { describeApiError } from "./lib/errors";
 
 export async function createProject(formData: FormData) {
   const name = (formData.get("name") as string)?.trim();
@@ -22,7 +23,7 @@ export async function createProject(formData: FormData) {
   });
 
   if (!res.ok) {
-    throw new Error(`Failed to create project: ${res.status}`);
+    throw new Error(await describeApiError(res, "common.actionError"));
   }
 
   revalidatePath("/");
@@ -47,7 +48,7 @@ export async function updateProject(formData: FormData) {
   });
 
   if (!res.ok) {
-    throw new Error(`Failed to update project: ${res.status}`);
+    throw new Error(await describeApiError(res, "common.actionError"));
   }
 
   // Refresh the list, then return to it (the edit form lives on its own route).
@@ -64,7 +65,7 @@ export async function deleteProject(formData: FormData) {
   });
 
   if (!res.ok && res.status !== 404) {
-    throw new Error(`Failed to delete project: ${res.status}`);
+    throw new Error(await describeApiError(res, "common.actionError"));
   }
 
   revalidatePath("/");

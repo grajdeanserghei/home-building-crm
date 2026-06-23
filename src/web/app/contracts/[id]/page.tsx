@@ -7,7 +7,6 @@ import {
 import {
   CONTRACT_STATUS_LABELS,
   CONTRACT_STATUSES,
-  formatMoney,
   getBid,
   getBillOfQuantities,
   getContract,
@@ -15,12 +14,9 @@ import {
   getWorkPackage,
   type ContractStatus,
 } from "@/app/lib/api";
+import { formatDate, formatMoney } from "@/app/lib/format";
+import { t } from "@/app/lib/i18n";
 import styles from "@/app/page.module.css";
-
-function formatDate(value?: string | null): string {
-  if (!value) return "—";
-  return new Date(value).toLocaleDateString();
-}
 
 // The statuses a contract may move to from its current one. Completed and Terminated
 // are terminal (closed) — the backend forbids transitioning out of them.
@@ -52,8 +48,10 @@ export default async function ContractDetailPage({
 
   const targets = allowedTargets(contract.status);
   const title = contract.contractNumber
-    ? `Contract ${contract.contractNumber}`
-    : `Contract for ${workPackage?.name ?? "work package"}`;
+    ? t("contracts.titleNumbered", { number: contract.contractNumber })
+    : t("contracts.titleFor", {
+        name: workPackage?.name ?? t("contracts.workPackageLower"),
+      });
 
   return (
     <main className={styles.main}>
@@ -61,13 +59,15 @@ export default async function ContractDetailPage({
         href={`/work-packages/${contract.workPackageId}`}
         className={styles.backLink}
       >
-        ← Back to {workPackage?.name ?? "work package"}
+        {t("contracts.backTo", {
+          name: workPackage?.name ?? t("contracts.workPackageLower"),
+        })}
       </Link>
       <h1>{title}</h1>
       <p className={styles.subtitle}>
         {workPackage
-          ? `Awarded for ${workPackage.name}`
-          : "Awarded contract"}
+          ? t("contracts.awardedFor", { name: workPackage.name })
+          : t("contracts.awardedContract")}
         {contractor ? ` · ${contractor.name}` : ""}
         {" · "}
         <span className={`${styles.badge} ${styles[`status${contract.status}`]}`}>
@@ -79,7 +79,7 @@ export default async function ContractDetailPage({
 
       <section className={styles.card}>
         <dl className={styles.detailList}>
-          <dt>Work package</dt>
+          <dt>{t("contracts.workPackage")}</dt>
           <dd>
             <Link
               href={`/work-packages/${contract.workPackageId}`}
@@ -88,7 +88,7 @@ export default async function ContractDetailPage({
               {workPackage?.name ?? contract.workPackageId}
             </Link>
           </dd>
-          <dt>Contractor</dt>
+          <dt>{t("contracts.contractor")}</dt>
           <dd>
             {contractor ? (
               <Link
@@ -101,7 +101,7 @@ export default async function ContractDetailPage({
               "—"
             )}
           </dd>
-          <dt>Accepted BoQ</dt>
+          <dt>{t("contracts.acceptedBoq")}</dt>
           <dd>
             {boq ? (
               <Link
@@ -110,56 +110,60 @@ export default async function ContractDetailPage({
               >
                 v{boq.version}
                 {boq.reference ? ` · ${boq.reference}` : ""} (
-                {formatMoney(boq.totalWithVat)} incl. VAT)
+                {t("contracts.inclVat", {
+                  amount: formatMoney(boq.totalWithVat),
+                })}
+                )
               </Link>
             ) : (
               "—"
             )}
           </dd>
-          <dt>Contract number</dt>
+          <dt>{t("contracts.contractNumber")}</dt>
           <dd>{contract.contractNumber || "—"}</dd>
-          <dt>Status</dt>
+          <dt>{t("common.status")}</dt>
           <dd>{CONTRACT_STATUS_LABELS[contract.status]}</dd>
-          <dt>Agreed value</dt>
+          <dt>{t("contracts.agreedValue")}</dt>
           <dd>{formatMoney(contract.value)}</dd>
-          <dt>Signed on</dt>
+          <dt>{t("contracts.signedOn")}</dt>
           <dd>{formatDate(contract.signedOn)}</dd>
-          <dt>Start date</dt>
+          <dt>{t("contracts.startDate")}</dt>
           <dd>{formatDate(contract.startDate)}</dd>
-          <dt>Planned end date</dt>
+          <dt>{t("contracts.plannedEndDate")}</dt>
           <dd>{formatDate(contract.plannedEndDate)}</dd>
-          <dt>Actual end date</dt>
+          <dt>{t("contracts.actualEndDate")}</dt>
           <dd>{formatDate(contract.actualEndDate)}</dd>
-          <dt>Notes</dt>
+          <dt>{t("common.notes")}</dt>
           <dd>{contract.notes || "—"}</dd>
-          <dt>Awarded</dt>
+          <dt>{t("contracts.awarded")}</dt>
           <dd>{formatDate(contract.createdAt)}</dd>
         </dl>
         <div className={styles.actions}>
           <Link href={`/contracts/${contract.id}/edit`} className={styles.edit}>
-            Edit
+            {t("common.edit")}
           </Link>
           <form action={deleteContract}>
             <input type="hidden" name="id" value={contract.id} />
             <button type="submit" className={styles.delete}>
-              Delete
+              {t("common.delete")}
             </button>
           </form>
         </div>
       </section>
 
       <section className={styles.card}>
-        <h2>Change status</h2>
+        <h2>{t("contracts.changeStatus")}</h2>
         {targets.length === 0 ? (
           <p className={styles.muted}>
-            This contract is {CONTRACT_STATUS_LABELS[contract.status].toLowerCase()} —
-            its status is final.
+            {t("contracts.statusFinal", {
+              status: CONTRACT_STATUS_LABELS[contract.status].toLowerCase(),
+            })}
           </p>
         ) : (
           <form action={changeContractStatus} className={styles.form}>
             <input type="hidden" name="id" value={contract.id} />
             <label className={styles.fieldLabel}>
-              New status
+              {t("contracts.newStatus")}
               <select name="status" defaultValue={targets[0]}>
                 {targets.map((s) => (
                   <option key={s} value={s}>
@@ -170,20 +174,17 @@ export default async function ContractDetailPage({
             </label>
             <span />
             <label className={styles.fieldLabel}>
-              Signed on (when moving to Signed)
+              {t("contracts.signedOnHint")}
               <input name="signedOn" type="date" />
             </label>
             <label className={styles.fieldLabel}>
-              Actual end date (when moving to Completed)
+              {t("contracts.actualEndDateHint")}
               <input name="actualEndDate" type="date" />
             </label>
-            <button type="submit">Update status</button>
+            <button type="submit">{t("contracts.updateStatus")}</button>
           </form>
         )}
-        <p className={styles.muted}>
-          Signing records the signed date; completing records the actual end date. A
-          completed or terminated contract is closed and can no longer change.
-        </p>
+        <p className={styles.muted}>{t("contracts.statusHelp")}</p>
       </section>
     </main>
   );

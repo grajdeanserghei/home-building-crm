@@ -177,7 +177,9 @@ public sealed class WorkPackage : AggregateRoot<WorkPackageId>
         if (clashes)
         {
             throw new DomainConflictException(
-                $"A scope item named '{name}' already exists in this work package.");
+                $"A scope item named '{name}' already exists in this work package.",
+                code: "ScopeItemNameDuplicate",
+                parameters: new Dictionary<string, object?> { ["name"] = name });
         }
     }
 

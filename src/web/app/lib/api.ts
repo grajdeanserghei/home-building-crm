@@ -3,6 +3,12 @@
 // In Aspire, the AppHost injects the backend URL as the API_BASE_URL env var
 // (see AppHost.cs -> WithEnvironment("API_BASE_URL", ...)). When running the
 // Next.js app standalone (outside Aspire), it falls back to localhost.
+import { t } from "./i18n";
+
+// Re-exported so existing `import { formatMoney } from "../lib/api"` call sites keep working;
+// the implementation now lives in the shared ro-RO formatting module (./format).
+export { formatMoney } from "./format";
+
 export function apiBaseUrl(): string {
   return process.env.API_BASE_URL ?? "http://localhost:5000";
 }
@@ -23,10 +29,10 @@ export const PROJECT_STATUSES: readonly ProjectStatus[] = [
 ];
 
 export const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = {
-  Planned: "Planned",
-  InProgress: "In Progress",
-  OnHold: "On Hold",
-  Completed: "Completed",
+  Planned: t("enum.projectStatus.Planned"),
+  InProgress: t("enum.projectStatus.InProgress"),
+  OnHold: t("enum.projectStatus.OnHold"),
+  Completed: t("enum.projectStatus.Completed"),
 };
 
 export interface Project {
@@ -41,7 +47,7 @@ export interface Project {
 export async function getProjects(): Promise<Project[]> {
   const res = await fetch(`${apiBaseUrl()}/api/projects`, { cache: "no-store" });
   if (!res.ok) {
-    throw new Error(`Failed to load projects: ${res.status} ${res.statusText}`);
+    throw new Error(`${res.status} ${res.statusText}`);
   }
   return res.json();
 }
@@ -54,7 +60,7 @@ export async function getProject(id: string): Promise<Project | null> {
     return null;
   }
   if (!res.ok) {
-    throw new Error(`Failed to load project: ${res.status} ${res.statusText}`);
+    throw new Error(`${res.status} ${res.statusText}`);
   }
   return res.json();
 }
@@ -87,12 +93,12 @@ export const WORK_PACKAGE_STATUSES: readonly WorkPackageStatus[] = [
 ];
 
 export const WORK_PACKAGE_STATUS_LABELS: Record<WorkPackageStatus, string> = {
-  Defined: "Defined",
-  OpenForBids: "Open for Bids",
-  Awarded: "Awarded",
-  InProgress: "In Progress",
-  Completed: "Completed",
-  Cancelled: "Cancelled",
+  Defined: t("enum.workPackageStatus.Defined"),
+  OpenForBids: t("enum.workPackageStatus.OpenForBids"),
+  Awarded: t("enum.workPackageStatus.Awarded"),
+  InProgress: t("enum.workPackageStatus.InProgress"),
+  Completed: t("enum.workPackageStatus.Completed"),
+  Cancelled: t("enum.workPackageStatus.Cancelled"),
 };
 
 // Whether a scope item is mandatory or could be dropped/deferred if the budget is tight.
@@ -105,8 +111,8 @@ export const SCOPE_ITEM_REQUIREMENTS: readonly ScopeItemRequirement[] = [
 ];
 
 export const SCOPE_ITEM_REQUIREMENT_LABELS: Record<ScopeItemRequirement, string> = {
-  Mandatory: "Mandatory",
-  Optional: "Optional",
+  Mandatory: t("enum.scopeItemRequirement.Mandatory"),
+  Optional: t("enum.scopeItemRequirement.Optional"),
 };
 
 // An owner-defined sub-scope of a work package (e.g. within "Instalații termice":
@@ -141,7 +147,7 @@ export async function getWorkPackages(projectId: string): Promise<WorkPackage[]>
   );
   if (!res.ok) {
     throw new Error(
-      `Failed to load work packages: ${res.status} ${res.statusText}`,
+      `${res.status} ${res.statusText}`,
     );
   }
   return res.json();
@@ -156,7 +162,7 @@ export async function getWorkPackage(id: string): Promise<WorkPackage | null> {
   }
   if (!res.ok) {
     throw new Error(
-      `Failed to load work package: ${res.status} ${res.statusText}`,
+      `${res.status} ${res.statusText}`,
     );
   }
   return res.json();
@@ -201,7 +207,7 @@ export async function getContractors(): Promise<Contractor[]> {
   });
   if (!res.ok) {
     throw new Error(
-      `Failed to load contractors: ${res.status} ${res.statusText}`,
+      `${res.status} ${res.statusText}`,
     );
   }
   return res.json();
@@ -216,7 +222,7 @@ export async function getContractor(id: string): Promise<Contractor | null> {
   }
   if (!res.ok) {
     throw new Error(
-      `Failed to load contractor: ${res.status} ${res.statusText}`,
+      `${res.status} ${res.statusText}`,
     );
   }
   return res.json();
@@ -252,13 +258,13 @@ export const UNIT_CATEGORIES: readonly UnitCategory[] = [
 ];
 
 export const UNIT_CATEGORY_LABELS: Record<UnitCategory, string> = {
-  Length: "Length",
-  Area: "Area",
-  Volume: "Volume",
-  Mass: "Mass",
-  Count: "Count",
-  Time: "Time",
-  Other: "Other",
+  Length: t("enum.unitCategory.Length"),
+  Area: t("enum.unitCategory.Area"),
+  Volume: t("enum.unitCategory.Volume"),
+  Mass: t("enum.unitCategory.Mass"),
+  Count: t("enum.unitCategory.Count"),
+  Time: t("enum.unitCategory.Time"),
+  Other: t("enum.unitCategory.Other"),
 };
 
 export interface UnitOfMeasure {
@@ -280,7 +286,7 @@ export async function getUnitsOfMeasure(
   );
   if (!res.ok) {
     throw new Error(
-      `Failed to load units of measure: ${res.status} ${res.statusText}`,
+      `${res.status} ${res.statusText}`,
     );
   }
   return res.json();
@@ -297,7 +303,7 @@ export async function getUnitOfMeasure(
   }
   if (!res.ok) {
     throw new Error(
-      `Failed to load unit of measure: ${res.status} ${res.statusText}`,
+      `${res.status} ${res.statusText}`,
     );
   }
   return res.json();
@@ -315,7 +321,8 @@ export async function getUnitOfMeasure(
 
 export type BidStatus =
   | "InDiscussion"
-  | "Quoted"
+  | "BoqExpected"
+  | "BoqReceived"
   | "Shortlisted"
   | "Selected"
   | "Rejected"
@@ -323,10 +330,12 @@ export type BidStatus =
 
 // The statuses in lifecycle order, plus human-readable labels. Shared by the status
 // control and the bids table so they never drift apart. A bid is opened InDiscussion;
-// Selected is reached via selection (which rejects rivals); Withdrawn is terminal.
+// BoqReceived (a priced BoQ arrived) supersedes the former Quoted; Selected is reached
+// via selection (which rejects rivals); Withdrawn is terminal.
 export const BID_STATUSES: readonly BidStatus[] = [
   "InDiscussion",
-  "Quoted",
+  "BoqExpected",
+  "BoqReceived",
   "Shortlisted",
   "Selected",
   "Rejected",
@@ -334,12 +343,13 @@ export const BID_STATUSES: readonly BidStatus[] = [
 ];
 
 export const BID_STATUS_LABELS: Record<BidStatus, string> = {
-  InDiscussion: "In Discussion",
-  Quoted: "Quoted",
-  Shortlisted: "Shortlisted",
-  Selected: "Selected",
-  Rejected: "Rejected",
-  Withdrawn: "Withdrawn",
+  InDiscussion: t("enum.bidStatus.InDiscussion"),
+  BoqExpected: t("enum.bidStatus.BoqExpected"),
+  BoqReceived: t("enum.bidStatus.BoqReceived"),
+  Shortlisted: t("enum.bidStatus.Shortlisted"),
+  Selected: t("enum.bidStatus.Selected"),
+  Rejected: t("enum.bidStatus.Rejected"),
+  Withdrawn: t("enum.bidStatus.Withdrawn"),
 };
 
 // The kind of interaction a discussion note records.
@@ -353,10 +363,10 @@ export const NOTE_TYPES: readonly NoteType[] = [
 ];
 
 export const NOTE_TYPE_LABELS: Record<NoteType, string> = {
-  Meeting: "Meeting",
-  Call: "Call",
-  Email: "Email",
-  Note: "Note",
+  Meeting: t("enum.noteType.Meeting"),
+  Call: t("enum.noteType.Call"),
+  Email: t("enum.noteType.Email"),
+  Note: t("enum.noteType.Note"),
 };
 
 // A dated entry in a bid's discussion log. Immutable once logged.
@@ -374,6 +384,7 @@ export interface Bid {
   contractorId: string;
   status: BidStatus;
   firstContactedOn?: string | null;
+  expectedBoqDate?: string | null;
   summary?: string | null;
   notes: DiscussionNote[]; // oldest first
   createdAt: string;
@@ -385,7 +396,7 @@ export async function getBids(workPackageId: string): Promise<Bid[]> {
     { cache: "no-store" },
   );
   if (!res.ok) {
-    throw new Error(`Failed to load bids: ${res.status} ${res.statusText}`);
+    throw new Error(`${res.status} ${res.statusText}`);
   }
   return res.json();
 }
@@ -398,7 +409,7 @@ export async function getBid(id: string): Promise<Bid | null> {
     return null;
   }
   if (!res.ok) {
-    throw new Error(`Failed to load bid: ${res.status} ${res.statusText}`);
+    throw new Error(`${res.status} ${res.statusText}`);
   }
   return res.json();
 }
@@ -436,11 +447,11 @@ export const BOQ_STATUSES: readonly BoqStatus[] = [
 ];
 
 export const BOQ_STATUS_LABELS: Record<BoqStatus, string> = {
-  Draft: "Draft",
-  Submitted: "Submitted",
-  Accepted: "Accepted",
-  Rejected: "Rejected",
-  Withdrawn: "Withdrawn",
+  Draft: t("enum.boqStatus.Draft"),
+  Submitted: t("enum.boqStatus.Submitted"),
+  Accepted: t("enum.boqStatus.Accepted"),
+  Rejected: t("enum.boqStatus.Rejected"),
+  Withdrawn: t("enum.boqStatus.Withdrawn"),
 };
 
 // A monetary amount in a single currency (mirrors the Money value object).
@@ -506,14 +517,6 @@ export interface BillOfQuantities {
   createdAt: string;
 }
 
-// Format a Money amount for display, e.g. "12,500.50 RON".
-export function formatMoney(money: Money): string {
-  return `${money.amount.toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })} ${money.currency}`;
-}
-
 export async function getBillsOfQuantities(
   bidId: string,
 ): Promise<BillOfQuantities[]> {
@@ -523,7 +526,7 @@ export async function getBillsOfQuantities(
   );
   if (!res.ok) {
     throw new Error(
-      `Failed to load bills of quantities: ${res.status} ${res.statusText}`,
+      `${res.status} ${res.statusText}`,
     );
   }
   return res.json();
@@ -540,7 +543,7 @@ export async function getBillOfQuantities(
   }
   if (!res.ok) {
     throw new Error(
-      `Failed to load bill of quantities: ${res.status} ${res.statusText}`,
+      `${res.status} ${res.statusText}`,
     );
   }
   return res.json();
@@ -575,11 +578,11 @@ export const CONTRACT_STATUSES: readonly ContractStatus[] = [
 ];
 
 export const CONTRACT_STATUS_LABELS: Record<ContractStatus, string> = {
-  Draft: "Draft",
-  Signed: "Signed",
-  Active: "Active",
-  Completed: "Completed",
-  Terminated: "Terminated",
+  Draft: t("enum.contractStatus.Draft"),
+  Signed: t("enum.contractStatus.Signed"),
+  Active: t("enum.contractStatus.Active"),
+  Completed: t("enum.contractStatus.Completed"),
+  Terminated: t("enum.contractStatus.Terminated"),
 };
 
 export interface Contract {
@@ -602,7 +605,7 @@ export async function getContracts(): Promise<Contract[]> {
     cache: "no-store",
   });
   if (!res.ok) {
-    throw new Error(`Failed to load contracts: ${res.status} ${res.statusText}`);
+    throw new Error(`${res.status} ${res.statusText}`);
   }
   return res.json();
 }
@@ -615,7 +618,7 @@ export async function getContract(id: string): Promise<Contract | null> {
     return null;
   }
   if (!res.ok) {
-    throw new Error(`Failed to load contract: ${res.status} ${res.statusText}`);
+    throw new Error(`${res.status} ${res.statusText}`);
   }
   return res.json();
 }
@@ -632,7 +635,7 @@ export async function getContractByWorkPackage(
     return null;
   }
   if (!res.ok) {
-    throw new Error(`Failed to load contract: ${res.status} ${res.statusText}`);
+    throw new Error(`${res.status} ${res.statusText}`);
   }
   return res.json();
 }

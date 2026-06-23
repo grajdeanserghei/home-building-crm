@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { apiBaseUrl, type UnitCategory } from "../lib/api";
+import { describeApiError } from "../lib/errors";
+import { t } from "../lib/i18n";
 
 // Parse the comma-separated aliases field into a clean list. The backend
 // normalises (trims + lowercases) each alias and drops ones equal to the code,
@@ -33,10 +35,10 @@ export async function defineUnitOfMeasure(formData: FormData) {
   });
 
   if (res.status === 409) {
-    throw new Error(`A unit of measure with code "${code}" already exists.`);
+    throw new Error(t("unitsOfMeasure.codeExists", { code }));
   }
   if (!res.ok) {
-    throw new Error(`Failed to define unit of measure: ${res.status}`);
+    throw new Error(await describeApiError(res, "common.actionError"));
   }
 
   revalidatePath("/units-of-measure");
@@ -61,7 +63,7 @@ export async function updateUnitOfMeasure(formData: FormData) {
   });
 
   if (!res.ok) {
-    throw new Error(`Failed to update unit of measure: ${res.status}`);
+    throw new Error(await describeApiError(res, "common.actionError"));
   }
 
   // Refresh the list, then return to it (the edit form lives on its own route).
@@ -85,7 +87,7 @@ export async function setUnitOfMeasureActive(formData: FormData) {
   );
 
   if (!res.ok && res.status !== 404) {
-    throw new Error(`Failed to ${verb} unit of measure: ${res.status}`);
+    throw new Error(await describeApiError(res, "common.actionError"));
   }
 
   revalidatePath("/units-of-measure");

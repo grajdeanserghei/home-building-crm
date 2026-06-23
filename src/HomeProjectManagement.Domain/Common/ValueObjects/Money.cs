@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace HomeProjectManagement.Domain.Common.ValueObjects;
 
 /// <summary>
@@ -40,5 +42,9 @@ public sealed class Money : ValueObject
         yield return Currency;
     }
 
-    public override string ToString() => $"{Amount:0.##} {Currency}";
+    // Pinned to the invariant culture so any output that reaches persistence, logs or the wire
+    // is stable regardless of the host's ambient thread culture (always a dot decimal separator,
+    // never a comma). Human-facing money is formatted on the frontend with Intl.NumberFormat('ro-RO').
+    public override string ToString() =>
+        string.Create(CultureInfo.InvariantCulture, $"{Amount:0.##} {Currency}");
 }

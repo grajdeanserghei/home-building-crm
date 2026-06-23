@@ -1,4 +1,5 @@
 import { NOTE_TYPES, NOTE_TYPE_LABELS } from "@/app/lib/api";
+import { t } from "@/app/lib/i18n";
 import styles from "@/app/page.module.css";
 
 interface BidNoteFormProps {
@@ -27,15 +28,15 @@ export function BidNoteForm({ action, bidId, today }: BidNoteFormProps) {
         ))}
       </select>
       <label className={styles.fieldLabel}>
-        Occurred on
+        {t("notes.occurredOn")}
         <input name="occurredOn" type="date" defaultValue={today} required />
       </label>
       <input
         name="content"
-        placeholder="What was discussed"
+        placeholder={t("notes.contentPlaceholder")}
         required
       />
-      <button type="submit">Log note</button>
+      <button type="submit">{t("notes.logNote")}</button>
     </form>
   );
 }

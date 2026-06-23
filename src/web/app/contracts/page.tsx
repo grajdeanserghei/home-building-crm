@@ -1,18 +1,14 @@
 import Link from "next/link";
 import {
   CONTRACT_STATUS_LABELS,
-  formatMoney,
   getContracts,
   getWorkPackage,
   type Contract,
   type WorkPackage,
 } from "@/app/lib/api";
+import { formatDate, formatMoney } from "@/app/lib/format";
+import { t } from "@/app/lib/i18n";
 import styles from "@/app/page.module.css";
-
-function formatDate(value?: string | null): string {
-  if (!value) return "—";
-  return new Date(value).toLocaleDateString();
-}
 
 export default async function ContractsPage() {
   let contracts: Contract[] = [];
@@ -21,7 +17,7 @@ export default async function ContractsPage() {
   try {
     contracts = await getContracts();
   } catch (e) {
-    error = e instanceof Error ? e.message : "Unknown error";
+    error = e instanceof Error ? e.message : t("common.unknownError");
   }
 
   // Each contract carries only its work-package id; resolve the names so the table can
@@ -39,30 +35,25 @@ export default async function ContractsPage() {
 
   return (
     <main className={styles.main}>
-      <h1>Contracts</h1>
-      <p className={styles.subtitle}>
-        Awarded contracts across all work packages. A contract is created by awarding a
-        work package from its accepted bill of quantities.
-      </p>
+      <h1>{t("contracts.title")}</h1>
+      <p className={styles.subtitle}>{t("contracts.subtitle")}</p>
 
       <section className={styles.card}>
-        <h2>All contracts</h2>
+        <h2>{t("contracts.all")}</h2>
         {error ? (
-          <p className={styles.error}>Could not reach the API: {error}</p>
+          <p className={styles.error}>{t("common.apiError", { error })}</p>
         ) : contracts.length === 0 ? (
-          <p>
-            No contracts yet. Award one from an accepted bill of quantities on a bid.
-          </p>
+          <p>{t("contracts.empty")}</p>
         ) : (
           <table className={styles.table}>
             <thead>
               <tr>
-                <th>Work package</th>
-                <th>Contract no.</th>
-                <th>Status</th>
-                <th>Value</th>
-                <th>Signed</th>
-                <th aria-label="actions" />
+                <th>{t("contracts.workPackage")}</th>
+                <th>{t("contracts.contractNumberShort")}</th>
+                <th>{t("common.status")}</th>
+                <th>{t("contracts.value")}</th>
+                <th>{t("contracts.signedShort")}</th>
+                <th aria-label={t("common.actions")} />
               </tr>
             </thead>
             <tbody>
@@ -71,7 +62,8 @@ export default async function ContractsPage() {
                   <td>
                     <Link href={`/contracts/${c.id}`} className={styles.nameLink}>
                       <strong>
-                        {workPackageName.get(c.workPackageId) ?? "Work package"}
+                        {workPackageName.get(c.workPackageId) ??
+                          t("contracts.workPackage")}
                       </strong>
                     </Link>
                   </td>
@@ -88,7 +80,7 @@ export default async function ContractsPage() {
                   <td>
                     <div className={styles.actions}>
                       <Link href={`/contracts/${c.id}`} className={styles.edit}>
-                        View
+                        {t("contracts.view")}
                       </Link>
                     </div>
                   </td>

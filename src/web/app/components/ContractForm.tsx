@@ -1,4 +1,5 @@
 import { CURRENCIES, type Contract, type Currency } from "@/app/lib/api";
+import { t } from "@/app/lib/i18n";
 import styles from "@/app/page.module.css";
 
 // Turn an ISO timestamp (or null) into the `yyyy-MM-dd` value an <input type="date">
@@ -33,23 +34,23 @@ export function ContractForm({
 
       <input
         name="contractNumber"
-        placeholder="Contract number (optional)"
+        placeholder={t("contracts.contractNumberPlaceholder")}
         defaultValue={contract.contractNumber ?? ""}
       />
 
       <label className={styles.fieldLabel}>
-        Agreed value
+        {t("contracts.agreedValue")}
         <input
           name="valueAmount"
           type="number"
           min={0}
           step="0.01"
-          placeholder="e.g. 125000"
+          placeholder={t("contracts.valuePlaceholder")}
           defaultValue={contract.value.amount}
         />
       </label>
       <label className={styles.fieldLabel}>
-        Currency
+        {t("contracts.currency")}
         <select
           name="valueCurrency"
           defaultValue={contract.value.currency as Currency}
@@ -63,7 +64,7 @@ export function ContractForm({
       </label>
 
       <label className={styles.fieldLabel}>
-        Start date
+        {t("contracts.startDate")}
         <input
           name="startDate"
           type="date"
@@ -71,7 +72,7 @@ export function ContractForm({
         />
       </label>
       <label className={styles.fieldLabel}>
-        Planned end date
+        {t("contracts.plannedEndDate")}
         <input
           name="plannedEndDate"
           type="date"
@@ -81,7 +82,7 @@ export function ContractForm({
 
       <input
         name="notes"
-        placeholder="Notes (optional)"
+        placeholder={t("contracts.notesPlaceholder")}
         defaultValue={contract.notes ?? ""}
       />
 

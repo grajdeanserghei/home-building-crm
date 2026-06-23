@@ -11,12 +11,9 @@ import {
   defineWorkPackage,
   deleteWorkPackage,
 } from "@/app/work-packages/actions";
+import { formatDate } from "@/app/lib/format";
+import { t } from "@/app/lib/i18n";
 import styles from "@/app/page.module.css";
-
-function formatDate(value?: string | null): string {
-  if (!value) return "—";
-  return new Date(value).toLocaleDateString();
-}
 
 export default async function ProjectDetailPage({
   params,
@@ -36,45 +33,45 @@ export default async function ProjectDetailPage({
   try {
     workPackages = await getWorkPackages(id);
   } catch (e) {
-    error = e instanceof Error ? e.message : "Unknown error";
+    error = e instanceof Error ? e.message : t("common.unknownError");
   }
 
   return (
     <main className={styles.main}>
       <Link href="/" className={styles.backLink}>
-        ← All projects
+        {t("projects.backToAll")}
       </Link>
       <h1>{project.name}</h1>
       <p className={styles.subtitle}>
-        {project.description || "Work packages for this project."}
+        {project.description || t("projects.workPackagesSubtitle")}
       </p>
 
       <section className={styles.card}>
-        <h2>New work package</h2>
+        <h2>{t("workPackages.new")}</h2>
         <WorkPackageForm
           action={defineWorkPackage}
           projectId={project.id}
           defaultSequence={workPackages.length + 1}
-          submitLabel="Add work package"
+          submitLabel={t("workPackages.add")}
         />
       </section>
 
       <section className={styles.card}>
-        <h2>Work packages</h2>
+        <h2>{t("projects.workPackages")}</h2>
         {error ? (
-          <p className={styles.error}>Could not reach the API: {error}</p>
+          <p className={styles.error}>{t("common.apiError", { error })}</p>
         ) : workPackages.length === 0 ? (
-          <p>No work packages yet. Define your first one above.</p>
+          <p>{t("workPackages.empty")}</p>
         ) : (
           <table className={styles.table}>
             <thead>
               <tr>
                 <th>#</th>
-                <th>Name</th>
-                <th>Status</th>
-                <th>Planned start</th>
-                <th>Planned end</th>
-                <th aria-label="actions" />
+                <th>{t("common.name")}</th>
+                <th>{t("common.status")}</th>
+                <th>{t("workPackages.col.plannedStart")}</th>
+                <th>{t("workPackages.col.plannedEnd")}</th>
+                <th aria-label={t("common.actions")} />
               </tr>
             </thead>
             <tbody>
@@ -107,7 +104,7 @@ export default async function ProjectDetailPage({
                         href={`/work-packages/${wp.id}/edit`}
                         className={styles.edit}
                       >
-                        Edit
+                        {t("common.edit")}
                       </Link>
                       <form action={deleteWorkPackage}>
                         <input type="hidden" name="id" value={wp.id} />
@@ -117,7 +114,7 @@ export default async function ProjectDetailPage({
                           value={project.id}
                         />
                         <button type="submit" className={styles.delete}>
-                          Delete
+                          {t("common.delete")}
                         </button>
                       </form>
                     </div>

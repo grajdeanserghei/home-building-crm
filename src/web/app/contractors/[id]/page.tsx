@@ -1,12 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getContractor, type Address } from "@/app/lib/api";
+import { formatDate } from "@/app/lib/format";
+import { t } from "@/app/lib/i18n";
 import styles from "@/app/page.module.css";
-
-function formatDate(value?: string | null): string {
-  if (!value) return "—";
-  return new Date(value).toLocaleDateString();
-}
 
 // Join the populated parts of an address into a single human-readable line,
 // returning null when nothing is recorded.
@@ -40,23 +37,23 @@ export default async function ContractorDetailPage({
   return (
     <main className={styles.main}>
       <Link href="/contractors" className={styles.backLink}>
-        ← All contractors
+        ← {t("contractors.backToAll")}
       </Link>
       <h1>{contractor.name}</h1>
-      <p className={styles.subtitle}>Contractor details.</p>
+      <p className={styles.subtitle}>{t("contractors.detailsSubtitle")}</p>
 
       <section className={styles.card}>
         <dl className={styles.detailList}>
-          <dt>Fiscal code / CUI</dt>
+          <dt>{t("contractors.fiscalCode")}</dt>
           <dd>{contractor.fiscalCode || "—"}</dd>
 
-          <dt>Trade register no.</dt>
+          <dt>{t("contractors.registrationNumber")}</dt>
           <dd>{contractor.registrationNumber || "—"}</dd>
 
-          <dt>Contact person</dt>
+          <dt>{t("contractors.contactPerson")}</dt>
           <dd>{contact?.personName || "—"}</dd>
 
-          <dt>Email</dt>
+          <dt>{t("contractors.email")}</dt>
           <dd>
             {contact?.email ? (
               <a href={`mailto:${contact.email}`}>{contact.email}</a>
@@ -65,7 +62,7 @@ export default async function ContractorDetailPage({
             )}
           </dd>
 
-          <dt>Phone</dt>
+          <dt>{t("contractors.phone")}</dt>
           <dd>
             {contact?.phone ? (
               <a href={`tel:${contact.phone}`}>{contact.phone}</a>
@@ -74,19 +71,19 @@ export default async function ContractorDetailPage({
             )}
           </dd>
 
-          <dt>Address</dt>
+          <dt>{t("contractors.address")}</dt>
           <dd>{address || "—"}</dd>
 
-          <dt>Notes</dt>
+          <dt>{t("common.notes")}</dt>
           <dd>{contractor.notes || "—"}</dd>
 
-          <dt>Created</dt>
+          <dt>{t("common.created")}</dt>
           <dd>{formatDate(contractor.createdAt)}</dd>
         </dl>
       </section>
 
       <Link href={`/contractors/${contractor.id}/edit`} className={styles.edit}>
-        Edit contractor
+        {t("contractors.editContractor")}
       </Link>
     </main>
   );

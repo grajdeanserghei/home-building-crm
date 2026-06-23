@@ -1,4 +1,5 @@
 import { type WorkPackage } from "@/app/lib/api";
+import { t } from "@/app/lib/i18n";
 import styles from "@/app/page.module.css";
 
 // Turn an ISO timestamp (or null) into the `yyyy-MM-dd` value an <input type="date">
@@ -40,13 +41,13 @@ export function WorkPackageForm({
       ) : null}
       <input
         name="name"
-        placeholder="Work package name (e.g. La Roșu)"
+        placeholder={t("workPackages.namePlaceholder")}
         defaultValue={workPackage?.name ?? ""}
         required
       />
       <input
         name="description"
-        placeholder="Scope notes (optional)"
+        placeholder={t("workPackages.descriptionPlaceholder")}
         defaultValue={workPackage?.description ?? ""}
       />
       <input
@@ -54,11 +55,11 @@ export function WorkPackageForm({
         type="number"
         min={1}
         step={1}
-        placeholder="Order"
+        placeholder={t("workPackages.orderPlaceholder")}
         defaultValue={workPackage?.sequence ?? defaultSequence ?? 1}
       />
       <label className={styles.fieldLabel}>
-        Planned start
+        {t("workPackages.plannedStart")}
         <input
           name="plannedStartDate"
           type="date"
@@ -66,7 +67,7 @@ export function WorkPackageForm({
         />
       </label>
       <label className={styles.fieldLabel}>
-        Planned end
+        {t("workPackages.plannedEnd")}
         <input
           name="plannedEndDate"
           type="date"

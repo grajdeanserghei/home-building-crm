@@ -2,13 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { UnitOfMeasureActiveToggle } from "@/app/components/UnitOfMeasureActiveToggle";
 import { getUnitOfMeasure, UNIT_CATEGORY_LABELS } from "@/app/lib/api";
+import { formatDate } from "@/app/lib/format";
+import { t } from "@/app/lib/i18n";
 import styles from "@/app/page.module.css";
 import { setUnitOfMeasureActive } from "../actions";
-
-function formatDate(value?: string | null): string {
-  if (!value) return "—";
-  return new Date(value).toLocaleDateString();
-}
 
 export default async function UnitOfMeasureDetailPage({
   params,
@@ -25,44 +22,46 @@ export default async function UnitOfMeasureDetailPage({
   return (
     <main className={styles.main}>
       <Link href="/units-of-measure" className={styles.backLink}>
-        ← All units of measure
+        {t("unitsOfMeasure.backToAll")}
       </Link>
       <h1>{unit.code}</h1>
       <p className={styles.subtitle}>{unit.name}</p>
 
       <section className={styles.card}>
         <dl className={styles.detailList}>
-          <dt>Code</dt>
+          <dt>{t("unitsOfMeasure.code")}</dt>
           <dd>{unit.code}</dd>
 
-          <dt>Name</dt>
+          <dt>{t("common.name")}</dt>
           <dd>{unit.name}</dd>
 
-          <dt>Category</dt>
+          <dt>{t("unitsOfMeasure.category")}</dt>
           <dd>{UNIT_CATEGORY_LABELS[unit.category]}</dd>
 
-          <dt>Aliases</dt>
+          <dt>{t("unitsOfMeasure.aliases")}</dt>
           <dd>{unit.aliases.length > 0 ? unit.aliases.join(", ") : "—"}</dd>
 
-          <dt>Status</dt>
+          <dt>{t("common.status")}</dt>
           <dd>
             <span
               className={`${styles.badge} ${
                 unit.isActive ? styles.statusActive : styles.statusInactive
               }`}
             >
-              {unit.isActive ? "Active" : "Inactive"}
+              {unit.isActive
+                ? t("unitsOfMeasure.active")
+                : t("unitsOfMeasure.inactive")}
             </span>
           </dd>
 
-          <dt>Created</dt>
+          <dt>{t("common.created")}</dt>
           <dd>{formatDate(unit.createdAt)}</dd>
         </dl>
       </section>
 
       <div className={styles.actions}>
         <Link href={`/units-of-measure/${unit.id}/edit`} className={styles.edit}>
-          Edit unit
+          {t("unitsOfMeasure.editUnit")}
         </Link>
         <UnitOfMeasureActiveToggle action={setUnitOfMeasureActive} unit={unit} />
       </div>

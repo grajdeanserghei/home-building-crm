@@ -3,6 +3,7 @@ import {
   type BillOfQuantities,
   type Currency,
 } from "@/app/lib/api";
+import { t } from "@/app/lib/i18n";
 import styles from "@/app/page.module.css";
 
 // Turn an ISO timestamp (or null) into the `yyyy-MM-dd` value an <input type="date">
@@ -45,19 +46,19 @@ export function BillOfQuantitiesForm({
 
       <input
         name="reference"
-        placeholder="Reference / deviz no. (optional)"
+        placeholder={t("boq.referencePlaceholder")}
         defaultValue={boq?.reference ?? ""}
       />
 
       {editing ? (
         // Pricing currency is immutable after drafting; show it, don't submit it.
         <label className={styles.fieldLabel}>
-          Pricing currency
+          {t("boq.pricingCurrency")}
           <input value={boq!.pricingCurrency} disabled />
         </label>
       ) : (
         <label className={styles.fieldLabel}>
-          Pricing currency
+          {t("boq.pricingCurrency")}
           <select name="pricingCurrency" defaultValue={defaultCurrency ?? "RON"}>
             {CURRENCIES.map((c) => (
               <option key={c} value={c}>
@@ -69,18 +70,18 @@ export function BillOfQuantitiesForm({
       )}
 
       <label className={styles.fieldLabel}>
-        Pinned rate (1 EUR = ? RON)
+        {t("boq.pinnedRateField")}
         <input
           name="exchangeRate"
           type="number"
           min={0}
           step="0.0001"
-          placeholder="e.g. 4.97"
+          placeholder={t("boq.pinnedRatePlaceholder")}
           defaultValue={boq?.exchangeRate?.rate ?? ""}
         />
       </label>
       <label className={styles.fieldLabel}>
-        Rate as of
+        {t("boq.rateAsOf")}
         <input
           name="exchangeRateAsOf"
           type="date"
@@ -89,7 +90,7 @@ export function BillOfQuantitiesForm({
       </label>
 
       <label className={styles.fieldLabel}>
-        Submitted on
+        {t("boq.submittedOn")}
         <input
           name="submittedOn"
           type="date"
@@ -97,7 +98,7 @@ export function BillOfQuantitiesForm({
         />
       </label>
       <label className={styles.fieldLabel}>
-        Valid until
+        {t("boq.validUntil")}
         <input
           name="validUntil"
           type="date"

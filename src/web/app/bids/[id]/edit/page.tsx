@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { BidForm } from "@/app/components/BidForm";
 import { updateBid } from "@/app/bids/actions";
 import { getBid, getContractor } from "@/app/lib/api";
+import { t } from "@/app/lib/i18n";
 import styles from "@/app/page.module.css";
 
 export default async function EditBidPage({
@@ -18,14 +19,13 @@ export default async function EditBidPage({
   }
 
   const contractor = await getContractor(bid.contractorId);
-  const contractorName = contractor?.name ?? "this contractor";
+  const contractorName = contractor?.name ?? t("bids.thisContractor");
 
   return (
     <main className={styles.main}>
-      <h1>Edit bid</h1>
+      <h1>{t("bids.edit")}</h1>
       <p className={styles.subtitle}>
-        Update the standing for &ldquo;{contractorName}&rdquo;. The contractor and
-        status are not editable here (status has its own controls on the bid).
+        {t("bids.editSubtitle", { name: contractorName })}
       </p>
 
       <section className={styles.card}>
@@ -33,10 +33,10 @@ export default async function EditBidPage({
           action={updateBid}
           workPackageId={bid.workPackageId}
           bid={bid}
-          submitLabel="Save changes"
+          submitLabel={t("common.saveChanges")}
         />
         <Link href={`/bids/${bid.id}`} className={styles.backLink}>
-          Cancel
+          {t("common.cancel")}
         </Link>
       </section>
     </main>

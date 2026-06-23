@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { t } from "@/app/lib/i18n";
 import styles from "@/app/page.module.css";
 
 interface DeleteProjectButtonProps {
@@ -31,7 +32,7 @@ export function DeleteProjectButton({
         className={styles.delete}
         onClick={() => setOpen(true)}
       >
-        Delete
+        {t("common.delete")}
       </button>
 
       {open ? (
@@ -45,10 +46,10 @@ export function DeleteProjectButton({
             className={styles.confirmDialog}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className={styles.confirmTitle}>Delete project?</h3>
+            <h3 className={styles.confirmTitle}>{t("projects.deleteTitle")}</h3>
             <p className={styles.confirmBody}>
-              This will permanently delete <strong>{projectName}</strong>. This
-              action cannot be undone.
+              {t("projects.deleteBodyBefore")} <strong>{projectName}</strong>
+              {t("projects.deleteBodyAfter")}
             </p>
             <div className={styles.confirmActions}>
               <button
@@ -56,12 +57,12 @@ export function DeleteProjectButton({
                 className={styles.edit}
                 onClick={() => setOpen(false)}
               >
-                Cancel
+                {t("common.cancel")}
               </button>
               <form action={action}>
                 <input type="hidden" name="id" value={projectId} />
                 <button type="submit" className={styles.delete}>
-                  Delete
+                  {t("common.delete")}
                 </button>
               </form>
             </div>

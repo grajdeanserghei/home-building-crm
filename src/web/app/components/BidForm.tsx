@@ -1,4 +1,5 @@
 import { type Bid, type Contractor } from "@/app/lib/api";
+import { t } from "@/app/lib/i18n";
 import styles from "@/app/page.module.css";
 
 // Turn an ISO timestamp (or null) into the `yyyy-MM-dd` value an <input type="date">
@@ -46,7 +47,7 @@ export function BidForm({
       {editing ? null : (
         <select name="contractorId" defaultValue="" required>
           <option value="" disabled>
-            Select contractor…
+            {t("bids.selectContractor")}
           </option>
           {(contractors ?? []).map((c) => (
             <option key={c.id} value={c.id}>
@@ -57,7 +58,7 @@ export function BidForm({
       )}
 
       <label className={styles.fieldLabel}>
-        First contacted
+        {t("bids.firstContacted")}
         <input
           name="firstContactedOn"
           type="date"
@@ -67,7 +68,7 @@ export function BidForm({
 
       <input
         name="summary"
-        placeholder="Summary (e.g. quoted 120k, slow to respond)"
+        placeholder={t("bids.summaryPlaceholder")}
         defaultValue={bid?.summary ?? ""}
       />
 

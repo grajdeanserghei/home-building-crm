@@ -16,7 +16,6 @@ import {
   BOQ_STATUS_LABELS,
   CONTRACT_STATUS_LABELS,
   CURRENCIES,
-  formatMoney,
   getBid,
   getBillOfQuantities,
   getContractByWorkPackage,
@@ -24,12 +23,9 @@ import {
   type BoqStatus,
   type Contract,
 } from "@/app/lib/api";
+import { formatDate, formatMoney, formatNumber, formatPercent } from "@/app/lib/format";
+import { t } from "@/app/lib/i18n";
 import styles from "@/app/page.module.css";
-
-function formatDate(value?: string | null): string {
-  if (!value) return "—";
-  return new Date(value).toLocaleDateString();
-}
 
 // A BoQ accepts structural edits (header, sections, line items) only while Draft or
 // Submitted; once Accepted/Rejected/Withdrawn it is locked. Mirrors the aggregate.
@@ -67,7 +63,8 @@ export default async function BillOfQuantitiesDetailPage({
 
   const editable = isEditable(boq.status);
   const targets = allowedTargets(boq.status);
-  const title = `BoQ v${boq.version}${boq.reference ? ` · ${boq.reference}` : ""}`;
+  const title = t("boq.title", { version: boq.version }) +
+    (boq.reference ? ` · ${boq.reference}` : "");
 
   // A contract is awarded from an accepted BoQ. Once this BoQ is accepted, resolve its
   // owning bid (to reach the work package) and any contract already on that work
@@ -84,47 +81,50 @@ export default async function BillOfQuantitiesDetailPage({
   return (
     <main className={styles.main}>
       <Link href={`/bids/${boq.bidId}`} className={styles.backLink}>
-        ← Back to bid
+        {t("boq.backToBid")}
       </Link>
       <h1>{title}</h1>
       <p className={styles.subtitle}>
-        Bill of quantities, priced in {boq.pricingCurrency}
+        {t("boq.subtitle", { currency: boq.pricingCurrency })}
         {" · "}
         <span className={`${styles.badge} ${styles[`status${boq.status}`]}`}>
           {BOQ_STATUS_LABELS[boq.status]}
         </span>
         {" · "}
-        <strong>{formatMoney(boq.totalWithVat)}</strong> incl. VAT
-        <span className={styles.muted}> ({formatMoney(boq.total)} excl. VAT)</span>
+        <strong>{formatMoney(boq.totalWithVat)}</strong> {t("boq.inclVat")}
+        <span className={styles.muted}> ({formatMoney(boq.total)} {t("boq.exclVat")})</span>
       </p>
 
       <section className={styles.card}>
         <dl className={styles.detailList}>
-          <dt>Version</dt>
+          <dt>{t("boq.version")}</dt>
           <dd>{boq.version}</dd>
-          <dt>Reference</dt>
+          <dt>{t("boq.reference")}</dt>
           <dd>{boq.reference || "—"}</dd>
-          <dt>Status</dt>
+          <dt>{t("common.status")}</dt>
           <dd>{BOQ_STATUS_LABELS[boq.status]}</dd>
-          <dt>Pricing currency</dt>
+          <dt>{t("boq.pricingCurrency")}</dt>
           <dd>{boq.pricingCurrency}</dd>
-          <dt>Pinned rate</dt>
+          <dt>{t("boq.pinnedRate")}</dt>
           <dd>
             {boq.exchangeRate
-              ? `1 ${boq.exchangeRate.baseCurrency} = ${boq.exchangeRate.rate} ${boq.exchangeRate.quoteCurrency} (as of ${formatDate(
-                  boq.exchangeRate.asOf,
-                )})`
+              ? t("boq.pinnedRateValue", {
+                  base: boq.exchangeRate.baseCurrency,
+                  rate: formatNumber(boq.exchangeRate.rate),
+                  quote: boq.exchangeRate.quoteCurrency,
+                  asOf: formatDate(boq.exchangeRate.asOf),
+                })
               : "—"}
           </dd>
-          <dt>Submitted on</dt>
+          <dt>{t("boq.submittedOn")}</dt>
           <dd>{formatDate(boq.submittedOn)}</dd>
-          <dt>Valid until</dt>
+          <dt>{t("boq.validUntil")}</dt>
           <dd>{formatDate(boq.validUntil)}</dd>
-          <dt>Total excl. VAT</dt>
+          <dt>{t("boq.totalExclVat")}</dt>
           <dd>{formatMoney(boq.total)}</dd>
-          <dt>Total incl. VAT</dt>
+          <dt>{t("boq.totalInclVat")}</dt>
           <dd>{formatMoney(boq.totalWithVat)}</dd>
-          <dt>Created</dt>
+          <dt>{t("common.created")}</dt>
           <dd>{formatDate(boq.createdAt)}</dd>
         </dl>
         <div className={styles.actions}>
@@ -133,25 +133,26 @@ export default async function BillOfQuantitiesDetailPage({
               href={`/bills-of-quantities/${boq.id}/edit`}
               className={styles.edit}
             >
-              Edit
+              {t("common.edit")}
             </Link>
           ) : null}
           <form action={deleteBoq}>
             <input type="hidden" name="id" value={boq.id} />
             <input type="hidden" name="bidId" value={boq.bidId} />
             <button type="submit" className={styles.delete}>
-              Delete
+              {t("common.delete")}
             </button>
           </form>
         </div>
       </section>
 
       <section className={styles.card}>
-        <h2>Change status</h2>
+        <h2>{t("boq.changeStatus")}</h2>
         {targets.length === 0 ? (
           <p className={styles.muted}>
-            This bill of quantities is {BOQ_STATUS_LABELS[boq.status].toLowerCase()} — its
-            status is final.
+            {t("boq.statusFinal", {
+              status: BOQ_STATUS_LABELS[boq.status].toLowerCase(),
+            })}
           </p>
         ) : (
           <form action={changeBoqStatus} className={styles.form}>
@@ -164,41 +165,34 @@ export default async function BillOfQuantitiesDetailPage({
                 </option>
               ))}
             </select>
-            <button type="submit">Update status</button>
+            <button type="submit">{t("boq.updateStatus")}</button>
           </form>
         )}
-        <p className={styles.muted}>
-          Accepting a BoQ locks it against further edits — it becomes the basis for a
-          contract.
-        </p>
+        <p className={styles.muted}>{t("boq.acceptNote")}</p>
       </section>
 
       {boq.status === "Accepted" ? (
         <section className={styles.card}>
-          <h2>Contract</h2>
+          <h2>{t("boq.contract")}</h2>
           {existingContract ? (
             <p>
-              This work package is under contract (
+              {t("boq.underContractBefore")}
               <span
                 className={`${styles.badge} ${styles[`status${existingContract.status}`]}`}
               >
                 {CONTRACT_STATUS_LABELS[existingContract.status]}
               </span>
-              ).{" "}
+              {t("boq.underContractAfter")}{" "}
               <Link
                 href={`/contracts/${existingContract.id}`}
                 className={styles.nameLink}
               >
-                View contract →
+                {t("boq.viewContract")}
               </Link>
             </p>
           ) : (
             <>
-              <p className={styles.muted}>
-                Award this bid the contract. This accepts this BoQ, selects its bid and
-                rejects the rivals, and marks the work package as awarded. The value
-                defaults to this BoQ&apos;s total when left blank.
-              </p>
+              <p className={styles.muted}>{t("boq.awardNote")}</p>
               <form action={awardContract} className={styles.form}>
                 <input type="hidden" name="boqId" value={boq.id} />
                 <input type="hidden" name="bidId" value={boq.bidId} />
@@ -211,11 +205,11 @@ export default async function BillOfQuantitiesDetailPage({
                 ) : null}
                 <input
                   name="contractNumber"
-                  placeholder="Contract number (optional)"
+                  placeholder={t("boq.contractNumberPlaceholder")}
                 />
                 <span />
                 <label className={styles.fieldLabel}>
-                  Agreed value (optional — defaults to BoQ total)
+                  {t("boq.agreedValueLabel")}
                   <input
                     name="valueAmount"
                     type="number"
@@ -225,7 +219,7 @@ export default async function BillOfQuantitiesDetailPage({
                   />
                 </label>
                 <label className={styles.fieldLabel}>
-                  Currency
+                  {t("boq.currency")}
                   <select
                     name="valueCurrency"
                     defaultValue={boq.pricingCurrency}
@@ -238,15 +232,15 @@ export default async function BillOfQuantitiesDetailPage({
                   </select>
                 </label>
                 <label className={styles.fieldLabel}>
-                  Start date
+                  {t("boq.startDate")}
                   <input name="startDate" type="date" />
                 </label>
                 <label className={styles.fieldLabel}>
-                  Planned end date
+                  {t("boq.plannedEndDate")}
                   <input name="plannedEndDate" type="date" />
                 </label>
-                <input name="notes" placeholder="Notes (optional)" />
-                <button type="submit">Award contract</button>
+                <input name="notes" placeholder={t("boq.notesPlaceholder")} />
+                <button type="submit">{t("boq.awardContract")}</button>
               </form>
             </>
           )}
@@ -258,8 +252,8 @@ export default async function BillOfQuantitiesDetailPage({
           <h2>
             {section.sequence}. {section.name}{" "}
             <span className={styles.muted}>
-              · {formatMoney(section.subtotalWithVat)} incl. VAT (
-              {formatMoney(section.subtotal)} excl.)
+              · {formatMoney(section.subtotalWithVat)} {t("boq.inclVat")} (
+              {formatMoney(section.subtotal)} {t("boq.exclShort")})
             </span>
           </h2>
           {section.description ? (
@@ -267,20 +261,20 @@ export default async function BillOfQuantitiesDetailPage({
           ) : null}
 
           {section.lineItems.length === 0 ? (
-            <p>No line items yet.</p>
+            <p>{t("lineItems.empty")}</p>
           ) : (
             <table className={styles.table}>
               <thead>
                 <tr>
                   <th>#</th>
-                  <th>Description</th>
-                  <th>Unit</th>
-                  <th>Qty</th>
-                  <th>Unit price (excl. VAT)</th>
-                  <th>VAT</th>
-                  <th>Line total (excl. VAT)</th>
-                  <th>Line total (incl. VAT)</th>
-                  {editable ? <th aria-label="actions" /> : null}
+                  <th>{t("common.description")}</th>
+                  <th>{t("lineItems.col.unit")}</th>
+                  <th>{t("lineItems.col.qty")}</th>
+                  <th>{t("lineItems.col.unitPriceExclVat")}</th>
+                  <th>{t("lineItems.col.vat")}</th>
+                  <th>{t("lineItems.col.lineTotalExclVat")}</th>
+                  <th>{t("lineItems.col.lineTotalInclVat")}</th>
+                  {editable ? <th aria-label={t("common.actions")} /> : null}
                 </tr>
               </thead>
               <tbody>
@@ -294,9 +288,9 @@ export default async function BillOfQuantitiesDetailPage({
                       ) : null}
                     </td>
                     <td>{unitCode.get(li.unitOfMeasureId) ?? "—"}</td>
-                    <td>{li.quantity}</td>
+                    <td>{formatNumber(li.quantity)}</td>
                     <td>{formatMoney(li.unitPrice)}</td>
-                    <td>{li.vatRatePercentage}%</td>
+                    <td>{formatPercent(li.vatRatePercentage)}</td>
                     <td>{formatMoney(li.lineTotal)}</td>
                     <td>{formatMoney(li.lineTotalWithVat)}</td>
                     {editable ? (
@@ -315,7 +309,7 @@ export default async function BillOfQuantitiesDetailPage({
                               value={li.id}
                             />
                             <button type="submit" className={styles.delete}>
-                              Remove
+                              {t("common.remove")}
                             </button>
                           </form>
                         </div>
@@ -329,11 +323,9 @@ export default async function BillOfQuantitiesDetailPage({
 
           {editable ? (
             <>
-              <h2 style={{ marginTop: 20 }}>Add line item</h2>
+              <h2 style={{ marginTop: 20 }}>{t("lineItems.add")}</h2>
               {activeUnits.length === 0 ? (
-                <p className={styles.muted}>
-                  No active units of measure — add one under Units of measure first.
-                </p>
+                <p className={styles.muted}>{t("lineItems.noActiveUnits")}</p>
               ) : (
                 <LineItemForm
                   action={addLineItem}
@@ -349,7 +341,7 @@ export default async function BillOfQuantitiesDetailPage({
                   <input type="hidden" name="boqId" value={boq.id} />
                   <input type="hidden" name="sectionId" value={section.id} />
                   <button type="submit" className={styles.delete}>
-                    Remove section
+                    {t("sections.remove")}
                   </button>
                 </form>
               </div>
@@ -360,7 +352,7 @@ export default async function BillOfQuantitiesDetailPage({
 
       {editable ? (
         <section className={styles.card}>
-          <h2>Add section</h2>
+          <h2>{t("sections.add")}</h2>
           <SectionForm
             action={addSection}
             boqId={boq.id}
@@ -369,9 +361,7 @@ export default async function BillOfQuantitiesDetailPage({
         </section>
       ) : boq.sections.length === 0 ? (
         <section className={styles.card}>
-          <p className={styles.muted}>
-            This bill of quantities has no sections and can no longer be edited.
-          </p>
+          <p className={styles.muted}>{t("boq.noSectionsLocked")}</p>
         </section>
       ) : null}
     </main>

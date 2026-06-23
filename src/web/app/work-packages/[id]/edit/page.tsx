@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { WorkPackageForm } from "@/app/components/WorkPackageForm";
 import { getWorkPackage } from "@/app/lib/api";
 import { updateWorkPackage } from "@/app/work-packages/actions";
+import { t } from "@/app/lib/i18n";
 import styles from "@/app/page.module.css";
 
 export default async function EditWorkPackagePage({
@@ -19,9 +20,9 @@ export default async function EditWorkPackagePage({
 
   return (
     <main className={styles.main}>
-      <h1>Edit work package</h1>
+      <h1>{t("workPackages.edit")}</h1>
       <p className={styles.subtitle}>
-        Update the details for &ldquo;{workPackage.name}&rdquo;.
+        {t("workPackages.editSubtitle", { name: workPackage.name })}
       </p>
 
       <section className={styles.card}>
@@ -29,13 +30,13 @@ export default async function EditWorkPackagePage({
           action={updateWorkPackage}
           projectId={workPackage.projectId}
           workPackage={workPackage}
-          submitLabel="Save changes"
+          submitLabel={t("common.saveChanges")}
         />
         <Link
           href={`/projects/${workPackage.projectId}`}
           className={styles.backLink}
         >
-          Cancel
+          {t("common.cancel")}
         </Link>
       </section>
     </main>

@@ -1,3 +1,4 @@
+using System.Globalization;
 using HomeProjectManagement.Domain.Common;
 
 namespace HomeProjectManagement.Domain.Common.ValueObjects;
@@ -48,5 +49,9 @@ public sealed class VatRate : ValueObject
         yield return Percentage;
     }
 
-    public override string ToString() => $"{Percentage:0.##}%";
+    // Pinned to the invariant culture so any output that reaches persistence, logs or the wire
+    // is stable regardless of the host's ambient thread culture. Human-facing percentages are
+    // formatted on the frontend with Intl.NumberFormat('ro-RO').
+    public override string ToString() =>
+        string.Create(CultureInfo.InvariantCulture, $"{Percentage:0.##}%");
 }

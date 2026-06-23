@@ -3,6 +3,7 @@ import {
   SCOPE_ITEM_REQUIREMENT_LABELS,
   type ScopeItemRequirement,
 } from "@/app/lib/api";
+import { t } from "@/app/lib/i18n";
 import styles from "@/app/page.module.css";
 
 interface ScopeItemFormProps {
@@ -32,11 +33,11 @@ export function ScopeItemForm({
       <input type="hidden" name="workPackageId" value={workPackageId} />
       <input
         name="name"
-        placeholder="Scope item name (e.g. Încălzire pardoseală)"
+        placeholder={t("scopeItems.namePlaceholder")}
         required
       />
       <label className={styles.fieldLabel}>
-        Requirement
+        {t("scopeItems.requirement")}
         <select name="requirement" defaultValue={defaultRequirement}>
           {SCOPE_ITEM_REQUIREMENTS.map((r) => (
             <option key={r} value={r}>
@@ -50,11 +51,11 @@ export function ScopeItemForm({
         type="number"
         min={1}
         step={1}
-        placeholder="Order"
+        placeholder={t("scopeItems.orderPlaceholder")}
         defaultValue={defaultSequence ?? 1}
       />
-      <input name="description" placeholder="Notes (optional)" />
-      <button type="submit">Add scope item</button>
+      <input name="description" placeholder={t("scopeItems.notesPlaceholder")} />
+      <button type="submit">{t("scopeItems.add")}</button>
     </form>
   );
 }

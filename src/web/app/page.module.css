@@ -192,14 +192,19 @@
   color: #ef4444;
 }
 
-/* Bid lifecycle statuses (InDiscussion / Quoted / Shortlisted / Selected /
-   Rejected / Withdrawn). */
+/* Bid lifecycle statuses (InDiscussion / BoqExpected / BoqReceived / Shortlisted /
+   Selected / Rejected / Withdrawn). */
 .statusInDiscussion {
   background: color-mix(in srgb, #6b7280 14%, transparent);
   color: #6b7280;
 }
 
-.statusQuoted {
+.statusBoqExpected {
+  background: color-mix(in srgb, #0891b2 14%, transparent);
+  color: #0891b2;
+}
+
+.statusBoqReceived {
   background: color-mix(in srgb, #2563eb 14%, transparent);
   color: #2563eb;
 }
