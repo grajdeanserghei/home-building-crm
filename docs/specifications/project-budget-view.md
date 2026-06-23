@@ -30,7 +30,7 @@ Goals:
 ### Non-goals
 
 - **No owner-side budget/target field.** There is no "planned budget" stored on `Project`, `WorkPackage`, or `ScopeItem`, and this spec does not add one. The page reports projected *cost* (what bids/contracts say), not variance against a target. Introducing a target to compare against is a possible future spec.
-- **No cross-currency grand total.** `Money` rejects cross-currency arithmetic by design; the page honours that and shows RON and EUR subtotals side by side rather than converting them into one number (see [Open Questions](#open-questions) for the deferred conversion option).
+- **Native per-currency totals stay primary.** `Money` rejects cross-currency arithmetic by design; the page shows RON and EUR subtotals side by side as the authoritative figures. A single **approximate EUR-equivalent** grand total is shown *in addition* (computed from one app-wide display rate, clearly labelled), not in place of them.
 - **No new mutations.** No editing of contract values or bids from this page; it is read-only. Awarding still happens through the existing contract-award flow.
 - **No per-scope-item rollup.** BoQ sections do not reference `WorkPackage.ScopeItem`s, so cost cannot currently be attributed to individual scope items. Out of scope here.
 - **No schema/migration change.** The feature composes existing aggregates through existing repositories; it introduces no `DbSet`, configuration, or migration.
@@ -42,7 +42,8 @@ Goals:
 - [ ] For an awarded work package the line shows `Contract.Value`.
 - [ ] For a work package out to bid the line shows the **low–high range** of received BoQ totals plus the **count** of priced bids, grouped so currencies are never mixed in one range.
 - [ ] Project totals are computed **per currency**: committed (sum of contracts), estimated band (sum of low / sum of high of open work packages), and a projected band = committed + estimated.
-- [ ] The headline figure is **ex-VAT** (`Total`), with the VAT-inclusive figure (`TotalWithVat`) available secondarily.
+- [ ] All figures are **VAT-inclusive (gross)** — a budget is what will actually be paid. Bid ranges use the BoQ `TotalWithVat`; the contract's net agreed value is grossed up by the accepted BoQ's effective VAT ratio. Money column headers state the VAT basis explicitly (*"(cu TVA)"*).
+- [ ] An **approximate EUR-equivalent** projected total is shown alongside the per-currency totals, computed from a single app-wide display rate and labelled with the rate used.
 - [ ] A new Next.js page at `/projects/[id]/budget`, linked from the project detail page, renders the above with Romanian labels and `formatMoney`.
 
 ### Non-goals
@@ -109,7 +110,13 @@ EUR
 - **Projected total** = committed + estimated (a band).
 - **Unpriced footnote.** `Pending`/`None` work packages contribute nothing to the band; the page footnotes how many there are so the projected total is not misread as complete.
 
-Headline figures are **ex-VAT** (`Total` / `Contract.Value`), matching how construction budgets are tracked and how `Contract.Value` is seeded. The VAT-inclusive figures (`TotalWithVat`) are available on each line and can be surfaced as a secondary column / toggle.
+All figures are **VAT-inclusive (gross)** — a budget is what will actually be paid. Bid ranges use the BoQ `TotalWithVat`; the contract figure is grossed up (see below). The money column headers say so explicitly (*"(cu TVA)"*) so the VAT basis is never ambiguous.
+
+**Grossing up the contract figure.** `Contract.Value` is stored **net** and carries no VAT rate of its own, so the budget derives its gross by applying the accepted BoQ's *effective* VAT ratio — `TotalWithVat / Total` — to the agreed value. This honours the BoQ's actual per-line VAT mix (not a flat 21%) and any negotiated value, and falls back to the agreed value when the accepted BoQ is missing or has a zero total. The query therefore loads the accepted BoQ (`contract.AcceptedBoqId`) for awarded work packages.
+
+#### EUR-equivalent total
+
+Each work-package line also carries an **EUR (gross) column** — its figure converted to EUR (a single value for an awarded line, the converted candidate band for a bid line) — so individual packages can be compared in one currency. Below the native per-currency totals, the page shows one **approximate EUR-equivalent** figure (committed / estimated band / projected band), so the whole build can be read at a glance in a single currency without violating the no-cross-currency-`Money` rule. It is computed in the query, not the client: each per-currency total is converted to EUR through the existing `IExchangeRateProvider` port and summed. Conversion uses a **single app-wide display rate** (`ManualExchangeRateProvider`, default `1 EUR = 5.07 RON`, overridable via the `EXCHANGE_RATE_RON_PER_EUR` environment variable), *not* the per-BoQ pinned rates — so it is explicitly labelled approximate and the rate is shown. The pinned per-BoQ `ExchangeRate` remains the source of truth for a specific quote. The row is only rendered when it adds information (more than one currency, or the single currency is not already EUR).
 
 ### Backend — a read/query use case (hexagonal-preserving)
 
@@ -186,12 +193,12 @@ Resolved with the maintainer:
 - **Candidate display — range + count.** A work package out to bid shows the low–high band of its received BoQ totals and how many bids are priced, rather than only the lowest or a row per bid. Best for comparing offers at a glance.
 - **Currency totals — subtotal per currency.** Totals are shown per currency (RON, EUR) with no conversion, faithful to `Money`'s no-cross-currency rule. There is deliberately no single grand total across currencies.
 - **Page intent — projected cost of the whole build.** Totals emphasise committed contracts + a best-estimate band for everything still open, giving a forward-looking projection to track against, rather than only a static comparison board.
-- **Headline ex-VAT.** `Total` / `Contract.Value` (ex-VAT) is the headline figure; `TotalWithVat` is available as a secondary figure. Matches construction-budget convention and how `Contract.Value` is seeded.
+- **VAT-inclusive throughout (revised).** Every budget figure is gross — the amount that will actually be paid. Bid ranges use BoQ `TotalWithVat`; the net `Contract.Value` is grossed up by the accepted BoQ's effective VAT ratio. (This supersedes the original ex-VAT headline decision.)
 - **Read query, not domain behaviour.** The rollup is an Application-layer reporting query reading across aggregates through existing repository ports — no domain changes, no schema/migration, no mutations.
 
 ## Open Questions
 
-- **Cross-currency display total (deferred).** Per-currency subtotals are the decision. If a single converted grand total is later wanted, each BoQ already pins an `ExchangeRate` and `Contract`s reference an accepted BoQ, so a converted-to-RON (or EUR) projection could be added behind a chosen display currency without schema change. Deferred until per-currency proves insufficient.
+- **Cross-currency display total (resolved — approximate EUR equivalent).** An EUR-equivalent total is now shown alongside the per-currency subtotals, computed from a single app-wide display rate via `IExchangeRateProvider` and labelled approximate. A future refinement could prefer each figure's pinned per-BoQ rate (exact, but sparse — many BoQs have no rate) and fall back to the display rate only where absent.
 - **"Current BoQ per bid" precise rule.** The candidate uses each bid's latest non-superseded BoQ. Confirm at implementation time how a bid with multiple live (non-superseded) versions should be treated — expected to be at most one in practice.
 - **Performance.** First cut composes per-work-package repository calls. If a large project makes this chatty, fold into a single EF projection behind `IProjectBudgetQuery` (the port is designed to allow this without touching callers).
 
@@ -207,3 +214,9 @@ Two small concretisations of the design:
 
 - **"Current priced BoQ per bid"** is the latest BoQ version that is not `Rejected`/`Withdrawn` **and** carries a positive net `Total` — an empty/zero draft does not make a bid count as priced (it shows as *Pending* instead).
 - **An awarded contract counts toward `committed` regardless of contract status** (incl. `Terminated`); the awarded figure is still the work package's number. Treating a terminated contract as no-longer-committed is a possible future refinement.
+
+Follow-up additions (EUR equivalent + VAT-in-header):
+
+- **`ManualExchangeRateProvider` now supplies a cross EUR↔RON display rate** (it previously threw for cross-currency). Default `1 EUR = 5.07 RON`, overridable via `EXCHANGE_RATE_RON_PER_EUR`. No other code calls the port, so the behaviour change is self-contained.
+- **`ProjectBudgetQuery` gained `IExchangeRateProvider` + `TimeProvider`** and emits `EurEquivalentDto { ronPerEur, totals }` on `ProjectBudgetDto`; the page renders it as a labelled row plus the rate, shown only when it adds information. Each `WorkPackageBudgetLineDto` additionally carries an `EurBandDto? EurEquivalent` (gross, same display rate, one conversion date shared with the total), rendered as an **EUR (cu TVA)** column in the work-packages table.
+- **Budget is now VAT-inclusive throughout** (revised from the original ex-VAT headline). `CandidateRangeDto` carries only the gross `Low`/`High` (ranked by `TotalWithVat`); the committed figure is grossed up from the accepted BoQ's effective VAT ratio (`ContractGrossAsync`, which loads the BoQ by id). Totals and the EUR equivalent are gross by construction. Headers read *"(cu TVA)"*.

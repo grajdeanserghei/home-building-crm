@@ -1,3 +1,4 @@
+using HomeProjectManagement.Application.Abstractions;
 using HomeProjectManagement.Application.Contracts;
 using HomeProjectManagement.Domain.BillsOfQuantities;
 using HomeProjectManagement.Domain.Bids;
@@ -13,13 +14,17 @@ namespace HomeProjectManagement.Application.Budgeting;
 /// work package the figure is chosen in order: an awarded contract's value wins; otherwise the range
 /// of its bids' current priced BoQ totals; otherwise it is pending (bids, no price) or has no bids.
 /// Totals are accumulated per currency because <see cref="Money"/> rejects cross-currency arithmetic.
+/// All figures are VAT-inclusive (gross): bid ranges use the BoQ's <c>TotalWithVat</c>, and the
+/// contract's net agreed value is grossed up by the accepted BoQ's effective VAT ratio.
 /// </summary>
 public sealed class ProjectBudgetQuery(
     IProjectRepository projects,
     IWorkPackageRepository workPackages,
     IBidRepository bids,
     IBillOfQuantitiesRepository billsOfQuantities,
-    IContractRepository contracts) : IProjectBudgetQuery
+    IContractRepository contracts,
+    IExchangeRateProvider exchangeRates,
+    TimeProvider timeProvider) : IProjectBudgetQuery
 {
     public async Task<ProjectBudgetDto?> GetAsync(Guid projectId, CancellationToken cancellationToken = default)
     {
@@ -30,6 +35,10 @@ public sealed class ProjectBudgetQuery(
         }
 
         var packages = await workPackages.ListByProjectAsync(project.Id, cancellationToken);
+
+        // One conversion date for the whole rollup, so the per-line EUR column and the EUR-equivalent
+        // total use the same rate.
+        var asOf = DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime);
 
         var lines = new List<WorkPackageBudgetLineDto>(packages.Count);
 
@@ -42,6 +51,7 @@ public sealed class ProjectBudgetQuery(
         foreach (var package in packages.OrderBy(wp => wp.Sequence))
         {
             var line = await BuildLineAsync(package, cancellationToken);
+            line = line with { EurEquivalent = LineEur(line, asOf) };
             lines.Add(line);
 
             switch (line.Kind)
@@ -65,21 +75,88 @@ public sealed class ProjectBudgetQuery(
         }
 
         var totals = BuildTotals(committed, estimatedLow, estimatedHigh);
+        var eurEquivalent = BuildEurEquivalent(totals, asOf);
 
-        return new ProjectBudgetDto(project.Id.Value, project.Name, lines, totals, unpricedCount);
+        return new ProjectBudgetDto(
+            project.Id.Value, project.Name, lines, totals, unpricedCount, eurEquivalent);
+    }
+
+    /// <summary>
+    /// One work-package line's figure as an approximate EUR (gross) band: an awarded line's single
+    /// value (low == high), a bid line's candidate range converted and summed across currencies, or
+    /// null when the line has no figure.
+    /// </summary>
+    private EurBandDto? LineEur(WorkPackageBudgetLineDto line, DateOnly asOf)
+    {
+        if (line.Kind == BudgetLineKind.Contract && line.Committed is not null)
+        {
+            var eur = ToEur(line.Committed, asOf);
+            return new EurBandDto(eur, eur);
+        }
+
+        if (line.Kind == BudgetLineKind.Bids && line.Candidates.Count > 0)
+        {
+            var low = line.Candidates.Sum(c => ToEur(c.Low, asOf).Amount);
+            var high = line.Candidates.Sum(c => ToEur(c.High, asOf).Amount);
+            return new EurBandDto(new MoneyDto(low, Currency.EUR), new MoneyDto(high, Currency.EUR));
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Convert the per-currency totals to EUR with the single app-wide display rate and sum them into
+    /// one comparable figure. Null when there is nothing to convert. Approximate by design — the
+    /// per-BoQ pinned rate remains the source of truth for a specific quote.
+    /// </summary>
+    private EurEquivalentDto? BuildEurEquivalent(IReadOnlyList<CurrencyTotalsDto> totals, DateOnly asOf)
+    {
+        if (totals.Count == 0)
+        {
+            return null;
+        }
+
+        var ronPerEur = exchangeRates.GetRate(Currency.EUR, Currency.RON, asOf).Rate;
+
+        decimal SumEur(Func<CurrencyTotalsDto, MoneyDto> pick) =>
+            totals.Sum(t => ToEur(pick(t), asOf).Amount);
+
+        var eurTotals = new CurrencyTotalsDto(
+            Currency.EUR,
+            new MoneyDto(SumEur(t => t.Committed), Currency.EUR),
+            new MoneyDto(SumEur(t => t.EstimatedLow), Currency.EUR),
+            new MoneyDto(SumEur(t => t.EstimatedHigh), Currency.EUR),
+            new MoneyDto(SumEur(t => t.ProjectedLow), Currency.EUR),
+            new MoneyDto(SumEur(t => t.ProjectedHigh), Currency.EUR));
+
+        return new EurEquivalentDto(ronPerEur, eurTotals);
+    }
+
+    private MoneyDto ToEur(MoneyDto money, DateOnly asOf)
+    {
+        if (money.Currency == Currency.EUR)
+        {
+            return money;
+        }
+
+        var converted = exchangeRates
+            .GetRate(money.Currency, Currency.EUR, asOf)
+            .Convert(new Money(money.Amount, money.Currency));
+        return new MoneyDto(converted.Amount, converted.Currency);
     }
 
     private async Task<WorkPackageBudgetLineDto> BuildLineAsync(
         WorkPackage package,
         CancellationToken cancellationToken)
     {
-        // 1. Awarded → the contract value wins.
+        // 1. Awarded → the contract value (grossed up to VAT-inclusive) wins.
         if (package.AwardedContractId is not null)
         {
             var contract = await contracts.GetByWorkPackageAsync(package.Id, cancellationToken);
             if (contract is not null)
             {
-                return Line(package, BudgetLineKind.Contract, committed: ToDto(contract.Value), candidates: []);
+                var committed = await ContractGrossAsync(contract, cancellationToken);
+                return Line(package, BudgetLineKind.Contract, committed: ToDto(committed), candidates: []);
             }
         }
 
@@ -126,16 +203,31 @@ public sealed class ProjectBudgetQuery(
 
     private static CandidateRangeDto BuildRange(IGrouping<Currency, BillOfQuantities> group)
     {
-        var ordered = group.OrderBy(boq => boq.Total.Amount).ToList();
-        var low = ordered[0];
-        var high = ordered[^1];
+        // Ranked by the VAT-inclusive total — the figure the budget reports.
+        var ordered = group.OrderBy(boq => boq.TotalWithVat.Amount).ToList();
         return new CandidateRangeDto(
             group.Key,
-            ToDto(low.Total),
-            ToDto(high.Total),
-            ToDto(low.TotalWithVat),
-            ToDto(high.TotalWithVat),
+            ToDto(ordered[0].TotalWithVat),
+            ToDto(ordered[^1].TotalWithVat),
             ordered.Count);
+    }
+
+    /// <summary>
+    /// The contract's agreed value made VAT-inclusive. <c>Contract.Value</c> is net and carries no VAT
+    /// rate, so the gross is derived by applying the accepted BoQ's <i>effective</i> VAT ratio
+    /// (<c>TotalWithVat / Total</c>) — which honours the BoQ's actual per-line VAT mix and any
+    /// negotiated value. Falls back to the agreed value when the BoQ is missing or has a zero total.
+    /// </summary>
+    private async Task<Money> ContractGrossAsync(Contract contract, CancellationToken cancellationToken)
+    {
+        var boq = await billsOfQuantities.GetAsync(contract.AcceptedBoqId, cancellationToken);
+        if (boq is not null && boq.Total.Amount != 0m)
+        {
+            var vatRatio = boq.TotalWithVat.Amount / boq.Total.Amount;
+            return contract.Value.Multiply(vatRatio);
+        }
+
+        return contract.Value;
     }
 
     private static IReadOnlyList<CurrencyTotalsDto> BuildTotals(
@@ -168,6 +260,7 @@ public sealed class ProjectBudgetQuery(
     private static void Accumulate(Dictionary<Currency, decimal> totals, MoneyDto money) =>
         totals[money.Currency] = totals.GetValueOrDefault(money.Currency) + money.Amount;
 
+    // The EUR band is filled in by the caller (LineEur) once the native figure is known.
     private static WorkPackageBudgetLineDto Line(
         WorkPackage package,
         BudgetLineKind kind,
@@ -179,7 +272,8 @@ public sealed class ProjectBudgetQuery(
         package.Sequence,
         kind,
         committed,
-        candidates);
+        candidates,
+        EurEquivalent: null);
 
     private static MoneyDto ToDto(Money money) => new(money.Amount, money.Currency);
 }

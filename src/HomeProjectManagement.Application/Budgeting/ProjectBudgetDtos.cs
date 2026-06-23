@@ -9,14 +9,26 @@ namespace HomeProjectManagement.Application.Budgeting;
 /// any awarded contract) to answer one question: what is the project going to cost? Reuses
 /// <see cref="MoneyDto"/> from the contracts read model. Money is reported <b>per currency</b> —
 /// the <see cref="Money"/> value object refuses to sum across currencies, so there is no single
-/// cross-currency grand total. Headline figures are net (VAT-exclusive).
+/// cross-currency grand total. <b>All figures are VAT-inclusive (gross)</b> — a budget is what will
+/// actually be paid.
 /// </summary>
 public sealed record ProjectBudgetDto(
     Guid ProjectId,
     string ProjectName,
     IReadOnlyList<WorkPackageBudgetLineDto> Lines,
     IReadOnlyList<CurrencyTotalsDto> TotalsByCurrency,
-    int UnpricedWorkPackageCount);
+    int UnpricedWorkPackageCount,
+    EurEquivalentDto? EurEquivalent);
+
+/// <summary>
+/// The per-currency totals converted to EUR and summed into one comparable figure (committed,
+/// estimated band, projected band). Approximate — computed from a single app-wide display rate
+/// (<see cref="RonPerEur"/>, "1 EUR = N RON"), not the per-BoQ pinned rates. Null when there are
+/// no figures to convert.
+/// </summary>
+public sealed record EurEquivalentDto(
+    decimal RonPerEur,
+    CurrencyTotalsDto Totals);
 
 /// <summary>How a work-package line derives its cost figure — the rule is decided server-side.</summary>
 public enum BudgetLineKind
@@ -46,26 +58,33 @@ public sealed record WorkPackageBudgetLineDto(
     int Sequence,
     BudgetLineKind Kind,
     MoneyDto? Committed,
-    IReadOnlyList<CandidateRangeDto> Candidates);
+    IReadOnlyList<CandidateRangeDto> Candidates,
+    EurBandDto? EurEquivalent);
+
+/// <summary>
+/// A work-package line's figure expressed as an approximate EUR (gross) band, using the single
+/// app-wide display rate. <see cref="Low"/> equals <see cref="High"/> for an awarded (single-value)
+/// line; for a bid line they are the candidate range's ends converted and summed across currencies.
+/// Null for lines with no figure (pending / no bids).
+/// </summary>
+public sealed record EurBandDto(MoneyDto Low, MoneyDto High);
 
 /// <summary>
 /// The spread of candidate bid prices for one work package in a single currency. <see cref="Low"/>
-/// and <see cref="High"/> are net (VAT-exclusive) BoQ totals; the <c>WithVat</c> pair is the same two
-/// bids' gross totals. <see cref="BidCount"/> is how many bids in this currency carry a priced BoQ.
+/// and <see cref="High"/> are VAT-inclusive (gross) BoQ totals. <see cref="BidCount"/> is how many
+/// bids in this currency carry a priced BoQ.
 /// </summary>
 public sealed record CandidateRangeDto(
     Currency Currency,
     MoneyDto Low,
     MoneyDto High,
-    MoneyDto LowWithVat,
-    MoneyDto HighWithVat,
     int BidCount);
 
 /// <summary>
 /// Project-level projection for one currency. <see cref="Committed"/> is the sum of contract values;
 /// <see cref="EstimatedLow"/>/<see cref="EstimatedHigh"/> sum the candidate ranges of the work
 /// packages still out to bid; the projected band adds the two (committed counts at both ends).
-/// All net (VAT-exclusive).
+/// All VAT-inclusive (gross).
 /// </summary>
 public sealed record CurrencyTotalsDto(
     Currency Currency,

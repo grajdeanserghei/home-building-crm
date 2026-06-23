@@ -647,22 +647,27 @@ export async function getContractByWorkPackage(
 // work-package line picks its figure server-side: an awarded contract's value
 // wins; otherwise the range of received BoQ totals; otherwise it is pending (bids
 // but no price) or has none. Money is reported per currency (RON/EUR are never
-// summed together). Headline figures are net (VAT-exclusive). See
+// summed together). All figures are VAT-inclusive (gross). See
 // docs/specifications/project-budget-view.md.
 
 // How a work-package line derives its figure (mirrors the BudgetLineKind enum).
 export type BudgetLineKind = "Contract" | "Bids" | "Pending" | "None";
 
 // The spread of candidate bid prices for one work package in one currency. `low`/
-// `high` are net (VAT-exclusive); the `withVat` pair is the same two bids' gross
-// totals. `bidCount` is how many bids in this currency carry a priced BoQ.
+// `high` are VAT-inclusive (gross) BoQ totals. `bidCount` is how many bids in this
+// currency carry a priced BoQ.
 export interface CandidateRange {
   currency: Currency;
   low: Money;
   high: Money;
-  lowWithVat: Money;
-  highWithVat: Money;
   bidCount: number;
+}
+
+// A work-package figure as an approximate EUR (gross) band: low === high for an
+// awarded line, the converted candidate band for a bid line.
+export interface EurBand {
+  low: Money;
+  high: Money;
 }
 
 export interface WorkPackageBudgetLine {
@@ -673,6 +678,7 @@ export interface WorkPackageBudgetLine {
   kind: BudgetLineKind;
   committed?: Money | null; // set only when kind === "Contract"
   candidates: CandidateRange[]; // one per currency, only when kind === "Bids"
+  eurEquivalent?: EurBand | null; // approximate EUR (gross); null when no figure
 }
 
 // Project-level projection for one currency: committed contracts, the estimated
@@ -687,12 +693,21 @@ export interface CurrencyTotals {
   projectedHigh: Money;
 }
 
+// The per-currency totals converted to EUR and summed into one comparable figure,
+// using a single app-wide display rate (`ronPerEur`, "1 EUR = N RON"). Approximate —
+// the per-BoQ pinned rate stays the source of truth for a specific quote.
+export interface EurEquivalent {
+  ronPerEur: number;
+  totals: CurrencyTotals; // currency === "EUR"
+}
+
 export interface ProjectBudget {
   projectId: string;
   projectName: string;
   lines: WorkPackageBudgetLine[];
   totalsByCurrency: CurrencyTotals[];
   unpricedWorkPackageCount: number; // work packages with no figure (pending / no bids)
+  eurEquivalent?: EurEquivalent | null; // null when there are no figures to convert
 }
 
 export async function getProjectBudget(

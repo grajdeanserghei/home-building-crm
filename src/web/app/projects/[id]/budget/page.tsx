@@ -7,6 +7,7 @@ import {
   type CandidateRange,
   type Money,
 } from "@/app/lib/api";
+import { formatNumber } from "@/app/lib/format";
 import { t } from "@/app/lib/i18n";
 import styles from "@/app/page.module.css";
 
@@ -45,6 +46,14 @@ export default async function ProjectBudgetPage({
     notFound();
   }
 
+  // Show the EUR-equivalent total only when it adds information — i.e. there is more
+  // than one currency, or the single currency in play is not already EUR.
+  const eur = budget.eurEquivalent ?? null;
+  const showEur =
+    eur !== null &&
+    (budget.totalsByCurrency.length > 1 ||
+      budget.totalsByCurrency[0]?.currency !== "EUR");
+
   return (
     <main className={styles.main}>
       <Link href={`/projects/${id}`} className={styles.backLink}>
@@ -66,6 +75,7 @@ export default async function ProjectBudgetPage({
                 <th>{t("common.status")}</th>
                 <th>{t("budget.col.committed")}</th>
                 <th>{t("budget.col.candidates")}</th>
+                <th>{t("budget.col.eur")}</th>
               </tr>
             </thead>
             <tbody>
@@ -109,6 +119,11 @@ export default async function ProjectBudgetPage({
                       "—"
                     )}
                   </td>
+                  <td>
+                    {line.eurEquivalent
+                      ? band(line.eurEquivalent.low, line.eurEquivalent.high)
+                      : "—"}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -141,8 +156,29 @@ export default async function ProjectBudgetPage({
                   </td>
                 </tr>
               ))}
+              {showEur && eur && (
+                <tr>
+                  <td>
+                    <strong>{t("budget.eurEquivalent")}</strong>
+                  </td>
+                  <td>{formatMoney(eur.totals.committed)}</td>
+                  <td>
+                    {band(eur.totals.estimatedLow, eur.totals.estimatedHigh)}
+                  </td>
+                  <td>
+                    <strong>
+                      {band(eur.totals.projectedLow, eur.totals.projectedHigh)}
+                    </strong>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
+          {showEur && eur && (
+            <p className={styles.muted}>
+              {t("budget.eurRate", { rate: formatNumber(eur.ronPerEur) })}
+            </p>
+          )}
           {budget.unpricedWorkPackageCount > 0 && (
             <p className={styles.muted}>
               {budget.unpricedWorkPackageCount === 1
