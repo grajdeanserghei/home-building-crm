@@ -234,7 +234,7 @@ export const ro = {
     "Un pachet de lucrări nu are încă un preț și nu este inclus în estimare.",
 
   // — Scope items (within a work package) ————————————————————————————————
-  "scopeItems.title": "Articole de scop",
+  "scopeItems.title": "Cerințe de execuție",
   "scopeItems.subtitle":
     "Sub-domeniile definite de proprietar pentru acest pachet de lucrări — ce trebuie făcut și ce ar putea fi eliminat sau amânat dacă bugetul este limitat.",
   "scopeItems.empty": "Niciun articol de scop încă. Adaugă primul mai jos.",
