@@ -27,9 +27,9 @@ map onto them cleanly.
 | **Work Package** | _categorie de lucrări / lucrare_ | A defined scope of work within a project that is procured as a unit (e.g. La Roșu, Tâmplărie, Instalații Sanitare, Bransament Gaz). Defined up front, **before** any contractor exists; contractors are then found per work package. Friendly alias: "Scope of Work". |
 | **Scope Item** | _componentă de lucrare_ | An **owner-defined sub-scope of a single Work Package** (e.g. within "Instalații termice": Încălzire pardoseală, Cameră tehnică gaz, Răcire tavan, Ventilare cu recuperare). Defined up front as part of *your* scoping — distinct from a Section, which is one *contractor's* internal breakdown of their quote. Each Scope Item is **Mandatory or Optional**, which drives "what can we drop if money is tight?". A contractor's BoQ Sections are allocated to Scope Items so a quote rolls up per scope item for side-by-side comparison. |
 | **Contractor** | _antreprenor / ofertant_ | A construction **firm** (master data: name, fiscal code, contact). Exists independently of any project, and may bid on — and be selected for — several work packages. The firm is one entity; the *role* it plays per work package is captured by **Bid** (during selection) and **Contract** (after selection), not by duplicating the firm. |
-| **Bid** | _ofertă_ | A contractor's participation in **one work package's selection process**. Created when discussions begin (possibly before any quote), it records the **discussion notes**, carries a **status**, and groups the **BoQ version(s)** that contractor submits. One Bid per (work package, contractor). |
+| **Bid** | _ofertă_ | A contractor's participation in **one work package's selection process**. Created when discussions begin (possibly before any quote), it records the **discussion notes**, carries a **status**, and holds the single **BoQ** that contractor submits. One Bid per (work package, contractor). |
 | **Discussion note** | _notă / minută_ | A timestamped note in a Bid's discussion log (a meeting, call, email, or remark with a contractor about a work package). Lives inside the Bid. |
-| **Bill of Quantities (BoQ)** | _deviz de cheltuieli / deviz_ | A contractor's priced, itemized cost estimate submitted **within a Bid** (for that Bid's single work package). A Bid may have several BoQ versions over negotiation; each BoQ covers exactly one work package. |
+| **Bill of Quantities (BoQ)** | _deviz de cheltuieli / deviz_ | A contractor's priced, itemized cost estimate submitted **within a Bid** (for that Bid's single work package). A Bid has **at most one BoQ**; a revised `deviz` replaces its contents in place rather than creating another version. Each BoQ covers exactly one work package. |
 | **Contract** | _contract / atribuire_ | The award for a work package: when a Bid is selected, a contract is created from that Bid's accepted BoQ. A work package has at most one contract; the contract references the accepted BoQ and thereby its Bid and contractor. |
 | **Section** | _capitol de deviz_ | A grouping of line items **inside a single BoQ** (e.g. Foundation, Structure, Roof within a La Roșu quote). This is the *internal structure of one quote*, distinct from a Work Package (the *procurement unit*). |
 | **Subsection** | _subcapitol de deviz_ | A fixed second-level grouping of line items **inside a Section** (e.g. Excavation, Reinforcement within Foundation). The nesting depth is fixed at one: a subsection groups line items but never holds further subsections. Optional — a section may hold line items directly, inside subsections, or both. |
@@ -46,7 +46,7 @@ erDiagram
     WORK_PACKAGE ||--o{ SCOPE_ITEM : "is scoped into"
     WORK_PACKAGE ||--o{ BID : "receives bids from"
     CONTRACTOR ||--o{ BID : "submits"
-    BID ||--o{ BILL_OF_QUANTITIES : "includes versions of"
+    BID ||--o| BILL_OF_QUANTITIES : "is priced by"
     BID ||--o{ DISCUSSION_NOTE : "records"
     WORK_PACKAGE ||--o| CONTRACT : "is awarded via"
     CONTRACT ||--|| BILL_OF_QUANTITIES : "accepts"
@@ -114,7 +114,6 @@ erDiagram
         uuid id PK
         uuid bidId FK
         string reference
-        int version
         BoqStatus status
         string pricingCurrency
         ExchangeRate exchangeRate
@@ -170,7 +169,7 @@ erDiagram
 
 A **Bid** sits at the intersection of a **Work Package** (what is being procured)
 and a **Contractor** (who is participating) — one Bid per pair. A Bid records the
-**discussion notes** and groups the **BoQ version(s)** that contractor submits.
+**discussion notes** and holds the single **BoQ** that contractor submits.
 When one Bid is **selected**, a **Contract** is created from its accepted BoQ —
 at most one contract per work package.
 
@@ -193,7 +192,7 @@ Ventilare cu recuperare       Optional      C2 10k
 The offer count differs per scope item because each contractor's BoQ only contains
 sections for the scope items they actually priced; sections left unallocated
 (`scopeItemId` null) count as general/uncategorized cost. An "offer" for a scope
-item is its subtotal within the contractor's **current BoQ version**.
+item is its subtotal within the contractor's **BoQ**.
 
 ### Relationship summary
 
@@ -204,7 +203,7 @@ item is its subtotal within the contractor's **current BoQ version**.
 | Work Package | Bid | one-to-many | A work package receives competing bids, one per participating contractor. |
 | Contractor | Bid | one-to-many | A contractor may bid on several work packages. (One Bid per work-package/contractor pair.) |
 | Bid | Discussion note | one-to-many | A bid accumulates a timestamped discussion log. |
-| Bid | Bill of Quantities | one-to-many | A bid may contain several BoQ versions over negotiation. |
+| Bid | Bill of Quantities | one-to-zero-or-one | A bid has at most one BoQ; a revised deviz replaces its contents in place. |
 | Work Package | Contract | one-to-zero-or-one | A work package has at most one contract, created once a bid is selected. |
 | Contract | Bill of Quantities | one-to-one | A contract is created from exactly one accepted BoQ; its bid and contractor are reached through that BoQ. |
 | Bill of Quantities | Section | one-to-many | A BoQ is split into internal sections. |
@@ -225,7 +224,7 @@ Project (the duplex build)
      ├─ Bid (one per participating contractor)
      │   │   └─► Contractor (the firm)
      │   ├─ Discussion note (meetings, calls, emails — from first contact)
-     │   └─ Bill of Quantities (BoQ version submitted in this bid)
+     │   └─ Bill of Quantities (the single deviz submitted in this bid)
      │       └─ Section (Foundation, Structure, Roof — internal grouping of one quote)
      │           │   └─► Scope Item (optional allocation, for per-scope-item rollup)
      │           ├─ Subsection (optional second level — Excavation, Reinforcement …)
@@ -548,7 +547,6 @@ authentication context, not a domain entity.
 | id | BoqId | Identity (aggregate root). |
 | bidId | BidId | The bid this BoQ belongs to (by id); work package & contractor reached through it. |
 | reference | string | The contractor's own `deviz` number/label. Optional. |
-| version | int | BoQ revision within the bid (1, 2, …). |
 | status | BoqStatus | `Accepted` is what a Contract is created from. |
 | pricingCurrency | string (ISO 4217) | RON or EUR — the currency all `Money` fields are stored in. |
 | exchangeRate | ExchangeRate | Pinned EUR↔RON rate so the other currency is derivable. |
@@ -639,7 +637,7 @@ authentication context, not a domain entity.
 - [x] **Attributes defined** for each entity, with value objects (Money,
   ExchangeRate, Address, ContactInfo) and enums. (See [Attributes](#attributes).)
 - [x] **Selection process modelled** — the firm is one `Contractor`; its role per
-  work package is a **`Bid`** (with a `DiscussionNote` log and BoQ versions) during
+  work package is a **`Bid`** (with a `DiscussionNote` log and a single BoQ) during
   selection and a **`Contract`** after. Contractor is *not* split into two entities.
 - [x] **Currency policy** — RON + EUR. A BoQ is priced in one `pricingCurrency`;
   both currencies are derived via a pinned `ExchangeRate` (single source of truth).
@@ -654,8 +652,11 @@ authentication context, not a domain entity.
   the Bid aggregate. (See [Aggregates](#aggregates).)
 - [x] **Awarded BoQ is modelled as a full `Contract` entity** (one per work
   package, created from the selected bid's accepted BoQ).
-- [x] **One BoQ per work package** — each BoQ covers a single work package; a bid
-  may hold several BoQ *versions* of it.
+- [x] **One BoQ per bid** — each bid has at most one BoQ (covering its single work
+  package). A revised `deviz` **replaces the BoQ's contents in place** (clearing its
+  sections and re-pointing the source document) rather than creating another version;
+  the only snapshot that must stay immutable — the accepted BoQ — is frozen by the
+  `Accept` status lock. Negotiation history lives in the bid's discussion notes.
 - [x] **Work Package sub-scopes modelled as `ScopeItem`s** — owner-defined,
   Mandatory/Optional, local entities inside the Work Package aggregate. BoQ
   Sections are loosely allocated to a Scope Item (`scopeItemId`) so each

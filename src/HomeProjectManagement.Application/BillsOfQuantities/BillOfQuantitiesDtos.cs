@@ -11,7 +11,6 @@ public sealed record BillOfQuantitiesDto(
     Guid Id,
     Guid BidId,
     string? Reference,
-    int Version,
     BoqStatus Status,
     Currency PricingCurrency,
     ExchangeRateDto? ExchangeRate,
@@ -84,12 +83,28 @@ public sealed record ExchangeRateDto(
     DateOnly AsOf);
 
 /// <summary>
-/// Input for drafting a new BoQ version within a bid. The owning bid comes from the route; the
-/// version number is assigned by the service (next after the bid's existing versions). A freshly
-/// drafted BoQ starts in status <c>Draft</c> with no sections.
+/// Input for drafting the BoQ for a bid. The owning bid comes from the route. A freshly drafted BoQ
+/// starts in status <c>Draft</c> with no sections. There is at most one BoQ per bid: drafting again
+/// with the same <c>SourceContentHash</c> returns the existing BoQ (idempotent); drafting a different
+/// quote for a bid that already has one is rejected — replace its contents instead.
 /// </summary>
 public sealed record DraftBillOfQuantitiesCommand(
     Currency PricingCurrency,
+    string? Reference,
+    ExchangeRateDto? ExchangeRate,
+    DateTimeOffset? SubmittedOn,
+    DateTimeOffset? ValidUntil,
+    string? SourceContentHash = null,
+    string? SourceDocumentFileName = null,
+    string? SourceDocumentUrl = null);
+
+/// <summary>
+/// Input for replacing a BoQ's contents in place when a revised <c>deviz</c> supersedes it: the
+/// existing sections/subsections/line items are dropped and the header + provenance are re-pointed
+/// to the new document, ready to re-ingest its sections and lines. The pricing currency is fixed at
+/// draft time and cannot change here. Allowed only while the BoQ is still editable.
+/// </summary>
+public sealed record ReplaceBoqContentsCommand(
     string? Reference,
     ExchangeRateDto? ExchangeRate,
     DateTimeOffset? SubmittedOn,

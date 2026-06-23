@@ -4,23 +4,25 @@ namespace HomeProjectManagement.ApiService.Endpoints;
 
 /// <summary>
 /// The driving (primary) adapter for bills of quantities: thin minimal-API endpoints that call
-/// <see cref="IBillOfQuantitiesAppService"/> and return DTOs. A BoQ's versions are nested under
-/// their bid; an individual BoQ is a root, addressable by its own id, with sub-resources for its
+/// <see cref="IBillOfQuantitiesAppService"/> and return DTOs. A bid has at most one BoQ, reachable
+/// under the bid; an individual BoQ is a root, addressable by its own id, with sub-resources for its
 /// sections and line items. Domain rule violations (inactive unit, currency mismatch, editing a
-/// closed BoQ, illegal status transition) are raised as domain exceptions and turned into
-/// ProblemDetails (validation → 400, conflict → 409) by the global exception handler, so the
-/// endpoints stay thin.
+/// closed BoQ, illegal status transition, a second BoQ for a bid) are raised as domain exceptions and
+/// turned into ProblemDetails (validation → 400, conflict → 409) by the global exception handler, so
+/// the endpoints stay thin.
 /// </summary>
 public static class BillOfQuantitiesEndpoints
 {
     public static IEndpointRouteBuilder MapBillOfQuantitiesEndpoints(this IEndpointRouteBuilder app)
     {
-        // Bid-scoped collection: list and draft the BoQ versions within a bid.
+        // Bid-scoped resource: get or draft the single BoQ for a bid.
         var byBid = app.MapGroup("/api/bids/{bidId:guid}/bills-of-quantities");
 
         byBid.MapGet("/",
             async (Guid bidId, IBillOfQuantitiesAppService service, CancellationToken ct) =>
-                Results.Ok(await service.ListByBidAsync(bidId, ct)));
+                await service.GetByBidAsync(bidId, ct) is { } boq
+                    ? Results.Ok(boq)
+                    : Results.NotFound());
 
         byBid.MapPost("/",
             async (Guid bidId, DraftBillOfQuantitiesCommand command, IBillOfQuantitiesAppService service, CancellationToken ct) =>
@@ -40,6 +42,14 @@ public static class BillOfQuantitiesEndpoints
         boqs.MapPut("/{id:guid}",
             async (Guid id, UpdateBillOfQuantitiesCommand command, IBillOfQuantitiesAppService service, CancellationToken ct) =>
                 await service.UpdateAsync(id, command, ct) is { } updated
+                    ? Results.Ok(updated)
+                    : Results.NotFound());
+
+        // Replace a BoQ's contents in place when a revised deviz supersedes it (clears sections,
+        // re-points provenance), ready to re-ingest the new document onto the same BoQ.
+        boqs.MapPost("/{id:guid}/replace-contents",
+            async (Guid id, ReplaceBoqContentsCommand command, IBillOfQuantitiesAppService service, CancellationToken ct) =>
+                await service.ReplaceContentsAsync(id, command, ct) is { } updated
                     ? Results.Ok(updated)
                     : Results.NotFound());
 

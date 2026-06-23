@@ -108,7 +108,7 @@ export default async function ContractDetailPage({
                 href={`/bills-of-quantities/${boq.id}`}
                 className={styles.nameLink}
               >
-                v{boq.version}
+                {t("boq.title")}
                 {boq.reference ? ` · ${boq.reference}` : ""} (
                 {t("contracts.inclVat", {
                   amount: formatMoney(boq.totalWithVat),

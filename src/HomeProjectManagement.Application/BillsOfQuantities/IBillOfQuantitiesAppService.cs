@@ -9,18 +9,27 @@ namespace HomeProjectManagement.Application.BillsOfQuantities;
 /// </summary>
 public interface IBillOfQuantitiesAppService
 {
-    /// <summary>The BoQ versions submitted within a bid.</summary>
-    Task<IReadOnlyList<BillOfQuantitiesDto>> ListByBidAsync(Guid bidId, CancellationToken cancellationToken = default);
+    /// <summary>The single BoQ for a bid, or null if none has been drafted yet (at most one per bid).</summary>
+    Task<BillOfQuantitiesDto?> GetByBidAsync(Guid bidId, CancellationToken cancellationToken = default);
 
     Task<BillOfQuantitiesDto?> GetAsync(Guid id, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Draft a new BoQ version for a bid. Returns null if the bid does not exist. The version
-    /// number is assigned automatically (next after the bid's existing versions).
+    /// Draft the BoQ for a bid. Returns null if the bid does not exist. There is at most one BoQ per
+    /// bid: re-drafting with the same source content hash returns the existing BoQ (idempotent), and
+    /// drafting a different quote for a bid that already has one is rejected (409) — use
+    /// <see cref="ReplaceContentsAsync"/> to supersede it instead.
     /// </summary>
     Task<BillOfQuantitiesDto?> DraftAsync(Guid bidId, DraftBillOfQuantitiesCommand command, CancellationToken cancellationToken = default);
 
     Task<BillOfQuantitiesDto?> UpdateAsync(Guid id, UpdateBillOfQuantitiesCommand command, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Replace a BoQ's contents in place when a revised <c>deviz</c> supersedes it: clears its
+    /// sections/subsections/line items and re-points the header + provenance, ready to re-ingest the
+    /// new document. Returns null if the BoQ does not exist; throws (409) if it is no longer editable.
+    /// </summary>
+    Task<BillOfQuantitiesDto?> ReplaceContentsAsync(Guid id, ReplaceBoqContentsCommand command, CancellationToken cancellationToken = default);
 
     /// <summary>Transition the BoQ's status. Returns null if it does not exist.</summary>
     Task<BillOfQuantitiesDto?> ChangeStatusAsync(Guid id, ChangeBoqStatusCommand command, CancellationToken cancellationToken = default);

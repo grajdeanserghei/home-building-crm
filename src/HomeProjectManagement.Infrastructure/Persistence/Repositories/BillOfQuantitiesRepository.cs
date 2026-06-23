@@ -13,12 +13,11 @@ public sealed class BillOfQuantitiesRepository(AppDbContext db) : IBillOfQuantit
     public async Task<BillOfQuantities?> GetAsync(BoqId id, CancellationToken cancellationToken = default) =>
         await db.BillsOfQuantities.FirstOrDefaultAsync(b => b.Id == id, cancellationToken);
 
-    public async Task<IReadOnlyList<BillOfQuantities>> ListByBidAsync(
+    public async Task<BillOfQuantities?> GetByBidAsync(
         BidId bidId,
         CancellationToken cancellationToken = default) =>
         await db.BillsOfQuantities
-            .Where(b => b.BidId == bidId)
-            .ToListAsync(cancellationToken);
+            .FirstOrDefaultAsync(b => b.BidId == bidId, cancellationToken);
 
     public void Add(BillOfQuantities root) => db.BillsOfQuantities.Add(root);
 

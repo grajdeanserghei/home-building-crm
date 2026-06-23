@@ -30,11 +30,13 @@ public static class BoqTools
         [property: Description("Optional section description.")] string? Description = null);
 
     [McpServerTool(Name = "create_boq"), Description(
-        "Create a draft Bill of Quantities under a bid (open_bid first — a BoQ belongs to a bid, through " +
-        "which its work package and contractor are reached). Supply the pricing currency (RON or EUR); all " +
-        "line prices must be in it. For idempotent ingestion, pass sourceContentHash (the SHA-256 you " +
-        "computed over the source PDF): re-running with the same hash returns the existing BoQ instead of " +
-        "duplicating. Returns the draft BoQ including its boqId.")]
+        "Create the draft Bill of Quantities for a bid (open_bid first — a BoQ belongs to a bid, through " +
+        "which its work package and contractor are reached). There is at most one BoQ per bid. Supply the " +
+        "pricing currency (RON or EUR); all line prices must be in it. For idempotent ingestion, pass " +
+        "sourceContentHash (the SHA-256 you computed over the source PDF): re-running with the same hash " +
+        "returns the existing BoQ instead of duplicating. If a BoQ already exists for the bid from a " +
+        "different document, this is rejected — use replace_boq_contents to supersede it with the revised " +
+        "deviz. Returns the draft BoQ including its boqId.")]
     public static async Task<BillOfQuantitiesDto> CreateBoq(
         IBillOfQuantitiesAppService service,
         [Description("The owning bid id (from open_bid).")] Guid bidId,
@@ -68,6 +70,45 @@ public static class BoqTools
                ?? throw new McpException($"No bid exists with id {bidId}.");
     }
 
+    [McpServerTool(Name = "replace_boq_contents"), Description(
+        "Replace an existing BoQ's contents in place when the contractor sends a revised deviz — clears its " +
+        "sections, subsections, and line items and re-points the header + provenance (reference, rate, dates, " +
+        "source document/hash) to the new document, ready to re-ingest with add_boq_sections / " +
+        "add_boq_line_items. Use this instead of create_boq when get_bid_boq shows the bid already has a BoQ. " +
+        "Only works while the BoQ is still editable (Draft/Submitted). The pricing currency is fixed and " +
+        "cannot change. Returns the now-empty BoQ.")]
+    public static async Task<BillOfQuantitiesDto> ReplaceBoqContents(
+        IBillOfQuantitiesAppService service,
+        [Description("The BoQ id (from get_bid_boq).")] Guid boqId,
+        [Description("The contractor's own deviz number/label on the revised document, if any.")] string? reference = null,
+        [Description("SHA-256 hex digest of the revised source PDF, for idempotency + audit.")] string? sourceContentHash = null,
+        [Description("Revised source document file name, for provenance.")] string? sourceDocumentFileName = null,
+        [Description("Revised source document URL, if stored somewhere.")] string? sourceDocumentUrl = null,
+        [Description("Pinned exchange rate base currency (e.g. EUR), if pinning a EUR↔RON rate.")] Currency? exchangeRateBaseCurrency = null,
+        [Description("Pinned exchange rate quote currency (e.g. RON).")] Currency? exchangeRateQuoteCurrency = null,
+        [Description("Pinned exchange rate value (units of quote per base).")] decimal? exchangeRate = null,
+        [Description("The date the pinned rate is as-of (yyyy-MM-dd).")] DateOnly? exchangeRateAsOf = null,
+        [Description("When the revised quote was received (absolute ISO timestamp).")] DateTimeOffset? submittedOn = null,
+        [Description("Offer expiry (absolute ISO timestamp).")] DateTimeOffset? validUntil = null,
+        CancellationToken ct = default)
+    {
+        ExchangeRateDto? rate = null;
+        if (exchangeRateBaseCurrency is { } baseCurrency
+            && exchangeRateQuoteCurrency is { } quoteCurrency
+            && exchangeRate is { } value
+            && exchangeRateAsOf is { } asOf)
+        {
+            rate = new ExchangeRateDto(baseCurrency, quoteCurrency, value, asOf);
+        }
+
+        var command = new ReplaceBoqContentsCommand(
+            reference, rate, submittedOn, validUntil,
+            sourceContentHash, sourceDocumentFileName, sourceDocumentUrl);
+
+        return await service.ReplaceContentsAsync(boqId, command, ct)
+               ?? throw new McpException($"No bill of quantities exists with id {boqId}.");
+    }
+
     [McpServerTool(Name = "add_boq_sections"), Description(
         "Add one or more sections to a draft BoQ (the deviz's chapters). Sequence is assigned automatically " +
         "when omitted. Returns the updated BoQ; read each section's id from it before adding line items.")]
@@ -92,6 +133,25 @@ public static class BoqTools
         }
 
         return updated ?? throw new McpException($"No bill of quantities exists with id {boqId}.");
+    }
+
+    [McpServerTool(Name = "revise_boq_section"), Description(
+        "Rename, reorder, or re-describe an existing section of a BoQ — edits the section itself, not its " +
+        "line items. Provide all of name, sequence, and description (omit description to clear it). Only " +
+        "works while the BoQ is still editable (Draft/Submitted). Returns the updated BoQ.")]
+    public static async Task<BillOfQuantitiesDto> ReviseBoqSection(
+        IBillOfQuantitiesAppService service,
+        [Description("The BoQ id.")] Guid boqId,
+        [Description("The section id to revise.")] Guid sectionId,
+        [Description("The corrected section name.")] string name,
+        [Description("Order of the section within the BoQ.")] int sequence,
+        [Description("Section description (omit to clear it).")] string? description = null,
+        CancellationToken ct = default)
+    {
+        return await service.UpdateSectionAsync(
+                   boqId, sectionId, new SectionCommand(name, sequence, description), ct)
+               ?? throw new McpException(
+                   $"BoQ {boqId} or section {sectionId} was not found.");
     }
 
     [McpServerTool(Name = "add_boq_line_items"), Description(
@@ -210,6 +270,26 @@ public static class BoqTools
         return updated ?? throw new McpException($"BoQ {boqId} or section {sectionId} was not found.");
     }
 
+    [McpServerTool(Name = "revise_boq_subsection"), Description(
+        "Rename, reorder, or re-describe an existing subsection of a BoQ — edits the subsection itself, not " +
+        "its line items. Provide all of name, sequence, and description (omit description to clear it). Only " +
+        "works while the BoQ is still editable (Draft/Submitted). Returns the updated BoQ.")]
+    public static async Task<BillOfQuantitiesDto> ReviseBoqSubsection(
+        IBillOfQuantitiesAppService service,
+        [Description("The BoQ id.")] Guid boqId,
+        [Description("The section id.")] Guid sectionId,
+        [Description("The subsection id to revise.")] Guid subsectionId,
+        [Description("The corrected subsection name.")] string name,
+        [Description("Order of the subsection within the section.")] int sequence,
+        [Description("Subsection description (omit to clear it).")] string? description = null,
+        CancellationToken ct = default)
+    {
+        return await service.UpdateSubsectionAsync(
+                   boqId, sectionId, subsectionId, new SubsectionCommand(name, sequence, description), ct)
+               ?? throw new McpException(
+                   $"BoQ {boqId}, section {sectionId}, or subsection {subsectionId} was not found.");
+    }
+
     [McpServerTool(Name = "add_boq_subsection_line_items"), Description(
         "Bulk-add line items to a subsection of a draft BoQ — the subsection counterpart of " +
         "add_boq_line_items. Each line's free-text unit token is normalised onto an active canonical unit of " +
@@ -293,15 +373,15 @@ public static class BoqTools
                ?? throw new McpException($"No bill of quantities exists with id {boqId}.");
     }
 
-    [McpServerTool(Name = "list_boqs"), Description(
-        "List the Bills of Quantities submitted within a bid (oldest version first; a bid may hold several " +
-        "revisions). Use this to discover which BoQs exist for a bid — and their boqIds — before reading one " +
-        "with get_boq. Resolve the bidId via list_bids / get_bid first.")]
-    public static async Task<IReadOnlyList<BillOfQuantitiesDto>> ListBoqs(
+    [McpServerTool(Name = "get_bid_boq"), Description(
+        "Get the single Bill of Quantities for a bid (a bid has at most one BoQ), or null if none has been " +
+        "created yet. Use this to discover whether a bid already has a BoQ — and its boqId — before creating " +
+        "or replacing one. Resolve the bidId via list_bids / get_bid first.")]
+    public static async Task<BillOfQuantitiesDto?> GetBidBoq(
         IBillOfQuantitiesAppService service,
         [Description("The owning bid id (from list_bids / get_bid).")] Guid bidId,
         CancellationToken ct = default)
-        => await service.ListByBidAsync(bidId, ct);
+        => await service.GetByBidAsync(bidId, ct);
 
     [McpServerTool(Name = "get_boq"), Description(
         "Read a BoQ back — its sections, line items, and derived totals — to verify an ingestion before submitting.")]

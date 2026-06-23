@@ -188,17 +188,20 @@ public sealed class ProjectBudgetQuery(
     }
 
     /// <summary>
-    /// A bid's current candidate BoQ: the latest version that has not been rejected/withdrawn and
+    /// A bid's current candidate BoQ: its single BoQ, provided it has not been rejected/withdrawn and
     /// actually carries a price (positive net total). Null if the bid has no such BoQ.
     /// </summary>
     private async Task<BillOfQuantities?> CurrentPricedBoqAsync(BidId bidId, CancellationToken cancellationToken)
     {
-        var versions = await billsOfQuantities.ListByBidAsync(bidId, cancellationToken);
-        return versions
-            .Where(boq => boq.Status is not (BoqStatus.Rejected or BoqStatus.Withdrawn))
-            .Where(boq => boq.Total.Amount > 0m)
-            .OrderByDescending(boq => boq.Version)
-            .FirstOrDefault();
+        var boq = await billsOfQuantities.GetByBidAsync(bidId, cancellationToken);
+        if (boq is null
+            || boq.Status is BoqStatus.Rejected or BoqStatus.Withdrawn
+            || boq.Total.Amount <= 0m)
+        {
+            return null;
+        }
+
+        return boq;
     }
 
     private static CandidateRangeDto BuildRange(IGrouping<Currency, BillOfQuantities> group)

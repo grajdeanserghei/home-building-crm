@@ -69,8 +69,7 @@ export default async function BillOfQuantitiesDetailPage({
 
   const editable = isEditable(boq.status);
   const targets = allowedTargets(boq.status);
-  const title = t("boq.title", { version: boq.version }) +
-    (boq.reference ? ` · ${boq.reference}` : "");
+  const title = t("boq.title") + (boq.reference ? ` · ${boq.reference}` : "");
 
   // A contract is awarded from an accepted BoQ. Once this BoQ is accepted, resolve its
   // owning bid (to reach the work package) and any contract already on that work
@@ -103,8 +102,6 @@ export default async function BillOfQuantitiesDetailPage({
 
       <section className={styles.card}>
         <dl className={styles.detailList}>
-          <dt>{t("boq.version")}</dt>
-          <dd>{boq.version}</dd>
           <dt>{t("boq.reference")}</dt>
           <dd>{boq.reference || "—"}</dd>
           <dt>{t("common.status")}</dt>
@@ -336,6 +333,12 @@ export default async function BillOfQuantitiesDetailPage({
                     />
                   )}
                   <div className={styles.actions}>
+                    <Link
+                      href={`/bills-of-quantities/${boq.id}/sections/${section.id}/subsections/${subsection.id}/edit`}
+                      className={styles.edit}
+                    >
+                      {t("subsections.edit")}
+                    </Link>
                     <form action={removeSubsection}>
                       <input type="hidden" name="boqId" value={boq.id} />
                       <input type="hidden" name="sectionId" value={section.id} />
@@ -364,6 +367,12 @@ export default async function BillOfQuantitiesDetailPage({
                 defaultSequence={section.subsections.length + 1}
               />
               <div className={styles.actions} style={{ marginTop: 16 }}>
+                <Link
+                  href={`/bills-of-quantities/${boq.id}/sections/${section.id}/edit`}
+                  className={styles.edit}
+                >
+                  {t("sections.edit")}
+                </Link>
                 <form action={removeSection}>
                   <input type="hidden" name="boqId" value={boq.id} />
                   <input type="hidden" name="sectionId" value={section.id} />

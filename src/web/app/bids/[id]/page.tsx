@@ -15,7 +15,7 @@ import {
   BOQ_STATUS_LABELS,
   NOTE_TYPE_LABELS,
   getBid,
-  getBillsOfQuantities,
+  getBidBoq,
   getContractor,
   getWorkPackage,
   type BidStatus,
@@ -45,10 +45,10 @@ export default async function BidDetailPage({
     notFound();
   }
 
-  const [contractor, workPackage, boqs] = await Promise.all([
+  const [contractor, workPackage, boq] = await Promise.all([
     getContractor(bid.contractorId),
     getWorkPackage(bid.workPackageId),
-    getBillsOfQuantities(bid.id),
+    getBidBoq(bid.id),
   ]);
 
   const contractorName = contractor?.name ?? t("bids.unknownContractor");
@@ -133,13 +133,12 @@ export default async function BidDetailPage({
 
       <section className={styles.card}>
         <h2>{t("bids.boqHeading")}</h2>
-        {boqs.length === 0 ? (
+        {!boq ? (
           <p>{t("bids.boqEmpty")}</p>
         ) : (
           <table className={styles.table}>
             <thead>
               <tr>
-                <th>{t("bids.boqCol.version")}</th>
                 <th>{t("bids.boqCol.reference")}</th>
                 <th>{t("common.status")}</th>
                 <th>{t("bids.boqCol.totalWithVat")}</th>
@@ -147,50 +146,42 @@ export default async function BidDetailPage({
               </tr>
             </thead>
             <tbody>
-              {boqs.map((boq) => (
-                <tr key={boq.id}>
-                  <td>
+              <tr>
+                <td>{boq.reference || "—"}</td>
+                <td>
+                  <span
+                    className={`${styles.badge} ${styles[`status${boq.status}`]}`}
+                  >
+                    {BOQ_STATUS_LABELS[boq.status]}
+                  </span>
+                </td>
+                <td>{formatMoney(boq.totalWithVat)}</td>
+                <td>
+                  <div className={styles.actions}>
                     <Link
                       href={`/bills-of-quantities/${boq.id}`}
-                      className={styles.nameLink}
+                      className={styles.edit}
                     >
-                      <strong>v{boq.version}</strong>
+                      {t("bids.view")}
                     </Link>
-                  </td>
-                  <td>{boq.reference || "—"}</td>
-                  <td>
-                    <span
-                      className={`${styles.badge} ${styles[`status${boq.status}`]}`}
-                    >
-                      {BOQ_STATUS_LABELS[boq.status]}
-                    </span>
-                  </td>
-                  <td>{formatMoney(boq.totalWithVat)}</td>
-                  <td>
-                    <div className={styles.actions}>
-                      <Link
-                        href={`/bills-of-quantities/${boq.id}`}
-                        className={styles.edit}
-                      >
-                        {t("bids.view")}
-                      </Link>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                  </div>
+                </td>
+              </tr>
             </tbody>
           </table>
         )}
       </section>
 
-      <section className={styles.card}>
-        <h2>{t("bids.draftBoqHeading")}</h2>
-        <BillOfQuantitiesForm
-          action={draftBoq}
-          bidId={bid.id}
-          submitLabel={t("bids.draftBoqSubmit")}
-        />
-      </section>
+      {!boq && (
+        <section className={styles.card}>
+          <h2>{t("bids.draftBoqHeading")}</h2>
+          <BillOfQuantitiesForm
+            action={draftBoq}
+            bidId={bid.id}
+            submitLabel={t("bids.draftBoqSubmit")}
+          />
+        </section>
+      )}
 
       <section className={styles.card}>
         <h2>{t("notes.logHeading")}</h2>

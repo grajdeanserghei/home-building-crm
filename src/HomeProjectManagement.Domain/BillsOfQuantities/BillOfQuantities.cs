@@ -9,7 +9,8 @@ namespace HomeProjectManagement.Domain.BillsOfQuantities;
 /// <summary>
 /// A contractor's priced, itemized cost estimate (<c>deviz</c>) submitted within a bid. It is
 /// organised into <see cref="Section"/>s of <see cref="LineItem"/>s, priced in a single
-/// <see cref="PricingCurrency"/>, and a bid may hold several BoQ versions over negotiation.
+/// <see cref="PricingCurrency"/>. There is at most one BoQ per bid; a revised <c>deviz</c> replaces
+/// its contents in place (see <see cref="ReplaceContents"/>) rather than creating another version.
 /// </summary>
 /// <remarks>
 /// Aggregate root. It references its owning <see cref="BidId"/> <b>by identity</b> (the work
@@ -29,9 +30,6 @@ public sealed class BillOfQuantities : AggregateRoot<BoqId>
 
     /// <summary>The contractor's own <c>deviz</c> number/label. Optional.</summary>
     public string? Reference { get; private set; }
-
-    /// <summary>BoQ revision within the bid (1, 2, …).</summary>
-    public int Version { get; private set; }
 
     public BoqStatus Status { get; private set; }
 
@@ -82,23 +80,21 @@ public sealed class BillOfQuantities : AggregateRoot<BoqId>
     {
     }
 
-    private BillOfQuantities(BoqId id, BidId bidId, int version, Currency pricingCurrency) : base(id)
+    private BillOfQuantities(BoqId id, BidId bidId, Currency pricingCurrency) : base(id)
     {
         Id = id;
         BidId = bidId;
-        Version = version;
         PricingCurrency = pricingCurrency;
     }
 
     /// <summary>
-    /// Factory: start a new BoQ version for a bid, validating its invariants. <paramref name="now"/>
-    /// is supplied by the caller (from <c>TimeProvider</c>) rather than read inside the domain. A
-    /// freshly drafted BoQ starts <see cref="BoqStatus.Draft"/> with no sections. The
-    /// <paramref name="version"/> sequence within the bid is assigned by the application service.
+    /// Factory: start the BoQ for a bid, validating its invariants. <paramref name="now"/> is
+    /// supplied by the caller (from <c>TimeProvider</c>) rather than read inside the domain. A freshly
+    /// drafted BoQ starts <see cref="BoqStatus.Draft"/> with no sections. There is at most one BoQ per
+    /// bid (the application service enforces this); a revised <c>deviz</c> uses <see cref="ReplaceContents"/>.
     /// </summary>
     public static BillOfQuantities Draft(
         BidId bidId,
-        int version,
         Currency pricingCurrency,
         DateTimeOffset now,
         string? reference = null,
@@ -108,14 +104,9 @@ public sealed class BillOfQuantities : AggregateRoot<BoqId>
         DocumentReference? sourceDocument = null,
         string? sourceContentHash = null)
     {
-        if (version < 1)
-        {
-            throw new DomainValidationException("Bill of Quantities version must be 1 or greater.", nameof(version));
-        }
-
         EnsureRateMatchesCurrency(exchangeRate, pricingCurrency);
 
-        var boq = new BillOfQuantities(BoqId.New(), bidId, version, pricingCurrency)
+        var boq = new BillOfQuantities(BoqId.New(), bidId, pricingCurrency)
         {
             Status = BoqStatus.Draft,
             Reference = Trim(reference),
@@ -126,7 +117,7 @@ public sealed class BillOfQuantities : AggregateRoot<BoqId>
             SourceContentHash = NormalizeHash(sourceContentHash)
         };
 
-        boq.Raise(new BillOfQuantitiesDrafted(boq.Id, bidId, version, now));
+        boq.Raise(new BillOfQuantitiesDrafted(boq.Id, bidId, now));
         return boq;
     }
 
@@ -144,6 +135,25 @@ public sealed class BillOfQuantities : AggregateRoot<BoqId>
         ExchangeRate = exchangeRate;
         SubmittedOn = submittedOn;
         ValidUntil = validUntil;
+    }
+
+    /// <summary>
+    /// Replace the quote's contents in place when a revised <c>deviz</c> supersedes it: drop every
+    /// section (cascading to its subsections and line items) and re-point the provenance to the new
+    /// source document, so the new <c>deviz</c> can be re-ingested onto the same BoQ. The pricing
+    /// currency is fixed; header details are updated separately via <see cref="UpdateDetails"/>.
+    /// Allowed only while the BoQ is still editable (<see cref="BoqStatus.Draft"/> or
+    /// <see cref="BoqStatus.Submitted"/>).
+    /// </summary>
+    public void ReplaceContents(DocumentReference? sourceDocument, string? sourceContentHash, DateTimeOffset now)
+    {
+        EnsureMutable();
+
+        _sections.Clear();
+        SourceDocument = sourceDocument;
+        SourceContentHash = NormalizeHash(sourceContentHash);
+
+        Raise(new BillOfQuantitiesContentsReplaced(Id, BidId, now));
     }
 
     /// <summary>Add a section to the BoQ and return it. The section inherits the pricing currency.</summary>
@@ -312,7 +322,7 @@ public sealed class BillOfQuantities : AggregateRoot<BoqId>
     /// <summary>Reject the BoQ (not chosen).</summary>
     public void Reject(DateTimeOffset now) => TransitionTo(BoqStatus.Rejected, now);
 
-    /// <summary>Withdraw the BoQ (pulled back or superseded by a later version).</summary>
+    /// <summary>Withdraw the BoQ (the contractor pulled the quote).</summary>
     public void Withdraw(DateTimeOffset now) => TransitionTo(BoqStatus.Withdrawn, now);
 
     /// <summary>Transition the BoQ to a new status, raising an event if it changed.</summary>

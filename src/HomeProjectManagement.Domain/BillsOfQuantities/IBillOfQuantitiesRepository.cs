@@ -10,8 +10,8 @@ namespace HomeProjectManagement.Domain.BillsOfQuantities;
 /// </summary>
 public interface IBillOfQuantitiesRepository : IRepository<BillOfQuantities, BoqId>
 {
-    /// <summary>The BoQ versions submitted within a bid, oldest version first.</summary>
-    Task<IReadOnlyList<BillOfQuantities>> ListByBidAsync(
+    /// <summary>The single BoQ for a bid, or null if none has been drafted yet (at most one per bid).</summary>
+    Task<BillOfQuantities?> GetByBidAsync(
         BidId bidId,
         CancellationToken cancellationToken = default);
 }

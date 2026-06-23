@@ -42,8 +42,7 @@ function headerPayload(formData: FormData) {
   };
 }
 
-// Draft a new BoQ version within a bid. The collection is nested under the bid; the
-// version number is assigned server-side. On success we jump straight to the new BoQ.
+// Draft the BoQ for a bid (at most one per bid). On success we jump straight to it.
 export async function draftBoq(formData: FormData) {
   const bidId = formData.get("bidId") as string;
   const pricingCurrency = formData.get("pricingCurrency") as Currency;
@@ -168,6 +167,41 @@ export async function addSection(formData: FormData) {
   revalidatePath(`/bills-of-quantities/${boqId}`);
 }
 
+// Rename / reorder / re-describe an existing section. Mirrors addSection but targets the
+// section's PUT route and carries its id (a hidden field). The edit form is its own route,
+// so on success we refresh the detail page and return to it.
+export async function updateSection(formData: FormData) {
+  const boqId = formData.get("boqId") as string;
+  const sectionId = formData.get("sectionId") as string;
+  const name = (formData.get("name") as string)?.trim();
+  if (!boqId || !sectionId || !name) return;
+
+  const sequenceRaw = (formData.get("sequence") as string)?.trim();
+  const sequence = sequenceRaw ? Number.parseInt(sequenceRaw, 10) : 0;
+
+  const payload = {
+    name,
+    sequence: Number.isNaN(sequence) ? 0 : sequence,
+    description: (formData.get("description") as string)?.trim() || null,
+  };
+
+  const res = await fetch(
+    `${apiBaseUrl()}/api/bills-of-quantities/${boqId}/sections/${sectionId}`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    },
+  );
+
+  if (!res.ok) {
+    throw new Error(await describeApiError(res, "common.actionError"));
+  }
+
+  revalidatePath(`/bills-of-quantities/${boqId}`);
+  redirect(`/bills-of-quantities/${boqId}`);
+}
+
 export async function removeSection(formData: FormData) {
   const boqId = formData.get("boqId") as string;
   const sectionId = formData.get("sectionId") as string;
@@ -216,6 +250,42 @@ export async function addSubsection(formData: FormData) {
   }
 
   revalidatePath(`/bills-of-quantities/${boqId}`);
+}
+
+// Rename / reorder / re-describe an existing subsection. Mirrors addSubsection but targets
+// the subsection's PUT route and carries its id (a hidden field). The edit form is its own
+// route, so on success we refresh the detail page and return to it.
+export async function updateSubsection(formData: FormData) {
+  const boqId = formData.get("boqId") as string;
+  const sectionId = formData.get("sectionId") as string;
+  const subsectionId = formData.get("subsectionId") as string;
+  const name = (formData.get("name") as string)?.trim();
+  if (!boqId || !sectionId || !subsectionId || !name) return;
+
+  const sequenceRaw = (formData.get("sequence") as string)?.trim();
+  const sequence = sequenceRaw ? Number.parseInt(sequenceRaw, 10) : 0;
+
+  const payload = {
+    name,
+    sequence: Number.isNaN(sequence) ? 0 : sequence,
+    description: (formData.get("description") as string)?.trim() || null,
+  };
+
+  const res = await fetch(
+    `${apiBaseUrl()}/api/bills-of-quantities/${boqId}/sections/${sectionId}/subsections/${subsectionId}`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    },
+  );
+
+  if (!res.ok) {
+    throw new Error(await describeApiError(res, "common.actionError"));
+  }
+
+  revalidatePath(`/bills-of-quantities/${boqId}`);
+  redirect(`/bills-of-quantities/${boqId}`);
 }
 
 export async function removeSubsection(formData: FormData) {

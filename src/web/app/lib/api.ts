@@ -137,6 +137,7 @@ export interface WorkPackage {
   plannedEndDate?: string | null;
   awardedContractId?: string | null;
   scopeItems: ScopeItem[];
+  requiredTradeIds: string[]; // the trades this package requires (by id; the shared Trade vocabulary)
   createdAt: string;
 }
 
@@ -198,6 +199,7 @@ export interface Contractor {
   contact?: ContactInfo | null;
   address?: Address | null;
   notes?: string | null;
+  tradeIds: string[]; // the trades this firm performs (by id; the shared Trade vocabulary)
   createdAt: string;
 }
 
@@ -305,6 +307,47 @@ export async function getUnitOfMeasure(
     throw new Error(
       `${res.status} ${res.statusText}`,
     );
+  }
+  return res.json();
+}
+
+// Trades -----------------------------------------------------------------
+//
+// A trade is a category of specialized construction work (e.g. Zidărie, Instalații
+// Electrice). It is a controlled, project-independent reference vocabulary: a
+// contractor is tagged with the trades it performs and a work package with the trades
+// it requires (both by id). Like a unit of measure it carries a unique canonical
+// `name`, an optional short `code`, and is never deleted — it is retired by
+// deactivating it. See docs/architecture/domain-model.md.
+
+export interface Trade {
+  id: string;
+  name: string;
+  code?: string | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export async function getTrades(includeInactive = true): Promise<Trade[]> {
+  const res = await fetch(
+    `${apiBaseUrl()}/api/trades?includeInactive=${includeInactive}`,
+    { cache: "no-store" },
+  );
+  if (!res.ok) {
+    throw new Error(`${res.status} ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function getTrade(id: string): Promise<Trade | null> {
+  const res = await fetch(`${apiBaseUrl()}/api/trades/${id}`, {
+    cache: "no-store",
+  });
+  if (res.status === 404) {
+    return null;
+  }
+  if (!res.ok) {
+    throw new Error(`${res.status} ${res.statusText}`);
   }
   return res.json();
 }
@@ -417,12 +460,12 @@ export async function getBid(id: string): Promise<Bid | null> {
 // Bills of quantities ----------------------------------------------------
 //
 // A bill of quantities (BoQ, RO "deviz") is a contractor's priced, itemized cost
-// estimate submitted within a bid; a bid may hold several BoQ versions over
-// negotiation. It is the aggregate root, addressable by its own id, and owns its
-// Sections (e.g. Foundation, Roof) which in turn own priced Line items. Every
-// amount is stored in one `pricingCurrency` (fixed at draft); the other currency is
-// derived via the optional pinned `exchangeRate`. The version collection is nested
-// under its bid. See docs/architecture/domain-model.md.
+// estimate submitted within a bid. There is at most one BoQ per bid; a revised deviz
+// replaces its contents in place rather than creating another version. It is the
+// aggregate root, addressable by its own id, and owns its Sections (e.g. Foundation,
+// Roof) which in turn own priced Line items. Every amount is stored in one
+// `pricingCurrency` (fixed at draft); the other currency is derived via the optional
+// pinned `exchangeRate`. See docs/architecture/domain-model.md.
 
 export type Currency = "RON" | "EUR";
 
@@ -518,7 +561,6 @@ export interface BillOfQuantities {
   id: string;
   bidId: string;
   reference?: string | null;
-  version: number;
   status: BoqStatus;
   pricingCurrency: Currency;
   exchangeRate?: ExchangeRate | null;
@@ -530,13 +572,17 @@ export interface BillOfQuantities {
   createdAt: string;
 }
 
-export async function getBillsOfQuantities(
+// The single BoQ for a bid, or null if none has been drafted yet (at most one per bid).
+export async function getBidBoq(
   bidId: string,
-): Promise<BillOfQuantities[]> {
+): Promise<BillOfQuantities | null> {
   const res = await fetch(
     `${apiBaseUrl()}/api/bids/${bidId}/bills-of-quantities`,
     { cache: "no-store" },
   );
+  if (res.status === 404) {
+    return null;
+  }
   if (!res.ok) {
     throw new Error(
       `${res.status} ${res.statusText}`,

@@ -18,6 +18,6 @@ public enum BoqStatus
     /// <summary>Turned down. Terminal.</summary>
     Rejected,
 
-    /// <summary>Pulled back by the contractor or superseded by a later version. Terminal.</summary>
+    /// <summary>Pulled back by the contractor (the quote no longer stands). Terminal.</summary>
     Withdrawn
 }

@@ -117,6 +117,7 @@ export const ro = {
   "nav.contractors": "Antreprenori",
   "nav.contracts": "Contracte",
   "nav.unitsOfMeasure": "Unități de măsură",
+  "nav.trades": "Meserii",
 
   // — Domain-exception codes → Romanian templates ————————————————————————————
   // Keyed by the stable `code` the backend puts on the ProblemDetails. {params} are
@@ -205,6 +206,10 @@ export const ro = {
   "workPackages.orderPlaceholder": "Ordine",
   "workPackages.plannedStart": "Început planificat",
   "workPackages.plannedEnd": "Sfârșit planificat",
+  "workPackages.requiredTrades": "Meserii necesare",
+  "workPackages.requiredTradesHint":
+    "Meseriile pe care le necesită acest pachet de lucrări (Ctrl/Cmd + clic pentru a selecta mai multe).",
+  "workPackages.requiredTradesEmpty": "Nicio meserie necesară specificată.",
 
   // — Project budget (cost rollup per work package) ——————————————————————
   "budget.link": "Buget",
@@ -262,8 +267,7 @@ export const ro = {
     "Selectarea acestei oferte drept câștigătoare respinge celelalte oferte active pentru acest pachet de lucrări.",
   "bids.boqHeading": "Liste de cantități",
   "bids.boqEmpty":
-    "Nicio listă de cantități încă. Întocmește prima versiune a antreprenorului mai jos.",
-  "bids.boqCol.version": "Versiune",
+    "Nicio listă de cantități încă. Întocmește devizul antreprenorului mai jos.",
   "bids.boqCol.reference": "Referință",
   "bids.boqCol.totalWithVat": "Total (cu TVA)",
   "bids.view": "Vizualizează",
@@ -289,17 +293,16 @@ export const ro = {
   "notes.logNote": "Înregistrează nota",
 
   // — Bills of quantities (deviz) ——————————————————————————————————————————
-  "boq.title": "Deviz v{version}",
-  "boq.editTitle": "Editare deviz v{version}",
+  "boq.title": "Deviz",
+  "boq.editTitle": "Editare deviz",
   "boq.editSubtitle":
-    "Actualizați antetul. Moneda de tarifare și versiunea sunt fixe; secțiunile și articolele se editează în pagina devizului.",
+    "Actualizați antetul. Moneda de tarifare este fixă; secțiunile și articolele se editează în pagina devizului.",
   "boq.backToBid": "← Înapoi la ofertă",
   "boq.backToBoq": "← Înapoi la deviz",
   "boq.subtitle": "Listă de cantități, tarifată în {currency}",
   "boq.inclVat": "cu TVA",
   "boq.exclVat": "fără TVA",
   "boq.exclShort": "fără",
-  "boq.version": "Versiune",
   "boq.reference": "Referință",
   "boq.pricingCurrency": "Monedă de tarifare",
   "boq.pinnedRate": "Curs fixat",
@@ -379,6 +382,9 @@ export const ro = {
   "contractors.email": "Email",
   "contractors.phone": "Telefon",
   "contractors.address": "Adresă",
+  "contractors.trades": "Meserii",
+  "contractors.tradesHint":
+    "Meseriile pe care firma le execută (Ctrl/Cmd + clic pentru a selecta mai multe).",
   "contractors.backToProjects": "Proiecte",
   "contractors.backToAll": "Toți antreprenorii",
   "contractors.detailsSubtitle": "Detaliile antreprenorului.",
@@ -471,6 +477,27 @@ export const ro = {
   "unitsOfMeasure.aliasesPlaceholder": "Aliasuri, separate prin virgulă (opțional)",
   "unitsOfMeasure.codeExists":
     "Există deja o unitate de măsură cu codul „{code}”.",
+
+  // — Trades (controlled vocabulary of construction specializations) ————————
+  "trades.title": "Meserii",
+  "trades.subtitle":
+    "Vocabular controlat de specializări în construcții (ex. Zidărie, Instalații Electrice). Antreprenorii sunt etichetați cu meseriile pe care le execută, iar pachetele de lucrări cu cele necesare.",
+  "trades.new": "Meserie nouă",
+  "trades.add": "Adaugă meseria",
+  "trades.empty": "Nicio meserie încă. Adaug-o pe prima mai sus.",
+  "trades.code": "Cod",
+  "trades.active": "Activă",
+  "trades.inactive": "Inactivă",
+  "trades.activate": "Activează",
+  "trades.deactivate": "Dezactivează",
+  "trades.editTrade": "Editează meseria",
+  "trades.editTitle": "Editează meseria",
+  "trades.editSubtitle": "Actualizează detaliile pentru „{name}”.",
+  "trades.backToProjects": "← Proiecte",
+  "trades.backToAll": "← Toate meseriile",
+  "trades.namePlaceholder": "Nume (ex. Zidărie, Tâmplărie)",
+  "trades.codePlaceholder": "Cod scurt (opțional, ex. ELE)",
+  "trades.nameExists": "Există deja o meserie cu numele „{name}”.",
 } as const;
 
 export type RoCatalog = typeof ro;

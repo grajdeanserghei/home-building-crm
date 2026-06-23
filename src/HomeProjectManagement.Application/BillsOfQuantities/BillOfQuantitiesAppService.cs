@@ -9,11 +9,10 @@ namespace HomeProjectManagement.Application.BillsOfQuantities;
 
 /// <summary>
 /// Thin orchestration over the <see cref="BillOfQuantities"/> aggregate: load via the repository
-/// port, invoke domain behaviour, commit through the unit of work. It assigns each BoQ's version
-/// within its bid, checks the parent bid exists, and validates that every line item references an
-/// <b>active</b> unit of measure before the line reaches the aggregate (the currency and
-/// edit-while-open invariants are enforced by the aggregate itself). Audit fields are stamped
-/// inside the unit of work.
+/// port, invoke domain behaviour, commit through the unit of work. It enforces at most one BoQ per
+/// bid, checks the parent bid exists, and validates that every line item references an <b>active</b>
+/// unit of measure before the line reaches the aggregate (the currency and edit-while-open invariants
+/// are enforced by the aggregate itself). Audit fields are stamped inside the unit of work.
 /// </summary>
 public sealed class BillOfQuantitiesAppService(
     IBillOfQuantitiesRepository repository,
@@ -23,12 +22,12 @@ public sealed class BillOfQuantitiesAppService(
     IUnitOfWork unitOfWork,
     TimeProvider timeProvider) : IBillOfQuantitiesAppService
 {
-    public async Task<IReadOnlyList<BillOfQuantitiesDto>> ListByBidAsync(
+    public async Task<BillOfQuantitiesDto?> GetByBidAsync(
         Guid bidId,
         CancellationToken cancellationToken = default)
     {
-        var boqs = await repository.ListByBidAsync(new BidId(bidId), cancellationToken);
-        return boqs.OrderBy(b => b.Version).Select(ToDto).ToList();
+        var boq = await repository.GetByBidAsync(new BidId(bidId), cancellationToken);
+        return boq is null ? null : ToDto(boq);
     }
 
     public async Task<BillOfQuantitiesDto?> GetAsync(Guid id, CancellationToken cancellationToken = default)
@@ -49,30 +48,28 @@ public sealed class BillOfQuantitiesAppService(
             return null;
         }
 
-        // Versions run 1, 2, … within the bid; assign the next one.
-        var existing = await repository.ListByBidAsync(bid.Id, cancellationToken);
-
-        // Idempotency: if a source content hash is supplied and a BoQ for this bid was already
-        // ingested from the same document, return it rather than creating a duplicate. This makes
-        // re-running an interrupted ingestion safe.
-        var hash = string.IsNullOrWhiteSpace(command.SourceContentHash)
-            ? null
-            : command.SourceContentHash.Trim().ToLowerInvariant();
-        if (hash is not null)
+        // At most one BoQ per bid. If one already exists, either this is a safe re-run of the same
+        // ingestion (same source hash → return it idempotently) or it is a different quote, which must
+        // supersede the existing one via ReplaceContentsAsync rather than drafting a second BoQ.
+        var existing = await repository.GetByBidAsync(bid.Id, cancellationToken);
+        if (existing is not null)
         {
-            var alreadyIngested = existing.FirstOrDefault(b => b.SourceContentHash == hash);
-            if (alreadyIngested is not null)
+            var hash = NormalizeHash(command.SourceContentHash);
+            if (hash is not null && existing.SourceContentHash == hash)
             {
-                return ToDto(alreadyIngested);
+                return ToDto(existing);
             }
+
+            throw new DomainConflictException(
+                "A bill of quantities already exists for this bid. Replace its contents instead of drafting another.",
+                code: "BoqAlreadyExistsForBid",
+                parameters: new Dictionary<string, object?> { ["bidId"] = bidId });
         }
 
-        var nextVersion = existing.Count == 0 ? 1 : existing.Max(b => b.Version) + 1;
         var now = timeProvider.GetUtcNow();
 
         var boq = BillOfQuantities.Draft(
             bid.Id,
-            nextVersion,
             command.PricingCurrency,
             now,
             command.Reference,
@@ -103,6 +100,36 @@ public sealed class BillOfQuantitiesAppService(
             ToExchangeRate(command.ExchangeRate),
             command.SubmittedOn,
             command.ValidUntil);
+
+        await unitOfWork.CommitAsync(cancellationToken);
+        return ToDto(boq);
+    }
+
+    public async Task<BillOfQuantitiesDto?> ReplaceContentsAsync(
+        Guid id,
+        ReplaceBoqContentsCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        var boq = await repository.GetAsync(new BoqId(id), cancellationToken);
+        if (boq is null)
+        {
+            return null;
+        }
+
+        var now = timeProvider.GetUtcNow();
+
+        // Re-point the header, then drop the old sections and provenance so the revised deviz can be
+        // re-ingested onto the same BoQ. The aggregate guards that the BoQ is still editable.
+        boq.UpdateDetails(
+            command.Reference,
+            ToExchangeRate(command.ExchangeRate),
+            command.SubmittedOn,
+            command.ValidUntil);
+
+        boq.ReplaceContents(
+            ToSourceDocument(command.SourceDocumentFileName, command.SourceDocumentUrl, now),
+            command.SourceContentHash,
+            now);
 
         await unitOfWork.CommitAsync(cancellationToken);
         return ToDto(boq);
@@ -554,6 +581,10 @@ public sealed class BillOfQuantitiesAppService(
         }
     }
 
+    // Normalise a hex SHA-256 digest the same way the aggregate does, so idempotency comparison is stable.
+    private static string? NormalizeHash(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim().ToLowerInvariant();
+
     private static Money ToMoney(MoneyDto dto) => new(dto.Amount, dto.Currency);
 
     // A null/omitted rate falls back to the standard 21% applied to every line by default.
@@ -581,7 +612,6 @@ public sealed class BillOfQuantitiesAppService(
         boq.Id.Value,
         boq.BidId.Value,
         boq.Reference,
-        boq.Version,
         boq.Status,
         boq.PricingCurrency,
         ToDto(boq.ExchangeRate),

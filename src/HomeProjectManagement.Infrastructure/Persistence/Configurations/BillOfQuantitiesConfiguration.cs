@@ -23,11 +23,10 @@ public sealed class BillOfQuantitiesConfiguration : IEntityTypeConfiguration<Bil
         // The owning bid is held by id (Guid column via the strongly-typed id convention), not as
         // an EF navigation — aggregates never load one another.
         builder.Property(b => b.BidId).IsRequired();
-        // A bid may hold several BoQ versions; each version number is unique within the bid.
-        builder.HasIndex(b => new { b.BidId, b.Version }).IsUnique();
+        // At most one BoQ per bid — enforced by a unique index on the owning bid.
+        builder.HasIndex(b => b.BidId).IsUnique();
 
         builder.Property(b => b.Reference).HasMaxLength(100);
-        builder.Property(b => b.Version).IsRequired();
 
         // Persist the enums as their string names.
         builder.Property(b => b.Status).HasConversion<string>().HasMaxLength(32).IsRequired();

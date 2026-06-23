@@ -23,7 +23,7 @@ export default async function EditBillOfQuantitiesPage({
       <Link href={`/bills-of-quantities/${boq.id}`} className={styles.backLink}>
         {t("boq.backToBoq")}
       </Link>
-      <h1>{t("boq.editTitle", { version: boq.version })}</h1>
+      <h1>{t("boq.editTitle")}</h1>
       <p className={styles.subtitle}>{t("boq.editSubtitle")}</p>
 
       <section className={styles.card}>
