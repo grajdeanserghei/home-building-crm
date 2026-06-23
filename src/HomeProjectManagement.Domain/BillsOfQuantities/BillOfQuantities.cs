@@ -51,6 +51,19 @@ public sealed class BillOfQuantities : AggregateRoot<BoqId>
     public DateTimeOffset? ValidUntil { get; private set; }
 
     /// <summary>
+    /// Provenance: a reference to the source <c>deviz</c> document the line items were extracted from
+    /// (by the agent — the server never parses PDFs). Optional.
+    /// </summary>
+    public DocumentReference? SourceDocument { get; private set; }
+
+    /// <summary>
+    /// SHA-256 of the source document, computed by the agent. Used by the application service to make
+    /// ingestion idempotent (re-running an interrupted ingestion returns the existing BoQ rather than
+    /// duplicating) and kept for audit. Optional.
+    /// </summary>
+    public string? SourceContentHash { get; private set; }
+
+    /// <summary>
     /// The sections of this BoQ (internal entities). Mutated only through the aggregate's methods;
     /// EF reaches the backing field directly.
     /// </summary>
@@ -91,7 +104,9 @@ public sealed class BillOfQuantities : AggregateRoot<BoqId>
         string? reference = null,
         ExchangeRate? exchangeRate = null,
         DateTimeOffset? submittedOn = null,
-        DateTimeOffset? validUntil = null)
+        DateTimeOffset? validUntil = null,
+        DocumentReference? sourceDocument = null,
+        string? sourceContentHash = null)
     {
         if (version < 1)
         {
@@ -106,7 +121,9 @@ public sealed class BillOfQuantities : AggregateRoot<BoqId>
             Reference = Trim(reference),
             ExchangeRate = exchangeRate,
             SubmittedOn = submittedOn,
-            ValidUntil = validUntil
+            ValidUntil = validUntil,
+            SourceDocument = sourceDocument,
+            SourceContentHash = NormalizeHash(sourceContentHash)
         };
 
         boq.Raise(new BillOfQuantitiesDrafted(boq.Id, bidId, version, now));
@@ -240,7 +257,9 @@ public sealed class BillOfQuantities : AggregateRoot<BoqId>
         if (Status is BoqStatus.Rejected or BoqStatus.Withdrawn)
         {
             throw new DomainConflictException(
-                $"A {Status} bill of quantities is closed and cannot change status.");
+                $"A {Status} bill of quantities is closed and cannot change status.",
+                code: "BoqClosed",
+                parameters: new Dictionary<string, object?> { ["status"] = Status.ToString() });
         }
 
         var previous = Status;
@@ -253,7 +272,9 @@ public sealed class BillOfQuantities : AggregateRoot<BoqId>
         if (Status is not (BoqStatus.Draft or BoqStatus.Submitted))
         {
             throw new DomainConflictException(
-                $"A {Status} bill of quantities can no longer be edited.");
+                $"A {Status} bill of quantities can no longer be edited.",
+                code: "BoqNotEditable",
+                parameters: new Dictionary<string, object?> { ["status"] = Status.ToString() });
         }
     }
 
@@ -270,10 +291,16 @@ public sealed class BillOfQuantities : AggregateRoot<BoqId>
         if (rate.BaseCurrency != pricingCurrency && rate.QuoteCurrency != pricingCurrency)
         {
             throw new DomainValidationException(
-                $"The pinned exchange rate must involve the pricing currency ({pricingCurrency}).");
+                $"The pinned exchange rate must involve the pricing currency ({pricingCurrency}).",
+                code: "BoqExchangeRateCurrencyMismatch",
+                parameters: new Dictionary<string, object?> { ["pricingCurrency"] = pricingCurrency.ToString() });
         }
     }
 
     private static string? Trim(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    // The content hash is a hex SHA-256 digest; store it normalised so idempotency comparison is stable.
+    private static string? NormalizeHash(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim().ToLowerInvariant();
 }

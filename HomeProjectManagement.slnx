@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/HomeProjectManagement.ApiService/HomeProjectManagement.ApiService.csproj" />
+    <Project Path="src/HomeProjectManagement.McpServer/HomeProjectManagement.McpServer.csproj" />
     <Project Path="src/HomeProjectManagement.AppHost/HomeProjectManagement.AppHost.csproj" />
     <Project Path="src/HomeProjectManagement.ServiceDefaults/HomeProjectManagement.ServiceDefaults.csproj" />
     <Project Path="src/HomeProjectManagement.Domain/HomeProjectManagement.Domain.csproj" />

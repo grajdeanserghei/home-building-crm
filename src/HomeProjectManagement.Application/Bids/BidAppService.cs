@@ -120,7 +120,16 @@ public sealed class BidAppService(
                 "A bid is selected by awarding its contract; POST /api/contracts with the winning BoQ.");
         }
 
-        bid.ChangeStatus(command.Status, timeProvider.GetUtcNow());
+        var now = timeProvider.GetUtcNow();
+        if (command.Status == BidStatus.BoqExpected)
+        {
+            // BoqExpected carries the date the contractor committed to (already an absolute date).
+            bid.ExpectBoqBy(command.ExpectedBoqDate, now);
+        }
+        else
+        {
+            bid.ChangeStatus(command.Status, now);
+        }
 
         await unitOfWork.CommitAsync(cancellationToken);
         return ToDto(bid);
@@ -174,6 +183,7 @@ public sealed class BidAppService(
         bid.ContractorId.Value,
         bid.Status,
         bid.FirstContactedOn,
+        bid.ExpectedBoqDate,
         bid.Summary,
         bid.Notes
             .OrderBy(n => n.OccurredOn)

@@ -20,7 +20,16 @@ public sealed record BillOfQuantitiesDto(
     MoneyDto Total,
     MoneyDto TotalWithVat,
     IReadOnlyList<SectionDto> Sections,
+    string? SourceContentHash,
+    SourceDocumentDto? SourceDocument,
     DateTimeOffset CreatedAt);
+
+/// <summary>Provenance reference to the source <c>deviz</c> document (mirrors <c>DocumentReference</c>).</summary>
+public sealed record SourceDocumentDto(
+    string FileName,
+    string Url,
+    DateTimeOffset UploadedOn,
+    Guid UploadedBy);
 
 /// <summary>A section of the BoQ with its line items (mirrors the <c>Section</c> entity).</summary>
 public sealed record SectionDto(
@@ -70,7 +79,36 @@ public sealed record DraftBillOfQuantitiesCommand(
     string? Reference,
     ExchangeRateDto? ExchangeRate,
     DateTimeOffset? SubmittedOn,
-    DateTimeOffset? ValidUntil);
+    DateTimeOffset? ValidUntil,
+    string? SourceContentHash = null,
+    string? SourceDocumentFileName = null,
+    string? SourceDocumentUrl = null);
+
+/// <summary>
+/// One raw line for the <b>bulk</b> add operation: the unit arrives as a free-text token
+/// (e.g. "mc", "m³", "buc") which the application service normalises onto an active canonical
+/// <c>UnitOfMeasure</c> via its code/aliases. <see cref="VatRatePercentage"/> defaults to 21% when null.
+/// </summary>
+public sealed record BoqLineItemInput(
+    string Description,
+    string Unit,
+    decimal Quantity,
+    MoneyDto UnitPrice,
+    decimal? VatRatePercentage = null,
+    string? Notes = null);
+
+/// <summary>
+/// Outcome of a bulk add: the updated BoQ (with every resolvable line persisted) plus the lines
+/// whose unit token could not be matched to an active unit of measure. A single unresolved unit
+/// does not fail the batch — those lines are reported back, flagged with the offending token, for an
+/// admin to add the missing unit. <see cref="Boq"/> is null only when the BoQ or section was not found.
+/// </summary>
+public sealed record AddBoqLineItemsResult(
+    BillOfQuantitiesDto? Boq,
+    IReadOnlyList<UnresolvedBoqLine> Unresolved);
+
+/// <summary>A bulk line that was rejected because its unit token matched no active unit of measure.</summary>
+public sealed record UnresolvedBoqLine(int Index, string Description, string Unit);
 
 /// <summary>Input for editing a BoQ's header details. The pricing currency is fixed at draft time.</summary>
 public sealed record UpdateBillOfQuantitiesCommand(

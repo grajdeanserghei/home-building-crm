@@ -19,6 +19,7 @@ public sealed class BillOfQuantitiesAppService(
     IBillOfQuantitiesRepository repository,
     IBidRepository bids,
     IUnitOfMeasureRepository units,
+    ICurrentUser currentUser,
     IUnitOfWork unitOfWork,
     TimeProvider timeProvider) : IBillOfQuantitiesAppService
 {
@@ -50,17 +51,36 @@ public sealed class BillOfQuantitiesAppService(
 
         // Versions run 1, 2, … within the bid; assign the next one.
         var existing = await repository.ListByBidAsync(bid.Id, cancellationToken);
+
+        // Idempotency: if a source content hash is supplied and a BoQ for this bid was already
+        // ingested from the same document, return it rather than creating a duplicate. This makes
+        // re-running an interrupted ingestion safe.
+        var hash = string.IsNullOrWhiteSpace(command.SourceContentHash)
+            ? null
+            : command.SourceContentHash.Trim().ToLowerInvariant();
+        if (hash is not null)
+        {
+            var alreadyIngested = existing.FirstOrDefault(b => b.SourceContentHash == hash);
+            if (alreadyIngested is not null)
+            {
+                return ToDto(alreadyIngested);
+            }
+        }
+
         var nextVersion = existing.Count == 0 ? 1 : existing.Max(b => b.Version) + 1;
+        var now = timeProvider.GetUtcNow();
 
         var boq = BillOfQuantities.Draft(
             bid.Id,
             nextVersion,
             command.PricingCurrency,
-            timeProvider.GetUtcNow(),
+            now,
             command.Reference,
             ToExchangeRate(command.ExchangeRate),
             command.SubmittedOn,
-            command.ValidUntil);
+            command.ValidUntil,
+            ToSourceDocument(command.SourceDocumentFileName, command.SourceDocumentUrl, now),
+            command.SourceContentHash);
 
         repository.Add(boq);
         await unitOfWork.CommitAsync(cancellationToken);
@@ -181,6 +201,64 @@ public sealed class BillOfQuantitiesAppService(
         return ToDto(boq);
     }
 
+    public async Task<AddBoqLineItemsResult?> AddLineItemsAsync(
+        Guid id,
+        Guid sectionId,
+        IReadOnlyList<BoqLineItemInput> items,
+        CancellationToken cancellationToken = default)
+    {
+        var boq = await repository.GetAsync(new BoqId(id), cancellationToken);
+        if (boq is null)
+        {
+            return null;
+        }
+
+        var section = boq.Sections.FirstOrDefault(s => s.Id == new SectionId(sectionId));
+        if (section is null)
+        {
+            return null;
+        }
+
+        // Load the active vocabulary once; each line's free-text token is normalised against it.
+        var activeUnits = await units.ListAsync(includeInactive: false, cancellationToken);
+
+        // Append after the section's current lines, keeping a stable order for the batch.
+        var nextSequence = section.LineItems.Count == 0 ? 1 : section.LineItems.Max(li => li.Sequence) + 1;
+
+        var unresolved = new List<UnresolvedBoqLine>();
+        var addedAny = false;
+
+        for (var index = 0; index < items.Count; index++)
+        {
+            var item = items[index];
+            var unit = activeUnits.FirstOrDefault(u => u.Recognizes(item.Unit));
+            if (unit is null)
+            {
+                // Unresolved units don't fail the batch — flag the offending token and move on.
+                unresolved.Add(new UnresolvedBoqLine(index, item.Description, item.Unit));
+                continue;
+            }
+
+            boq.AddLineItem(
+                section.Id,
+                item.Description,
+                item.Quantity,
+                unit.Id,
+                ToMoney(item.UnitPrice),
+                ToVatRate(item.VatRatePercentage),
+                nextSequence++,
+                item.Notes);
+            addedAny = true;
+        }
+
+        if (addedAny)
+        {
+            await unitOfWork.CommitAsync(cancellationToken);
+        }
+
+        return new AddBoqLineItemsResult(ToDto(boq), unresolved);
+    }
+
     public async Task<BillOfQuantitiesDto?> ReviseLineItemAsync(
         Guid id,
         Guid sectionId,
@@ -232,6 +310,26 @@ public sealed class BillOfQuantitiesAppService(
         return true;
     }
 
+    public async Task<BillOfQuantitiesDto?> SubmitAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var boq = await repository.GetAsync(new BoqId(id), cancellationToken);
+        if (boq is null)
+        {
+            return null;
+        }
+
+        var now = timeProvider.GetUtcNow();
+        boq.Submit(now);
+
+        // Submitting a quote is its receipt against the bid: move the owning bid to BoqReceived. The
+        // BoQ↔bid link is carried canonically by BillOfQuantities.BidId; LinkBoq records receipt.
+        var bid = await bids.GetAsync(boq.BidId, cancellationToken);
+        bid?.LinkBoq(boq.Id, now);
+
+        await unitOfWork.CommitAsync(cancellationToken);
+        return ToDto(boq);
+    }
+
     public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var boq = await repository.GetAsync(new BoqId(id), cancellationToken);
@@ -264,6 +362,20 @@ public sealed class BillOfQuantitiesAppService(
     private static ExchangeRate? ToExchangeRate(ExchangeRateDto? dto) =>
         dto is null ? null : new ExchangeRate(dto.BaseCurrency, dto.QuoteCurrency, dto.Rate, dto.AsOf);
 
+    // Build a provenance reference when the agent supplies a source file name. The uploader is the
+    // current (authenticated) stakeholder and the upload time is now; the URL falls back to the name.
+    private DocumentReference? ToSourceDocument(string? fileName, string? url, DateTimeOffset now)
+    {
+        if (string.IsNullOrWhiteSpace(fileName))
+        {
+            return null;
+        }
+
+        var trimmedName = fileName.Trim();
+        var resolvedUrl = string.IsNullOrWhiteSpace(url) ? trimmedName : url.Trim();
+        return new DocumentReference(trimmedName, resolvedUrl, now, currentUser.UserId);
+    }
+
     private static BillOfQuantitiesDto ToDto(BillOfQuantities boq) => new(
         boq.Id.Value,
         boq.BidId.Value,
@@ -280,6 +392,14 @@ public sealed class BillOfQuantitiesAppService(
             .OrderBy(s => s.Sequence)
             .Select(ToDto)
             .ToList(),
+        boq.SourceContentHash,
+        boq.SourceDocument is null
+            ? null
+            : new SourceDocumentDto(
+                boq.SourceDocument.FileName,
+                boq.SourceDocument.Url,
+                boq.SourceDocument.UploadedOn,
+                boq.SourceDocument.UploadedBy.Value),
         boq.CreatedOn);
 
     private static SectionDto ToDto(Section section) => new(

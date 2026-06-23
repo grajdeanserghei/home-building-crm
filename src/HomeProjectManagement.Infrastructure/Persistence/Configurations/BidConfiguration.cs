@@ -34,6 +34,7 @@ public sealed class BidConfiguration : IEntityTypeConfiguration<Bid>
         builder.Property(b => b.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
 
         builder.Property(b => b.FirstContactedOn);
+        builder.Property(b => b.ExpectedBoqDate);
         builder.Property(b => b.Summary).HasMaxLength(1000);
 
         // Discussion notes are internal entities owned by the bid: a child table whose rows live

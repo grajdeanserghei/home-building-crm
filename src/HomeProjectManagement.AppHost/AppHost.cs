@@ -19,6 +19,14 @@ var apiService = builder.AddProject<Projects.HomeProjectManagement_ApiService>("
         DisplayText = "Scalar API Reference",
     });
 
+// Remote MCP server: a second driving adapter that lets connected AI agents (Claude / ChatGPT)
+// drive contractor/bid/BoQ data entry. It shares the projectsdb and is reachable from outside the
+// Aspire network because remote agent clients connect to it directly.
+builder.AddProject<Projects.HomeProjectManagement_McpServer>("mcpserver")
+    .WithReference(projectsDb)
+    .WaitFor(projectsDb)
+    .WithExternalHttpEndpoints();
+
 // Next.js frontend. AddNextJsApp handles the dev-server port binding and runs `npm run dev`.
 builder.AddNextJsApp("web", "../web")
     .WithNpm()

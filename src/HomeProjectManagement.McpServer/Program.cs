@@ -1,0 +1,52 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using HomeProjectManagement.Application;
+using HomeProjectManagement.Infrastructure;
+using HomeProjectManagement.Infrastructure.Persistence;
+using HomeProjectManagement.McpServer.Authentication;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Aspire service defaults (OpenTelemetry, health checks, service discovery).
+builder.AddServiceDefaults();
+
+// Same projectsdb the ApiService uses; the schema is owned by the ApiService's startup migration,
+// so this host only reads/writes — it does not migrate.
+builder.AddNpgsqlDbContext<AppDbContext>("projectsdb");
+
+// Composition root: identical wiring to the ApiService. Tools call these app-service ports in-process.
+builder.Services.AddApplication();
+builder.Services.AddInfrastructure();
+
+// Serialize enums as their string names in tool I/O so the MCP schema matches the REST contract
+// and the frontend's TypeScript enums (e.g. BidStatus, NoteType, Currency).
+var toolSerializerOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+toolSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+
+builder.Services
+    .AddMcpServer()
+    .WithHttpTransport()                                  // Streamable HTTP — what remote clients use.
+    .WithToolsFromAssembly(serializerOptions: toolSerializerOptions); // discovers [McpServerTool] methods.
+
+// OAuth 2.1 resource-server role (gated by McpAuth:Enabled). When disabled, the host runs
+// network-restricted with the StubCurrentUser; when enabled, it validates Entra tokens, restricts
+// access to the four stakeholders, and attributes writes to the authenticated principal.
+var authEnabled = builder.AddMcpResourceServerAuthentication();
+
+var app = builder.Build();
+
+app.MapDefaultEndpoints();
+
+if (authEnabled)
+{
+    app.UseAuthentication();
+    app.UseAuthorization();
+}
+
+var mcp = app.MapMcp();
+if (authEnabled)
+{
+    mcp.RequireAuthorization(McpAuthExtensions.StakeholderPolicy);
+}
+
+app.Run();

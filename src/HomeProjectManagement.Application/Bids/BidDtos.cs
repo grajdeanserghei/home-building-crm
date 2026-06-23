@@ -12,6 +12,7 @@ public sealed record BidDto(
     Guid ContractorId,
     BidStatus Status,
     DateTimeOffset? FirstContactedOn,
+    DateTimeOffset? ExpectedBoqDate,
     string? Summary,
     IReadOnlyList<DiscussionNoteDto> Notes,
     DateTimeOffset CreatedAt);
@@ -44,10 +45,11 @@ public sealed record UpdateBidCommand(
     DateTimeOffset? FirstContactedOn);
 
 /// <summary>
-/// Input for transitioning a bid's status. <c>Selected</c> additionally rejects the competing
-/// bids on the same work package (coordinated by the application service).
+/// Input for transitioning a bid's status. Moving to <c>BoqExpected</c> records the optional
+/// <see cref="ExpectedBoqDate"/> the contractor committed to (an absolute date the caller resolved
+/// any relative promise to). <c>Selected</c> is reached only through the award flow, not here.
 /// </summary>
-public sealed record ChangeBidStatusCommand(BidStatus Status);
+public sealed record ChangeBidStatusCommand(BidStatus Status, DateTimeOffset? ExpectedBoqDate = null);
 
 /// <summary>Input for appending a note to a bid's discussion log. The author is the current user.</summary>
 public sealed record LogDiscussionNoteCommand(

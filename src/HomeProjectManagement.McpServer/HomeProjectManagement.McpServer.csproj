@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <!-- Aspire-wired Npgsql EF Core DbContext registration (same projectsdb the ApiService uses). -->
+    <PackageReference Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <!-- Official MCP C# SDK: Streamable HTTP transport + OAuth resource-server (RFC 9728) helpers. -->
+    <PackageReference Include="ModelContextProtocol.AspNetCore" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+  </ItemGroup>
+
+  <!--
+    The MCP server is a second driving adapter (peer to ApiService): it references Application
+    (use-case ports) and Infrastructure (adapters) plus ServiceDefaults, and calls the app-service
+    ports in-process. It never touches EF Core or the domain directly.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\HomeProjectManagement.ServiceDefaults\HomeProjectManagement.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\HomeProjectManagement.Application\HomeProjectManagement.Application.csproj" />
+    <ProjectReference Include="..\HomeProjectManagement.Infrastructure\HomeProjectManagement.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

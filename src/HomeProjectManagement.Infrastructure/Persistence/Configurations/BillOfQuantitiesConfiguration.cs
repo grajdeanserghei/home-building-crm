@@ -36,6 +36,21 @@ public sealed class BillOfQuantitiesConfiguration : IEntityTypeConfiguration<Bil
         builder.Property(b => b.SubmittedOn);
         builder.Property(b => b.ValidUntil);
 
+        // Provenance + idempotency for document ingestion. The hash is the SHA-256 the agent computed
+        // over the source deviz; indexed (non-unique) so the application service can find a prior
+        // ingestion of the same document and avoid duplicating it.
+        builder.Property(b => b.SourceContentHash).HasMaxLength(64);
+        builder.HasIndex(b => b.SourceContentHash);
+
+        // Optional source-document reference, flattened into nullable columns.
+        builder.OwnsOne(b => b.SourceDocument, doc =>
+        {
+            doc.Property(d => d.FileName).HasColumnName("source_document_file_name").HasMaxLength(400);
+            doc.Property(d => d.Url).HasColumnName("source_document_url").HasMaxLength(2000);
+            doc.Property(d => d.UploadedOn).HasColumnName("source_document_uploaded_on");
+            doc.Property(d => d.UploadedBy).HasColumnName("source_document_uploaded_by");
+        });
+
         // Pinned exchange rate is an optional owned value object (flattened into nullable columns).
         builder.OwnsOne(b => b.ExchangeRate, rate =>
         {

@@ -9,8 +9,17 @@ public enum BidStatus
     /// <summary>Discussions have begun, possibly before any priced quote exists.</summary>
     InDiscussion,
 
-    /// <summary>The contractor has submitted at least one priced BoQ.</summary>
-    Quoted,
+    /// <summary>
+    /// The contractor has committed to send a priced BoQ (a <c>deviz</c>) by an
+    /// <see cref="Bid.ExpectedBoqDate"/>, but it has not arrived yet.
+    /// </summary>
+    BoqExpected,
+
+    /// <summary>
+    /// A priced BoQ has been received. Supersedes the former <c>Quoted</c> — a received priced
+    /// BoQ <i>is</i> the quote.
+    /// </summary>
+    BoqReceived,
 
     /// <summary>Kept in contention as a serious candidate.</summary>
     Shortlisted,

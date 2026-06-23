@@ -37,11 +37,25 @@ public interface IBillOfQuantitiesAppService
     /// <summary>Add a priced line to a section. Returns null if the BoQ or section is absent.</summary>
     Task<BillOfQuantitiesDto?> AddLineItemAsync(Guid id, Guid sectionId, LineItemCommand command, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Bulk-add priced lines to a section, normalising each line's free-text unit token onto an
+    /// active canonical unit of measure. Resolvable lines are persisted; lines whose unit could not
+    /// be matched are returned flagged (the batch is not failed by a single bad unit). The result's
+    /// <c>Boq</c> is null only when the BoQ or section does not exist.
+    /// </summary>
+    Task<AddBoqLineItemsResult?> AddLineItemsAsync(Guid id, Guid sectionId, IReadOnlyList<BoqLineItemInput> items, CancellationToken cancellationToken = default);
+
     /// <summary>Revise a line item. Returns null if the BoQ, section, or line item is absent.</summary>
     Task<BillOfQuantitiesDto?> ReviseLineItemAsync(Guid id, Guid sectionId, Guid lineItemId, LineItemCommand command, CancellationToken cancellationToken = default);
 
     /// <summary>Remove a line item. Returns false if the BoQ, section, or line item is absent.</summary>
     Task<bool> RemoveLineItemAsync(Guid id, Guid sectionId, Guid lineItemId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Submit a draft BoQ (Draft → Submitted, locking line edits) and record receipt on the owning
+    /// bid (moving it to <c>BoqReceived</c> via <c>LinkBoq</c>). Returns null if the BoQ does not exist.
+    /// </summary>
+    Task<BillOfQuantitiesDto?> SubmitAsync(Guid id, CancellationToken cancellationToken = default);
 
     Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default);
 }

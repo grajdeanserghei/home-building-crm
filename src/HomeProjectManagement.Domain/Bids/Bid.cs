@@ -1,4 +1,5 @@
 using HomeProjectManagement.Domain.Bids.Events;
+using HomeProjectManagement.Domain.BillsOfQuantities;
 using HomeProjectManagement.Domain.Common;
 using HomeProjectManagement.Domain.Common.ValueObjects;
 using HomeProjectManagement.Domain.Contractors;
@@ -36,6 +37,13 @@ public sealed class Bid : AggregateRoot<BidId>
 
     /// <summary>When discussions began. Optional.</summary>
     public DateTimeOffset? FirstContactedOn { get; private set; }
+
+    /// <summary>
+    /// When the contractor committed to send a BoQ (set together with <see cref="BidStatus.BoqExpected"/>
+    /// via <see cref="ExpectBoqBy"/>). A relative promise ("by Monday next week") is resolved to an
+    /// absolute date by the caller before it reaches the domain — there is no clock in the domain. Optional.
+    /// </summary>
+    public DateTimeOffset? ExpectedBoqDate { get; private set; }
 
     /// <summary>Short free-text summary/standing of the bid. Optional.</summary>
     public string? Summary { get; private set; }
@@ -136,8 +144,43 @@ public sealed class Bid : AggregateRoot<BidId>
         TransitionTo(status, now);
     }
 
-    /// <summary>Record that the contractor has submitted a priced quote.</summary>
-    public void MarkQuoted(DateTimeOffset now) => TransitionTo(BidStatus.Quoted, now);
+    /// <summary>
+    /// Record that the contractor committed to send a priced BoQ by <paramref name="expectedBoqDate"/>
+    /// (already resolved to an absolute date by the caller), moving the bid to
+    /// <see cref="BidStatus.BoqExpected"/> and raising <see cref="BidBoqExpected"/>. When the bid is
+    /// already <see cref="BidStatus.BoqExpected"/> this just revises the committed date.
+    /// </summary>
+    public void ExpectBoqBy(DateTimeOffset? expectedBoqDate, DateTimeOffset now)
+    {
+        if (Status == BidStatus.BoqExpected)
+        {
+            ExpectedBoqDate = expectedBoqDate;
+            return;
+        }
+
+        EnsureCanTransitionTo(BidStatus.BoqExpected);
+        Status = BidStatus.BoqExpected;
+        ExpectedBoqDate = expectedBoqDate;
+        Raise(new BidBoqExpected(Id, expectedBoqDate, now));
+    }
+
+    /// <summary>
+    /// Record receipt of a priced BoQ, moving the bid to <see cref="BidStatus.BoqReceived"/> and
+    /// raising <see cref="BidBoqReceived"/>. The BoQ↔bid link is carried canonically by
+    /// <c>BillOfQuantities.BidId</c> (a bid may hold several BoQ versions), so this records
+    /// <i>receipt</i> via the status transition rather than storing a single BoQ pointer on the bid.
+    /// </summary>
+    public void LinkBoq(BoqId boqId, DateTimeOffset now)
+    {
+        if (Status == BidStatus.BoqReceived)
+        {
+            return;
+        }
+
+        EnsureCanTransitionTo(BidStatus.BoqReceived);
+        Status = BidStatus.BoqReceived;
+        Raise(new BidBoqReceived(Id, boqId, now));
+    }
 
     /// <summary>Keep the bid in contention as a serious candidate.</summary>
     public void Shortlist(DateTimeOffset now) => TransitionTo(BidStatus.Shortlisted, now);
@@ -151,17 +194,21 @@ public sealed class Bid : AggregateRoot<BidId>
     /// <summary>
     /// Select this bid as the winner of its work package. The cross-aggregate award flow
     /// (rejecting the competing bids, creating the contract, transitioning the work package) is
-    /// coordinated by an application service; this method is the bid's own part of it. A
-    /// withdrawn or rejected bid cannot be selected.
+    /// coordinated by an application service; this method is the bid's own part of it. Selection is
+    /// reachable from any non-terminal status; a withdrawn, rejected, or already-selected bid cannot
+    /// be selected.
     /// </summary>
     public void Select(DateTimeOffset now)
     {
-        if (Status is BidStatus.Withdrawn or BidStatus.Rejected)
+        if (Status == BidStatus.Selected)
         {
-            throw new DomainConflictException($"A {Status} bid cannot be selected.");
+            return;
         }
 
-        TransitionTo(BidStatus.Selected, now);
+        EnsureCanTransitionTo(BidStatus.Selected);
+        var previous = Status;
+        Status = BidStatus.Selected;
+        Raise(new BidStatusChanged(Id, previous, BidStatus.Selected, now));
     }
 
     private void TransitionTo(BidStatus status, DateTimeOffset now)
@@ -171,14 +218,59 @@ public sealed class Bid : AggregateRoot<BidId>
             return;
         }
 
-        if (Status == BidStatus.Withdrawn)
-        {
-            throw new DomainConflictException("A withdrawn bid is closed and cannot change status.");
-        }
-
+        EnsureCanTransitionTo(status);
         var previous = Status;
         Status = status;
         Raise(new BidStatusChanged(Id, previous, status, now));
+    }
+
+    /// <summary>
+    /// Legal status transitions. <see cref="BidStatus.Selected"/> is included for every non-terminal
+    /// source (it is reached via <see cref="Select"/>, never <see cref="ChangeStatus"/>);
+    /// <see cref="BidStatus.Selected"/>, <see cref="BidStatus.Rejected"/> and
+    /// <see cref="BidStatus.Withdrawn"/> are terminal and appear as no key.
+    /// </summary>
+    private static readonly IReadOnlyDictionary<BidStatus, BidStatus[]> AllowedTransitions =
+        new Dictionary<BidStatus, BidStatus[]>
+        {
+            [BidStatus.InDiscussion] =
+            [
+                BidStatus.BoqExpected, BidStatus.BoqReceived, BidStatus.Shortlisted,
+                BidStatus.Selected, BidStatus.Rejected, BidStatus.Withdrawn
+            ],
+            [BidStatus.BoqExpected] =
+            [
+                BidStatus.BoqReceived, BidStatus.InDiscussion,
+                BidStatus.Selected, BidStatus.Rejected, BidStatus.Withdrawn
+            ],
+            [BidStatus.BoqReceived] =
+            [
+                BidStatus.Shortlisted, BidStatus.Selected, BidStatus.Rejected, BidStatus.Withdrawn
+            ],
+            [BidStatus.Shortlisted] =
+            [
+                BidStatus.Selected, BidStatus.Rejected, BidStatus.Withdrawn
+            ],
+        };
+
+    private void EnsureCanTransitionTo(BidStatus target)
+    {
+        if (Status == target)
+        {
+            return;
+        }
+
+        if (!AllowedTransitions.TryGetValue(Status, out var allowed) || !allowed.Contains(target))
+        {
+            throw new DomainConflictException(
+                $"A bid cannot move from {Status} to {target}.",
+                code: "BidInvalidStatusTransition",
+                parameters: new Dictionary<string, object?>
+                {
+                    ["from"] = Status.ToString(),
+                    ["to"] = target.ToString(),
+                });
+        }
     }
 
     private static string? Trim(string? value) =>

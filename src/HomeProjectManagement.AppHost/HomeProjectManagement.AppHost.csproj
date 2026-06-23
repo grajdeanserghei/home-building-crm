@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\HomeProjectManagement.ApiService\HomeProjectManagement.ApiService.csproj" />
+    <ProjectReference Include="..\HomeProjectManagement.McpServer\HomeProjectManagement.McpServer.csproj" />
   </ItemGroup>
 
   <ItemGroup>

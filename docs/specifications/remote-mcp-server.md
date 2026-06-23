@@ -1,6 +1,6 @@
 # Remote MCP Server for AI-Driven Project Data Entry
 
-- **Status:** In Review <!-- Draft | In Review | Approved | Implemented | Deprecated -->
+- **Status:** Implemented <!-- Draft | In Review | Approved | Implemented | Deprecated -->
 - **Author:** Serghei Grajdean
 - **Date:** 2026-06-22
 - **Related:** [`docs/architecture/domain-model.md`](../architecture/domain-model.md), [`docs/architecture/hexagonal-architecture.md`](../architecture/hexagonal-architecture.md), [`docs/project-overview.md`](../project-overview.md)
@@ -319,3 +319,29 @@ Resolved with the maintainer:
 _All design questions are resolved (see Design Decisions). Remaining items are downstream of those decisions and tracked at implementation time:_
 
 - **Entra External ID specifics.** Confirm, against the actual tenant, the public-client registration approach (CIMD vs shared `client_id`) the Claude/ChatGPT desktop clients accept, and the exact protected-resource-metadata `authorization_servers` entry for an External ID tenant.
+
+## Implementation notes
+
+Delivered against the existing (further-along-than-this-spec-assumed) codebase, where `Bid`,
+`BillOfQuantities`, `Contract`, and `UnitOfMeasure` were already built and wired. A few small,
+deliberate deviations from the design above, recorded for the record:
+
+- **`ModelContextProtocol.AspNetCore` 1.4.0** (current stable) is the SDK version used. `Program.cs`
+  matches the design: `AddMcpServer().WithHttpTransport().WithToolsFromAssembly(...)` + `MapMcp()`.
+  Tool I/O is configured to serialize enums as their string names, keeping the MCP schema in lockstep
+  with the REST contract and the frontend's TypeScript enums.
+- **`create_boq` takes a `bidId`, not `workPackageId`+`contractorId`.** A BoQ belongs to a bid (per
+  `domain-model.md`); the tool description directs the agent to `open_bid` first. This honours the
+  by-id rule rather than re-deriving the bid inside the tool.
+- **`BoqStatus` keeps the implemented/`domain-model.md` set** (`Draft | Submitted | Accepted |
+  Rejected | Withdrawn`) — the draft's `Superseded` maps onto `Withdrawn` (the existing semantics of
+  "pulled back or superseded by a later version"). No enum churn was introduced.
+- **`UnitOfMeasure` was already fully wired** (app service, endpoint, migration, seed), so the
+  "finish wiring" item was a no-op beyond consuming it for `list_units_of_measure` and unit
+  normalisation.
+- **Auth is config-gated (`McpAuth:Enabled`).** It ships off so the host runs network-restricted with
+  the existing `StubCurrentUser` (matching implementation-order steps 1–4); setting it on activates
+  the JWT-bearer resource server, the RFC 9728 protected-resource metadata, the stakeholder allow-list
+  policy, and the real principal-based `ICurrentUser` adapter (step 5). Entra authority/audience/
+  allow-list come from user-secrets, never committed. `.WithExternalHttpEndpoints()` is wired in the
+  AppHost.
