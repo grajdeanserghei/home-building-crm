@@ -156,6 +156,27 @@ public static class BoqTools
                    $"BoQ {boqId}, section {sectionId}, or line item {lineItemId} was not found.");
     }
 
+    [McpServerTool(Name = "remove_boq_line_item"), Description(
+        "Remove a single line from a draft BoQ — use this to drop a line added in error or one that doesn't " +
+        "belong in the deviz. Only works while the BoQ is a draft (line edits lock on submit). Returns the " +
+        "updated BoQ.")]
+    public static async Task<BillOfQuantitiesDto> RemoveBoqLineItem(
+        IBillOfQuantitiesAppService service,
+        [Description("The BoQ id.")] Guid boqId,
+        [Description("The section id.")] Guid sectionId,
+        [Description("The line item id to remove.")] Guid lineItemId,
+        CancellationToken ct = default)
+    {
+        if (!await service.RemoveLineItemAsync(boqId, sectionId, lineItemId, ct))
+        {
+            throw new McpException(
+                $"BoQ {boqId}, section {sectionId}, or line item {lineItemId} was not found.");
+        }
+
+        return await service.GetAsync(boqId, ct)
+               ?? throw new McpException($"No bill of quantities exists with id {boqId}.");
+    }
+
     [McpServerTool(Name = "list_boqs"), Description(
         "List the Bills of Quantities submitted within a bid (oldest version first; a bid may hold several " +
         "revisions). Use this to discover which BoQs exist for a bid — and their boqIds — before reading one " +
