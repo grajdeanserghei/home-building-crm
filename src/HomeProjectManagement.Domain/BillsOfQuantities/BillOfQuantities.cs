@@ -229,6 +229,77 @@ public sealed class BillOfQuantities : AggregateRoot<BoqId>
         return section is not null && section.RemoveLineItem(lineItemId);
     }
 
+    /// <summary>Add a subsection to a section and return it. Returns null if the section does not exist.</summary>
+    public Subsection? AddSubsection(SectionId sectionId, string name, int sequence, string? description = null)
+    {
+        EnsureMutable();
+        var section = FindSection(sectionId);
+        return section?.AddSubsection(name, sequence, description);
+    }
+
+    /// <summary>Rename/reorder a subsection. Returns false if the section or subsection is absent.</summary>
+    public bool UpdateSubsection(SectionId sectionId, SubsectionId subsectionId, string name, int sequence, string? description)
+    {
+        EnsureMutable();
+        var section = FindSection(sectionId);
+        return section is not null && section.UpdateSubsection(subsectionId, name, sequence, description);
+    }
+
+    /// <summary>Remove a subsection (and its line items). Returns false if the section or subsection is absent.</summary>
+    public bool RemoveSubsection(SectionId sectionId, SubsectionId subsectionId)
+    {
+        EnsureMutable();
+        var section = FindSection(sectionId);
+        return section is not null && section.RemoveSubsection(subsectionId);
+    }
+
+    /// <summary>
+    /// Add a priced line to a subsection and return it. Returns null if the section or subsection is
+    /// absent. The same currency and VAT rules as a section-level line apply.
+    /// </summary>
+    public LineItem? AddSubsectionLineItem(
+        SectionId sectionId,
+        SubsectionId subsectionId,
+        string description,
+        decimal quantity,
+        UnitOfMeasureId unitOfMeasureId,
+        Money unitPrice,
+        VatRate vatRate,
+        int sequence,
+        string? notes = null)
+    {
+        EnsureMutable();
+        var section = FindSection(sectionId);
+        return section?.AddSubsectionLineItem(subsectionId, description, quantity, unitOfMeasureId, unitPrice, vatRate, sequence, notes);
+    }
+
+    /// <summary>Revise a line item inside a subsection. Returns false if the section, subsection, or line item is absent.</summary>
+    public bool ReviseSubsectionLineItem(
+        SectionId sectionId,
+        SubsectionId subsectionId,
+        LineItemId lineItemId,
+        string description,
+        decimal quantity,
+        UnitOfMeasureId unitOfMeasureId,
+        Money unitPrice,
+        VatRate vatRate,
+        int sequence,
+        string? notes)
+    {
+        EnsureMutable();
+        var section = FindSection(sectionId);
+        return section is not null
+            && section.ReviseSubsectionLineItem(subsectionId, lineItemId, description, quantity, unitOfMeasureId, unitPrice, vatRate, sequence, notes);
+    }
+
+    /// <summary>Remove a line item from a subsection. Returns false if the section, subsection, or line item is absent.</summary>
+    public bool RemoveSubsectionLineItem(SectionId sectionId, SubsectionId subsectionId, LineItemId lineItemId)
+    {
+        EnsureMutable();
+        var section = FindSection(sectionId);
+        return section is not null && section.RemoveSubsectionLineItem(subsectionId, lineItemId);
+    }
+
     /// <summary>Mark the BoQ as submitted (a firm quote handed over by the contractor).</summary>
     public void Submit(DateTimeOffset now) => TransitionTo(BoqStatus.Submitted, now);
 

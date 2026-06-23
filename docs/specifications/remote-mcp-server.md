@@ -205,7 +205,13 @@ Tool I/O reuses the existing Application DTOs/commands, so the MCP schema and th
 | `add_boq_sections` | Add sections (name, code, sequence). |
 | `add_boq_line_items` | **Bulk** add line items to a section: `{description, unit, quantity, unitPrice}[]`. Server normalises `unit` → `UnitOfMeasureId`, computes totals, returns per-line results flagging unresolved units. |
 | `revise_boq_line_item` | Correct a single line on a draft BoQ. |
-| `get_boq` | Read back a BoQ (sections, line items, totals) to verify. |
+| `remove_boq_line_item` | Remove a single line from a draft BoQ. |
+| `add_boq_subsections` | Add subsections (fixed second level) to a section: `{name, sequence?, description?}[]`. |
+| `add_boq_subsection_line_items` | **Bulk** add line items to a subsection — the subsection counterpart of `add_boq_line_items`, with the same unit normalisation and unresolved-line flagging. |
+| `revise_boq_subsection_line_item` | Correct a single line inside a subsection of a draft BoQ. |
+| `remove_boq_subsection_line_item` | Remove a single line from a subsection of a draft BoQ. |
+| `list_boqs` | List the BoQ versions submitted within a bid. |
+| `get_boq` | Read back a BoQ (sections, subsections, line items, totals) to verify. |
 | `submit_boq` | Transition draft → `Submitted` (locks line edits); links the owning bid (`LinkBoq`). |
 
 Design notes:

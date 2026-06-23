@@ -489,9 +489,9 @@ export interface LineItem {
   notes?: string | null;
 }
 
-// A grouping of line items inside a BoQ. `subtotal` (net) / `subtotalWithVat` (gross)
-// are derived (sum of the line totals).
-export interface Section {
+// A fixed second-level grouping of line items inside a Section. `subtotal` (net) /
+// `subtotalWithVat` (gross) are derived (sum of the line totals).
+export interface Subsection {
   id: string;
   name: string;
   sequence: number;
@@ -499,6 +499,19 @@ export interface Section {
   subtotal: Money;
   subtotalWithVat: Money;
   lineItems: LineItem[];
+}
+
+// A grouping of line items inside a BoQ. `subtotal` (net) / `subtotalWithVat` (gross)
+// are derived: the section's direct line totals plus its subsections' subtotals.
+export interface Section {
+  id: string;
+  name: string;
+  sequence: number;
+  description?: string | null;
+  subtotal: Money;
+  subtotalWithVat: Money;
+  lineItems: LineItem[]; // held directly in the section (not in a subsection)
+  subsections: Subsection[];
 }
 
 export interface BillOfQuantities {

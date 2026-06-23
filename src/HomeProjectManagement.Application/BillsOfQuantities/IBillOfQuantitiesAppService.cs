@@ -51,6 +51,32 @@ public interface IBillOfQuantitiesAppService
     /// <summary>Remove a line item. Returns false if the BoQ, section, or line item is absent.</summary>
     Task<bool> RemoveLineItemAsync(Guid id, Guid sectionId, Guid lineItemId, CancellationToken cancellationToken = default);
 
+    /// <summary>Add a subsection to a section. Returns null if the BoQ or section is absent.</summary>
+    Task<BillOfQuantitiesDto?> AddSubsectionAsync(Guid id, Guid sectionId, SubsectionCommand command, CancellationToken cancellationToken = default);
+
+    /// <summary>Rename/reorder a subsection. Returns null if the BoQ, section, or subsection is absent.</summary>
+    Task<BillOfQuantitiesDto?> UpdateSubsectionAsync(Guid id, Guid sectionId, Guid subsectionId, SubsectionCommand command, CancellationToken cancellationToken = default);
+
+    /// <summary>Remove a subsection (and its line items). Returns false if the BoQ, section, or subsection is absent.</summary>
+    Task<bool> RemoveSubsectionAsync(Guid id, Guid sectionId, Guid subsectionId, CancellationToken cancellationToken = default);
+
+    /// <summary>Add a priced line to a subsection. Returns null if the BoQ, section, or subsection is absent.</summary>
+    Task<BillOfQuantitiesDto?> AddSubsectionLineItemAsync(Guid id, Guid sectionId, Guid subsectionId, LineItemCommand command, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Bulk-add priced lines to a subsection, normalising each line's free-text unit token onto an
+    /// active canonical unit of measure (the subsection-level counterpart of <see cref="AddLineItemsAsync"/>).
+    /// Resolvable lines persist; unmatched lines are returned flagged without failing the batch. The
+    /// result's <c>Boq</c> is null only when the BoQ, section, or subsection does not exist.
+    /// </summary>
+    Task<AddBoqLineItemsResult?> AddSubsectionLineItemsAsync(Guid id, Guid sectionId, Guid subsectionId, IReadOnlyList<BoqLineItemInput> items, CancellationToken cancellationToken = default);
+
+    /// <summary>Revise a line item inside a subsection. Returns null if the BoQ, section, subsection, or line item is absent.</summary>
+    Task<BillOfQuantitiesDto?> ReviseSubsectionLineItemAsync(Guid id, Guid sectionId, Guid subsectionId, Guid lineItemId, LineItemCommand command, CancellationToken cancellationToken = default);
+
+    /// <summary>Remove a line item from a subsection. Returns false if the BoQ, section, subsection, or line item is absent.</summary>
+    Task<bool> RemoveSubsectionLineItemAsync(Guid id, Guid sectionId, Guid subsectionId, Guid lineItemId, CancellationToken cancellationToken = default);
+
     /// <summary>
     /// Submit a draft BoQ (Draft → Submitted, locking line edits) and record receipt on the owning
     /// bid (moving it to <c>BoqReceived</c> via <c>LinkBoq</c>). Returns null if the BoQ does not exist.

@@ -31,8 +31,22 @@ public sealed record SourceDocumentDto(
     DateTimeOffset UploadedOn,
     Guid UploadedBy);
 
-/// <summary>A section of the BoQ with its line items (mirrors the <c>Section</c> entity).</summary>
+/// <summary>
+/// A section of the BoQ with its directly-held line items and its subsections (mirrors the
+/// <c>Section</c> entity). <c>Subtotal</c> covers both the direct lines and the subsections.
+/// </summary>
 public sealed record SectionDto(
+    Guid Id,
+    string Name,
+    int Sequence,
+    string? Description,
+    MoneyDto Subtotal,
+    MoneyDto SubtotalWithVat,
+    IReadOnlyList<LineItemDto> LineItems,
+    IReadOnlyList<SubsectionDto> Subsections);
+
+/// <summary>A subsection of a section with its line items (mirrors the <c>Subsection</c> entity).</summary>
+public sealed record SubsectionDto(
     Guid Id,
     string Name,
     int Sequence,
@@ -122,6 +136,9 @@ public sealed record ChangeBoqStatusCommand(BoqStatus Status);
 
 /// <summary>Input for adding or editing a section.</summary>
 public sealed record SectionCommand(string Name, int Sequence, string? Description);
+
+/// <summary>Input for adding or editing a subsection (same shape as a section heading).</summary>
+public sealed record SubsectionCommand(string Name, int Sequence, string? Description);
 
 /// <summary>
 /// Input for adding or editing a line item. The unit price (net, VAT-exclusive) must be in the

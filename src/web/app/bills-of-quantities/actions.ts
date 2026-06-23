@@ -185,34 +185,83 @@ export async function removeSection(formData: FormData) {
   revalidatePath(`/bills-of-quantities/${boqId}`);
 }
 
-// Line items --------------------------------------------------------------
+// Subsections -------------------------------------------------------------
 
-export async function addLineItem(formData: FormData) {
+export async function addSubsection(formData: FormData) {
   const boqId = formData.get("boqId") as string;
   const sectionId = formData.get("sectionId") as string;
-  const description = (formData.get("description") as string)?.trim();
-  const unitOfMeasureId = formData.get("unitOfMeasureId") as string;
-  if (!boqId || !sectionId || !description || !unitOfMeasureId) return;
+  const name = (formData.get("name") as string)?.trim();
+  if (!boqId || !sectionId || !name) return;
 
+  const sequenceRaw = (formData.get("sequence") as string)?.trim();
+  const sequence = sequenceRaw ? Number.parseInt(sequenceRaw, 10) : 0;
+
+  const payload = {
+    name,
+    sequence: Number.isNaN(sequence) ? 0 : sequence,
+    description: (formData.get("description") as string)?.trim() || null,
+  };
+
+  const res = await fetch(
+    `${apiBaseUrl()}/api/bills-of-quantities/${boqId}/sections/${sectionId}/subsections`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    },
+  );
+
+  if (!res.ok) {
+    throw new Error(await describeApiError(res, "common.actionError"));
+  }
+
+  revalidatePath(`/bills-of-quantities/${boqId}`);
+}
+
+export async function removeSubsection(formData: FormData) {
+  const boqId = formData.get("boqId") as string;
+  const sectionId = formData.get("sectionId") as string;
+  const subsectionId = formData.get("subsectionId") as string;
+  if (!boqId || !sectionId || !subsectionId) return;
+
+  const res = await fetch(
+    `${apiBaseUrl()}/api/bills-of-quantities/${boqId}/sections/${sectionId}/subsections/${subsectionId}`,
+    { method: "DELETE" },
+  );
+
+  if (!res.ok && res.status !== 404) {
+    throw new Error(await describeApiError(res, "common.actionError"));
+  }
+
+  revalidatePath(`/bills-of-quantities/${boqId}`);
+}
+
+// Line items --------------------------------------------------------------
+
+// Build the JSON payload for a priced line from the submitted form. Shared by the add and
+// revise actions at both the section and subsection level — the only difference between
+// those is the target route, not the body. `description` / `unitOfMeasureId` are returned
+// for the caller's required-field guard. The price is always in the BoQ's pricing currency
+// (carried as a hidden `currency` field). A blank VAT rate stays null so the backend applies
+// the standard 21%.
+function lineItemPayload(formData: FormData) {
   const quantity = Number.parseFloat(
     (formData.get("quantity") as string)?.trim() || "0",
   );
   const amount = Number.parseFloat(
     (formData.get("unitPriceAmount") as string)?.trim() || "0",
   );
-  // The VAT rate (percent). Blank → null, letting the backend apply the standard 21%.
   const vatRaw = (formData.get("vatRatePercentage") as string)?.trim();
   const vatRatePercentage =
     vatRaw === undefined || vatRaw === "" ? null : Number.parseFloat(vatRaw);
   const sequenceRaw = (formData.get("sequence") as string)?.trim();
   const sequence = sequenceRaw ? Number.parseInt(sequenceRaw, 10) : 0;
-  // The line price is always in the BoQ's pricing currency (carried as a hidden field).
   const currency = formData.get("currency") as Currency;
 
-  const payload = {
-    description,
+  return {
+    description: (formData.get("description") as string)?.trim(),
     quantity: Number.isNaN(quantity) ? 0 : quantity,
-    unitOfMeasureId,
+    unitOfMeasureId: formData.get("unitOfMeasureId") as string,
     unitPrice: { amount: Number.isNaN(amount) ? 0 : amount, currency },
     vatRatePercentage:
       vatRatePercentage === null || Number.isNaN(vatRatePercentage)
@@ -221,6 +270,14 @@ export async function addLineItem(formData: FormData) {
     sequence: Number.isNaN(sequence) ? 0 : sequence,
     notes: (formData.get("notes") as string)?.trim() || null,
   };
+}
+
+export async function addLineItem(formData: FormData) {
+  const boqId = formData.get("boqId") as string;
+  const sectionId = formData.get("sectionId") as string;
+  const payload = lineItemPayload(formData);
+  if (!boqId || !sectionId || !payload.description || !payload.unitOfMeasureId)
+    return;
 
   const res = await fetch(
     `${apiBaseUrl()}/api/bills-of-quantities/${boqId}/sections/${sectionId}/line-items`,
@@ -245,38 +302,15 @@ export async function reviseLineItem(formData: FormData) {
   const boqId = formData.get("boqId") as string;
   const sectionId = formData.get("sectionId") as string;
   const lineItemId = formData.get("lineItemId") as string;
-  const description = (formData.get("description") as string)?.trim();
-  const unitOfMeasureId = formData.get("unitOfMeasureId") as string;
-  if (!boqId || !sectionId || !lineItemId || !description || !unitOfMeasureId)
+  const payload = lineItemPayload(formData);
+  if (
+    !boqId ||
+    !sectionId ||
+    !lineItemId ||
+    !payload.description ||
+    !payload.unitOfMeasureId
+  )
     return;
-
-  const quantity = Number.parseFloat(
-    (formData.get("quantity") as string)?.trim() || "0",
-  );
-  const amount = Number.parseFloat(
-    (formData.get("unitPriceAmount") as string)?.trim() || "0",
-  );
-  // The VAT rate (percent). Blank → null, letting the backend apply the standard 21%.
-  const vatRaw = (formData.get("vatRatePercentage") as string)?.trim();
-  const vatRatePercentage =
-    vatRaw === undefined || vatRaw === "" ? null : Number.parseFloat(vatRaw);
-  const sequenceRaw = (formData.get("sequence") as string)?.trim();
-  const sequence = sequenceRaw ? Number.parseInt(sequenceRaw, 10) : 0;
-  // The line price is always in the BoQ's pricing currency (carried as a hidden field).
-  const currency = formData.get("currency") as Currency;
-
-  const payload = {
-    description,
-    quantity: Number.isNaN(quantity) ? 0 : quantity,
-    unitOfMeasureId,
-    unitPrice: { amount: Number.isNaN(amount) ? 0 : amount, currency },
-    vatRatePercentage:
-      vatRatePercentage === null || Number.isNaN(vatRatePercentage)
-        ? null
-        : vatRatePercentage,
-    sequence: Number.isNaN(sequence) ? 0 : sequence,
-    notes: (formData.get("notes") as string)?.trim() || null,
-  };
 
   const res = await fetch(
     `${apiBaseUrl()}/api/bills-of-quantities/${boqId}/sections/${sectionId}/line-items/${lineItemId}`,
@@ -303,6 +337,91 @@ export async function removeLineItem(formData: FormData) {
 
   const res = await fetch(
     `${apiBaseUrl()}/api/bills-of-quantities/${boqId}/sections/${sectionId}/line-items/${lineItemId}`,
+    { method: "DELETE" },
+  );
+
+  if (!res.ok && res.status !== 404) {
+    throw new Error(await describeApiError(res, "common.actionError"));
+  }
+
+  revalidatePath(`/bills-of-quantities/${boqId}`);
+}
+
+// Subsection line items ---------------------------------------------------
+// The same payload shape as section-level lines, targeting the subsection's nested route.
+
+export async function addSubsectionLineItem(formData: FormData) {
+  const boqId = formData.get("boqId") as string;
+  const sectionId = formData.get("sectionId") as string;
+  const subsectionId = formData.get("subsectionId") as string;
+  const payload = lineItemPayload(formData);
+  if (
+    !boqId ||
+    !sectionId ||
+    !subsectionId ||
+    !payload.description ||
+    !payload.unitOfMeasureId
+  )
+    return;
+
+  const res = await fetch(
+    `${apiBaseUrl()}/api/bills-of-quantities/${boqId}/sections/${sectionId}/subsections/${subsectionId}/line-items`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    },
+  );
+
+  if (!res.ok) {
+    throw new Error(await describeApiError(res, "common.actionError"));
+  }
+
+  revalidatePath(`/bills-of-quantities/${boqId}`);
+}
+
+export async function reviseSubsectionLineItem(formData: FormData) {
+  const boqId = formData.get("boqId") as string;
+  const sectionId = formData.get("sectionId") as string;
+  const subsectionId = formData.get("subsectionId") as string;
+  const lineItemId = formData.get("lineItemId") as string;
+  const payload = lineItemPayload(formData);
+  if (
+    !boqId ||
+    !sectionId ||
+    !subsectionId ||
+    !lineItemId ||
+    !payload.description ||
+    !payload.unitOfMeasureId
+  )
+    return;
+
+  const res = await fetch(
+    `${apiBaseUrl()}/api/bills-of-quantities/${boqId}/sections/${sectionId}/subsections/${subsectionId}/line-items/${lineItemId}`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    },
+  );
+
+  if (!res.ok) {
+    throw new Error(await describeApiError(res, "common.actionError"));
+  }
+
+  revalidatePath(`/bills-of-quantities/${boqId}`);
+  redirect(`/bills-of-quantities/${boqId}`);
+}
+
+export async function removeSubsectionLineItem(formData: FormData) {
+  const boqId = formData.get("boqId") as string;
+  const sectionId = formData.get("sectionId") as string;
+  const subsectionId = formData.get("subsectionId") as string;
+  const lineItemId = formData.get("lineItemId") as string;
+  if (!boqId || !sectionId || !subsectionId || !lineItemId) return;
+
+  const res = await fetch(
+    `${apiBaseUrl()}/api/bills-of-quantities/${boqId}/sections/${sectionId}/subsections/${subsectionId}/line-items/${lineItemId}`,
     { method: "DELETE" },
   );
 

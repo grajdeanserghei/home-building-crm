@@ -91,6 +91,18 @@
   font-size: 1.1rem;
 }
 
+/* A subsection nested inside a BoQ section: indented with a left rule. */
+.subsection {
+  margin: 16px 0 16px 16px;
+  padding-left: 16px;
+  border-left: 3px solid color-mix(in srgb, currentColor 12%, transparent);
+}
+
+.subsection h3 {
+  margin: 0 0 12px;
+  font-size: 0.98rem;
+}
+
 .form {
   display: grid;
   grid-template-columns: 1fr 1fr;

@@ -1,7 +1,7 @@
 # Domain Model
 
 - **Status:** Draft
-- **Date:** 2026-06-22
+- **Date:** 2026-06-23
 - **Related:** [Project Overview](../project-overview.md), [Architecture](./README.md)
 
 ## Purpose
@@ -32,8 +32,10 @@ map onto them cleanly.
 | **Bill of Quantities (BoQ)** | _deviz de cheltuieli / deviz_ | A contractor's priced, itemized cost estimate submitted **within a Bid** (for that Bid's single work package). A Bid may have several BoQ versions over negotiation; each BoQ covers exactly one work package. |
 | **Contract** | _contract / atribuire_ | The award for a work package: when a Bid is selected, a contract is created from that Bid's accepted BoQ. A work package has at most one contract; the contract references the accepted BoQ and thereby its Bid and contractor. |
 | **Section** | _capitol de deviz_ | A grouping of line items **inside a single BoQ** (e.g. Foundation, Structure, Roof within a La Roșu quote). This is the *internal structure of one quote*, distinct from a Work Package (the *procurement unit*). |
-| **Line item** | _articol de deviz_ | A single priced row within a section: description, quantity, unit, net unit price, VAT rate (21% by default), and derived net/gross totals. |
+| **Subsection** | _subcapitol de deviz_ | A fixed second-level grouping of line items **inside a Section** (e.g. Excavation, Reinforcement within Foundation). The nesting depth is fixed at one: a subsection groups line items but never holds further subsections. Optional — a section may hold line items directly, inside subsections, or both. |
+| **Line item** | _articol de deviz_ | A single priced row within a section **or a subsection**: description, quantity, unit, net unit price, VAT rate (21% by default), and derived net/gross totals. |
 | **Unit of measure** | _unitate de măsură_ | A canonical unit used by line items (m³, m², m, pcs, kg, hrs). Controlled reference vocabulary. |
+| **Trade** | _meserie / specializare_ | A category of specialized construction work (e.g. Zidarie/masonry, Electrice/electrical, Interioare/interior finishing). A **controlled reference vocabulary** — project-independent and reused across all contractors and work packages. A **Contractor** is tagged with the trades it performs (to filter "show all masonry contractors"); a **Work Package** is tagged with the trades it requires (to match capable contractors to it). Distinct from a Work Package, which is *one project's* procurement unit, not a reusable classification. |
 | **User / Stakeholder** | — | One of the four people who may access the tool. Handled by authentication; an identity/access concern rather than part of the costing domain. |
 
 ## Entities and relationships
@@ -52,6 +54,8 @@ erDiagram
     SECTION ||--o{ LINE_ITEM : "contains"
     SECTION }o--o| SCOPE_ITEM : "is allocated to"
     LINE_ITEM }o--|| UNIT_OF_MEASURE : "is measured in"
+    CONTRACTOR }o--o{ TRADE : "performs"
+    WORK_PACKAGE }o--o{ TRADE : "requires"
 
     PROJECT {
         uuid id PK
@@ -156,6 +160,12 @@ erDiagram
         string aliases "e.g. mc, mp, ml"
         bool isActive
     }
+    TRADE {
+        uuid id PK
+        string name "canonical, unique"
+        string code "optional short code"
+        bool isActive
+    }
 ```
 
 A **Bid** sits at the intersection of a **Work Package** (what is being procured)
@@ -198,9 +208,13 @@ item is its subtotal within the contractor's **current BoQ version**.
 | Work Package | Contract | one-to-zero-or-one | A work package has at most one contract, created once a bid is selected. |
 | Contract | Bill of Quantities | one-to-one | A contract is created from exactly one accepted BoQ; its bid and contractor are reached through that BoQ. |
 | Bill of Quantities | Section | one-to-many | A BoQ is split into internal sections. |
-| Section | Line item | one-to-many | A section groups individual priced line items. |
+| Section | Subsection | one-to-many | A section may hold a fixed second level of subsections (optional). |
+| Section | Line item | one-to-many | A section groups individual priced line items held directly (not in a subsection). |
+| Subsection | Line item | one-to-many | A subsection groups individual priced line items. |
 | Section | Scope Item | many-to-zero-or-one | A BoQ section is optionally allocated to one Work Package scope item (loose id reference), so the quote rolls up per scope item. |
 | Line item | Unit of measure | many-to-one | Each line item references one canonical unit. |
+| Contractor | Trade | many-to-many | A contractor performs zero or more trades; enables filtering contractors by type of work. References the shared `Trade` vocabulary by id. |
+| Work Package | Trade | many-to-many | A work package requires zero or more trades; enables matching capable contractors to it. References the same `Trade` vocabulary by id. |
 
 ### Hierarchy at a glance
 
@@ -214,7 +228,10 @@ Project (the duplex build)
      │   └─ Bill of Quantities (BoQ version submitted in this bid)
      │       └─ Section (Foundation, Structure, Roof — internal grouping of one quote)
      │           │   └─► Scope Item (optional allocation, for per-scope-item rollup)
-     │           └─ Line item (description, qty, unit, unit price, total)
+     │           ├─ Subsection (optional second level — Excavation, Reinforcement …)
+     │           │   └─ Line item (description, qty, unit, unit price, total)
+     │           │       └─► Unit of Measure (reference table)
+     │           └─ Line item (held directly in the section)
      │               └─► Unit of Measure (reference table)
      └─ Contract (created when one bid is selected; at most one per work package)
          └─► accepted Bill of Quantities (and thereby its Bid + Contractor)
@@ -254,6 +271,34 @@ contractors' quotes, which would break side-by-side comparison.
 | `buc` | pcs | Piece (count) |
 | `to` | t | Tonne (mass) |
 
+## Trade — reference data
+
+`Trade` is a **controlled vocabulary**, not free text — the same shape as `Unit of
+Measure`. Picking a trade from a managed list (rather than typing it) stops the same
+trade fragmenting into "Electrice", "Instalații electrice", and "Electric", which
+would break filtering and matching.
+
+- Seeded with the common construction trades; an admin may add a missing one.
+- A **Contractor** holds the set of trades it performs; a **Work Package** holds the
+  set of trades it requires. Both reference trades by **id** (via join tables), never
+  the raw string.
+- Retired with `isActive` rather than deleted, so historical references stay valid.
+
+Indicative seed (Romanian canonical name → English gloss):
+
+| Trade (RO) | English gloss |
+| --- | --- |
+| Zidărie | Masonry |
+| Structură / Beton | Structural / concrete works |
+| Instalații Electrice | Electrical installations |
+| Instalații Sanitare | Plumbing / sanitary installations |
+| Instalații Termice | Heating installations |
+| Instalații Răcire / Ventilare | Cooling / ventilation (HVAC) |
+| Tâmplărie | Joinery (windows & doors) |
+| Interioare / Finisaje | Interior finishing |
+| Acoperiș / Învelitori | Roofing |
+| Izolații | Insulation / waterproofing |
+
 ## Aggregates
 
 DDD aggregate boundaries define transactional consistency, what is loaded and
@@ -272,18 +317,21 @@ applied here:
 | Aggregate root | Contains (internal entities) | References (by id) | Why a root |
 | --- | --- | --- | --- |
 | **Project** | — | — | The build's own lifecycle; top of the model. |
-| **Work Package** | Scope Item | Project | Referenced by BoQ and Contract from outside, so it **must** be a root. Defined up front, independent lifecycle. Owns its Scope Items. |
-| **Contractor** | — | — | A firm exists independently of any project/bid; referenced by Bid. |
+| **Work Package** | Scope Item | Project, Trade | Referenced by BoQ and Contract from outside, so it **must** be a root. Defined up front, independent lifecycle. Owns its Scope Items; references the trades it requires by id. |
+| **Contractor** | — | Trade | A firm exists independently of any project/bid; referenced by Bid. References the trades it performs by id. |
 | **Bid** | Discussion note | Work Package, Contractor | The selection process for one work-package/contractor pair. Referenced by BoQ from outside, so it must be a root; owns the discussion log. |
-| **Bill of Quantities** | Section, Line item | Bid | Loaded, priced, and compared as a whole. Its sections/line items have no meaning or external references outside it. |
+| **Bill of Quantities** | Section, Subsection, Line item | Bid | Loaded, priced, and compared as a whole. Its sections/subsections/line items have no meaning or external references outside it. |
 | **Contract** | — | Work Package, accepted BoQ | Its own lifecycle (status, signed date, value, documents) that evolves after the award; future payments/invoices will reference it directly. |
 | **Unit of Measure** | — | — | Shared, managed reference vocabulary referenced by line items. |
+| **Trade** | — | — | Shared, managed reference vocabulary referenced (by id) from Contractor and Work Package. Project-independent classification of construction work. |
 
-**Section** and **Line item** are **local entities inside the Bill of Quantities
-aggregate** — they have identity *within* the BoQ but are never referenced from
-outside it, so the BoQ root owns their whole lifecycle. (Section is kept as an
-entity rather than a value object because it carries a name, ordering, and its
-own subtotal.)
+**Section**, **Subsection**, and **Line item** are **local entities inside the Bill
+of Quantities aggregate** — they have identity *within* the BoQ but are never
+referenced from outside it, so the BoQ root owns their whole lifecycle. (Section and
+Subsection are kept as entities rather than value objects because each carries a name,
+ordering, and its own subtotal.) Subsection nesting is fixed at one level: a section
+may hold line items directly, group them inside subsections, or both, and a
+subsection never contains further subsections.
 
 **Discussion note** is a **local entity inside the Bid aggregate** — the bid's
 discussion log; it is never referenced from outside the bid.
@@ -306,6 +354,19 @@ allocate its cost to that sub-scope.
 > promoted to its own root referencing the work package by id (mirroring
 > `UnitOfMeasure`) — a cheap refactor. Flag this if preferred.
 
+**Trade** is a **standalone reference aggregate**, modelled exactly like
+`UnitOfMeasure`: a small controlled vocabulary (seeded, admin-extendable, retired
+via `isActive` rather than deleted) that other roots reference **by id**. Both
+**Contractor → Trade** ("trades performed") and **Work Package → Trade** ("trades
+required") are ordinary **root-to-root references by identity** — the standard
+allowed pattern (the same as Line item → Unit of Measure), *not* the deliberate
+exception that Section → Scope Item is. Each association is many-to-many, so it is
+persisted as a **join table** (`ContractorTrade`, `WorkPackageTrade`); the
+referencing root holds a set of `TradeId`s, never `Trade` objects. The set may be
+empty (a utility-connection work package may need no trade; a newly-registered
+contractor may have none yet). A trade cannot be deleted while still referenced —
+it is deactivated instead — so a dangling reference cannot occur.
+
 **User / Stakeholder** is **not** part of this domain model — it belongs to the
 authentication/identity concern (a separate bounded context). Where the domain
 needs it, it appears only as a `UserId` value in audit fields (e.g. *created by*).
@@ -322,13 +383,19 @@ needs it, it appears only as a `UserId` value in audit fields (e.g. *created by*
   whose Bid belongs to the **same** Work Package and is `Selected`.
 - **Work Package** — belongs to exactly one Project; has a status lifecycle
   (e.g. open for bids → awarded); owns its **Scope Items**, each with a unique name
-  within the work package and a `requirement` (Mandatory/Optional).
+  within the work package and a `requirement` (Mandatory/Optional); references a
+  **distinct** set of `Trade`s by id (no duplicates; each must point at an existing,
+  validated Trade).
 - **Scope Item** (inside Work Package) — belongs to exactly one Work Package; name
   unique within that work package. When a BoQ Section sets `scopeItemId`, the
   application service validates it points at a Scope Item of the **same** Work
   Package as the Section's BoQ (reached via Bid → Work Package).
 - **Unit of Measure** — unique canonical code; cannot be deleted while a line
   item references it.
+- **Contractor** — references a **distinct** set of `Trade`s by id (no duplicate
+  trade; each must point at an existing, validated Trade). The set may be empty.
+- **Trade** — unique canonical name; cannot be deleted while any Contractor or Work
+  Package references it (deactivate via `isActive` instead).
 
 ### Cross-aggregate consistency
 
@@ -426,6 +493,7 @@ authentication context, not a domain entity.
 | plannedEndDate | date | Optional target completion for this package. |
 | awardedContractId | ContractId? | Null until awarded; convenience reference to the contract. |
 | scopeItems | ScopeItem[] | Internal entities (ordered) — the owner-defined sub-scopes. |
+| requiredTrades | TradeId[] | The trades this package requires (by id; many-to-many). Distinct set, may be empty. Drives matching capable contractors to the package. |
 
 ### Scope Item (inside Work Package)
 
@@ -448,6 +516,7 @@ authentication context, not a domain entity.
 | contact | ContactInfo | Primary contact person. |
 | address | Address | Optional. |
 | notes | string | Optional. |
+| trades | TradeId[] | The trades this firm performs (by id; many-to-many). Distinct set, may be empty. Drives "filter contractors by type of work". |
 
 ### Bid
 
@@ -497,10 +566,22 @@ authentication context, not a domain entity.
 | name | string | e.g. "Foundation", "Roof". |
 | sequence | int | Order within the BoQ. |
 | description | string | Optional. |
+| subtotal | Money (derived) | Sum of its direct line-item totals **plus** its subsections' subtotals. |
+| lineItems | LineItem[] | Internal entities held directly in the section (ordered). |
+| subsections | Subsection[] | Internal entities — an optional second level of grouping (ordered). |
+
+### Subsection (inside Section)
+
+| Attribute | Type | Notes |
+| --- | --- | --- |
+| id | SubsectionId | Local identity within the BoQ aggregate. |
+| name | string | e.g. "Excavation", "Reinforcement". |
+| sequence | int | Order within the parent section. |
+| description | string | Optional. |
 | subtotal | Money (derived) | Sum of its line-item totals. |
 | lineItems | LineItem[] | Internal entities (ordered). |
 
-### Line item (inside Section)
+### Line item (inside Section or Subsection)
 
 | Attribute | Type | Notes |
 | --- | --- | --- |
@@ -513,7 +594,7 @@ authentication context, not a domain entity.
 | unitPriceWithVat | Money (derived) | `unitPrice × (1 + vatRate)`. |
 | lineTotal | Money (derived) | Net: `quantity × unitPrice`. |
 | lineTotalWithVat | Money (derived) | Gross: `lineTotal × (1 + vatRate)`. |
-| sequence | int | Order within the section. |
+| sequence | int | Order within its section or subsection. |
 | notes | string | Optional. |
 
 ### Contract
@@ -544,6 +625,15 @@ authentication context, not a domain entity.
 | aliases | string[] | Romanian/source abbreviations (`mc`, `mp`, `ml`, …) normalized to this unit. |
 | isActive | bool | Retire a unit without deleting it. |
 
+### Trade (reference data)
+
+| Attribute | Type | Notes |
+| --- | --- | --- |
+| id | TradeId | Identity. |
+| name | string | Canonical trade name, unique (e.g. "Zidarie"). Displayed in Romanian. |
+| code | string | Optional short code. |
+| isActive | bool | Retire a trade without deleting it. |
+
 ## Open questions
 
 - [x] **Attributes defined** for each entity, with value objects (Money,
@@ -558,10 +648,10 @@ authentication context, not a domain entity.
 - [x] **Derived totals computed on read** (BoQ total, section subtotal, line
   total); may be cached later only if query performance needs it.
 - [x] **Contract documents deferred** — `DocumentReference` kept as a placeholder.
-- [x] **Aggregate roots and boundaries confirmed** — seven roots: Project, Work
-  Package, Contractor, Bid, Bill of Quantities, Contract, Unit of Measure. Section
-  & Line item are local to the BoQ aggregate; Discussion note is local to the Bid
-  aggregate. (See [Aggregates](#aggregates).)
+- [x] **Aggregate roots and boundaries confirmed** — eight roots: Project, Work
+  Package, Contractor, Bid, Bill of Quantities, Contract, Unit of Measure, Trade.
+  Section & Line item are local to the BoQ aggregate; Discussion note is local to
+  the Bid aggregate. (See [Aggregates](#aggregates).)
 - [x] **Awarded BoQ is modelled as a full `Contract` entity** (one per work
   package, created from the selected bid's accepted BoQ).
 - [x] **One BoQ per work package** — each BoQ covers a single work package; a bid
@@ -571,6 +661,12 @@ authentication context, not a domain entity.
   Sections are loosely allocated to a Scope Item (`scopeItemId`) so each
   contractor's quote rolls up per scope item for side-by-side comparison. (See the
   deliberate exception note in [Aggregates](#aggregates).)
+- [x] **Trades modelled as a `Trade` reference vocabulary** — a project-independent
+  controlled list (like `UnitOfMeasure`). A **Contractor** is tagged with the trades
+  it performs and a **Work Package** with the trades it requires (both many-to-many
+  over the shared vocabulary, via join tables, referencing by id). This delivers
+  "filter contractors by type of work" and matching capable contractors to a work
+  package.
 - [ ] **Section-vs-line-item allocation granularity** — Scope Items are allocated
   at the **Section** level. If a contractor bundles two scope items in one section,
   either split the section or (future) allow allocation at the **line-item**

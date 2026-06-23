@@ -93,6 +93,44 @@ public static class BillOfQuantitiesEndpoints
                     ? Results.NoContent()
                     : Results.NotFound());
 
+        // Subsections: an optional second level of grouping within a section.
+        boqs.MapPost("/{id:guid}/sections/{sectionId:guid}/subsections",
+            async (Guid id, Guid sectionId, SubsectionCommand command, IBillOfQuantitiesAppService service, CancellationToken ct) =>
+                await service.AddSubsectionAsync(id, sectionId, command, ct) is { } updated
+                    ? Results.Ok(updated)
+                    : Results.NotFound());
+
+        boqs.MapPut("/{id:guid}/sections/{sectionId:guid}/subsections/{subsectionId:guid}",
+            async (Guid id, Guid sectionId, Guid subsectionId, SubsectionCommand command, IBillOfQuantitiesAppService service, CancellationToken ct) =>
+                await service.UpdateSubsectionAsync(id, sectionId, subsectionId, command, ct) is { } updated
+                    ? Results.Ok(updated)
+                    : Results.NotFound());
+
+        boqs.MapDelete("/{id:guid}/sections/{sectionId:guid}/subsections/{subsectionId:guid}",
+            async (Guid id, Guid sectionId, Guid subsectionId, IBillOfQuantitiesAppService service, CancellationToken ct) =>
+                await service.RemoveSubsectionAsync(id, sectionId, subsectionId, ct)
+                    ? Results.NoContent()
+                    : Results.NotFound());
+
+        // Line items within a subsection.
+        boqs.MapPost("/{id:guid}/sections/{sectionId:guid}/subsections/{subsectionId:guid}/line-items",
+            async (Guid id, Guid sectionId, Guid subsectionId, LineItemCommand command, IBillOfQuantitiesAppService service, CancellationToken ct) =>
+                await service.AddSubsectionLineItemAsync(id, sectionId, subsectionId, command, ct) is { } updated
+                    ? Results.Ok(updated)
+                    : Results.NotFound());
+
+        boqs.MapPut("/{id:guid}/sections/{sectionId:guid}/subsections/{subsectionId:guid}/line-items/{lineItemId:guid}",
+            async (Guid id, Guid sectionId, Guid subsectionId, Guid lineItemId, LineItemCommand command, IBillOfQuantitiesAppService service, CancellationToken ct) =>
+                await service.ReviseSubsectionLineItemAsync(id, sectionId, subsectionId, lineItemId, command, ct) is { } updated
+                    ? Results.Ok(updated)
+                    : Results.NotFound());
+
+        boqs.MapDelete("/{id:guid}/sections/{sectionId:guid}/subsections/{subsectionId:guid}/line-items/{lineItemId:guid}",
+            async (Guid id, Guid sectionId, Guid subsectionId, Guid lineItemId, IBillOfQuantitiesAppService service, CancellationToken ct) =>
+                await service.RemoveSubsectionLineItemAsync(id, sectionId, subsectionId, lineItemId, ct)
+                    ? Results.NoContent()
+                    : Results.NotFound());
+
         return app;
     }
 }

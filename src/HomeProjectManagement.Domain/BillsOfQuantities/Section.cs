@@ -11,12 +11,16 @@ namespace HomeProjectManagement.Domain.BillsOfQuantities;
 /// <remarks>
 /// A <b>local entity inside the Bill of Quantities aggregate</b>: it has identity within the BoQ
 /// but is never referenced from outside it, so the BoQ root owns its whole lifecycle and that of
-/// its <see cref="LineItem"/>s. It carries the BoQ's pricing <see cref="Currency"/> so its
-/// <see cref="Subtotal"/> is well-defined even when empty and so every line shares one currency.
+/// its <see cref="LineItem"/>s and <see cref="Subsection"/>s. It carries the BoQ's pricing
+/// <see cref="Currency"/> so its <see cref="Subtotal"/> is well-defined even when empty and so every
+/// line shares one currency. Line items may sit <b>directly</b> in the section or be grouped one
+/// level deeper inside a <see cref="Subsection"/> (the nesting depth is fixed at one); the
+/// <see cref="Subtotal"/> sums both.
 /// </remarks>
 public sealed class Section : Entity<SectionId>
 {
     private readonly List<LineItem> _lineItems = [];
+    private readonly List<Subsection> _subsections = [];
 
     /// <summary>The section heading (e.g. "Foundation").</summary>
     public string Name { get; private set; } = null!;
@@ -31,18 +35,35 @@ public sealed class Section : Entity<SectionId>
     public Currency Currency { get; private set; }
 
     /// <summary>
-    /// The line items in this section (internal entities). Mutated only through the
-    /// <see cref="BillOfQuantities"/> root; EF reaches the backing field directly.
+    /// The line items held <b>directly</b> in this section, i.e. not inside a subsection (internal
+    /// entities). Mutated only through the <see cref="BillOfQuantities"/> root; EF reaches the
+    /// backing field directly.
     /// </summary>
     public IReadOnlyList<LineItem> LineItems => _lineItems.AsReadOnly();
 
-    /// <summary>Derived net subtotal (VAT-exclusive): the sum of the section's line totals, in the pricing currency.</summary>
-    public Money Subtotal =>
-        _lineItems.Aggregate(Money.Zero(Currency), (sum, item) => sum.Add(item.LineTotal));
+    /// <summary>
+    /// The subsections of this section (internal entities), an optional second level of grouping.
+    /// Mutated only through the <see cref="BillOfQuantities"/> root; EF reaches the backing field directly.
+    /// </summary>
+    public IReadOnlyList<Subsection> Subsections => _subsections.AsReadOnly();
 
-    /// <summary>Derived gross subtotal (VAT-inclusive): the sum of the section's VAT-inclusive line totals.</summary>
+    /// <summary>
+    /// Derived net subtotal (VAT-exclusive), in the pricing currency: the sum of the section's
+    /// direct line totals plus every subsection's subtotal.
+    /// </summary>
+    public Money Subtotal =>
+        _subsections.Aggregate(
+            _lineItems.Aggregate(Money.Zero(Currency), (sum, item) => sum.Add(item.LineTotal)),
+            (sum, sub) => sum.Add(sub.Subtotal));
+
+    /// <summary>
+    /// Derived gross subtotal (VAT-inclusive): the section's direct VAT-inclusive line totals plus
+    /// every subsection's VAT-inclusive subtotal.
+    /// </summary>
     public Money SubtotalWithVat =>
-        _lineItems.Aggregate(Money.Zero(Currency), (sum, item) => sum.Add(item.LineTotalWithVat));
+        _subsections.Aggregate(
+            _lineItems.Aggregate(Money.Zero(Currency), (sum, item) => sum.Add(item.LineTotalWithVat)),
+            (sum, sub) => sum.Add(sub.SubtotalWithVat));
 
     // EF Core materialisation constructor.
     private Section()
@@ -113,6 +134,73 @@ public sealed class Section : Entity<SectionId>
         _lineItems.Remove(item);
         return true;
     }
+
+    internal Subsection AddSubsection(string name, int sequence, string? description)
+    {
+        var subsection = new Subsection(SubsectionId.New(), name, sequence, description, Currency);
+        _subsections.Add(subsection);
+        return subsection;
+    }
+
+    internal bool UpdateSubsection(SubsectionId subsectionId, string name, int sequence, string? description)
+    {
+        var subsection = FindSubsection(subsectionId);
+        if (subsection is null)
+        {
+            return false;
+        }
+
+        subsection.Update(name, sequence, description);
+        return true;
+    }
+
+    internal bool RemoveSubsection(SubsectionId subsectionId)
+    {
+        var subsection = FindSubsection(subsectionId);
+        if (subsection is null)
+        {
+            return false;
+        }
+
+        _subsections.Remove(subsection);
+        return true;
+    }
+
+    internal LineItem? AddSubsectionLineItem(
+        SubsectionId subsectionId,
+        string description,
+        decimal quantity,
+        UnitOfMeasureId unitOfMeasureId,
+        Money unitPrice,
+        VatRate vatRate,
+        int sequence,
+        string? notes) =>
+        FindSubsection(subsectionId)?.AddLineItem(description, quantity, unitOfMeasureId, unitPrice, vatRate, sequence, notes);
+
+    internal bool ReviseSubsectionLineItem(
+        SubsectionId subsectionId,
+        LineItemId lineItemId,
+        string description,
+        decimal quantity,
+        UnitOfMeasureId unitOfMeasureId,
+        Money unitPrice,
+        VatRate vatRate,
+        int sequence,
+        string? notes)
+    {
+        var subsection = FindSubsection(subsectionId);
+        return subsection is not null
+            && subsection.ReviseLineItem(lineItemId, description, quantity, unitOfMeasureId, unitPrice, vatRate, sequence, notes);
+    }
+
+    internal bool RemoveSubsectionLineItem(SubsectionId subsectionId, LineItemId lineItemId)
+    {
+        var subsection = FindSubsection(subsectionId);
+        return subsection is not null && subsection.RemoveLineItem(lineItemId);
+    }
+
+    private Subsection? FindSubsection(SubsectionId subsectionId) =>
+        _subsections.FirstOrDefault(s => s.Id == subsectionId);
 
     private void EnsureSharedCurrency(Money unitPrice)
     {

@@ -327,6 +327,13 @@ export const ro = {
   "sections.namePlaceholder": "Nume secțiune (ex. Fundație)",
   "sections.orderPlaceholder": "Ordine",
 
+  // — Subsections (within a section) ———————————————————————————————————————
+  "subsections.add": "Adaugă subcapitol",
+  "subsections.remove": "Elimină subcapitolul",
+  "subsections.namePlaceholder": "Nume subcapitol (ex. Săpături)",
+  "subsections.heading": "Subcapitole",
+  "subsections.addLine": "Adaugă articol în subcapitol",
+
   // — Line items (within a section) ————————————————————————————————————————
   "lineItems.add": "Adaugă articol",
   "lineItems.editTitle": "Editează articolul",

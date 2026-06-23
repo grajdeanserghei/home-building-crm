@@ -13,6 +13,9 @@ interface LineItemFormProps {
   // The owning BoQ and section, carried as hidden fields for routing/revalidate.
   boqId: string;
   sectionId: string;
+  // Present when the line belongs to a subsection rather than the section directly;
+  // carried as a hidden field so the action targets the subsection route.
+  subsectionId?: string;
   // The BoQ's pricing currency — every line price is in it (carried as a hidden field,
   // not chosen per line, so the bill stays single-currency).
   currency: Currency;
@@ -41,6 +44,7 @@ export function LineItemForm({
   action,
   boqId,
   sectionId,
+  subsectionId,
   currency,
   units,
   defaultSequence,
@@ -51,6 +55,9 @@ export function LineItemForm({
     <form action={action} className={styles.form}>
       <input type="hidden" name="boqId" value={boqId} />
       <input type="hidden" name="sectionId" value={sectionId} />
+      {subsectionId ? (
+        <input type="hidden" name="subsectionId" value={subsectionId} />
+      ) : null}
       <input type="hidden" name="currency" value={currency} />
       {lineItem ? (
         <input type="hidden" name="lineItemId" value={lineItem.id} />

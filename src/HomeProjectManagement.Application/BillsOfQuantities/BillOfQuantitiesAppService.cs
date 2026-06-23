@@ -259,6 +259,67 @@ public sealed class BillOfQuantitiesAppService(
         return new AddBoqLineItemsResult(ToDto(boq), unresolved);
     }
 
+    public async Task<AddBoqLineItemsResult?> AddSubsectionLineItemsAsync(
+        Guid id,
+        Guid sectionId,
+        Guid subsectionId,
+        IReadOnlyList<BoqLineItemInput> items,
+        CancellationToken cancellationToken = default)
+    {
+        var boq = await repository.GetAsync(new BoqId(id), cancellationToken);
+        if (boq is null)
+        {
+            return null;
+        }
+
+        var section = boq.Sections.FirstOrDefault(s => s.Id == new SectionId(sectionId));
+        var subsection = section?.Subsections.FirstOrDefault(s => s.Id == new SubsectionId(subsectionId));
+        if (subsection is null)
+        {
+            return null;
+        }
+
+        // Load the active vocabulary once; each line's free-text token is normalised against it.
+        var activeUnits = await units.ListAsync(includeInactive: false, cancellationToken);
+
+        // Append after the subsection's current lines, keeping a stable order for the batch.
+        var nextSequence = subsection.LineItems.Count == 0 ? 1 : subsection.LineItems.Max(li => li.Sequence) + 1;
+
+        var unresolved = new List<UnresolvedBoqLine>();
+        var addedAny = false;
+
+        for (var index = 0; index < items.Count; index++)
+        {
+            var item = items[index];
+            var unit = activeUnits.FirstOrDefault(u => u.Recognizes(item.Unit));
+            if (unit is null)
+            {
+                // Unresolved units don't fail the batch — flag the offending token and move on.
+                unresolved.Add(new UnresolvedBoqLine(index, item.Description, item.Unit));
+                continue;
+            }
+
+            boq.AddSubsectionLineItem(
+                section!.Id,
+                subsection.Id,
+                item.Description,
+                item.Quantity,
+                unit.Id,
+                ToMoney(item.UnitPrice),
+                ToVatRate(item.VatRatePercentage),
+                nextSequence++,
+                item.Notes);
+            addedAny = true;
+        }
+
+        if (addedAny)
+        {
+            await unitOfWork.CommitAsync(cancellationToken);
+        }
+
+        return new AddBoqLineItemsResult(ToDto(boq), unresolved);
+    }
+
     public async Task<BillOfQuantitiesDto?> ReviseLineItemAsync(
         Guid id,
         Guid sectionId,
@@ -302,6 +363,146 @@ public sealed class BillOfQuantitiesAppService(
     {
         var boq = await repository.GetAsync(new BoqId(id), cancellationToken);
         if (boq is null || !boq.RemoveLineItem(new SectionId(sectionId), new LineItemId(lineItemId)))
+        {
+            return false;
+        }
+
+        await unitOfWork.CommitAsync(cancellationToken);
+        return true;
+    }
+
+    public async Task<BillOfQuantitiesDto?> AddSubsectionAsync(
+        Guid id,
+        Guid sectionId,
+        SubsectionCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        var boq = await repository.GetAsync(new BoqId(id), cancellationToken);
+        if (boq is null || boq.AddSubsection(new SectionId(sectionId), command.Name, command.Sequence, command.Description) is null)
+        {
+            return null;
+        }
+
+        await unitOfWork.CommitAsync(cancellationToken);
+        return ToDto(boq);
+    }
+
+    public async Task<BillOfQuantitiesDto?> UpdateSubsectionAsync(
+        Guid id,
+        Guid sectionId,
+        Guid subsectionId,
+        SubsectionCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        var boq = await repository.GetAsync(new BoqId(id), cancellationToken);
+        if (boq is null
+            || !boq.UpdateSubsection(new SectionId(sectionId), new SubsectionId(subsectionId), command.Name, command.Sequence, command.Description))
+        {
+            return null;
+        }
+
+        await unitOfWork.CommitAsync(cancellationToken);
+        return ToDto(boq);
+    }
+
+    public async Task<bool> RemoveSubsectionAsync(
+        Guid id,
+        Guid sectionId,
+        Guid subsectionId,
+        CancellationToken cancellationToken = default)
+    {
+        var boq = await repository.GetAsync(new BoqId(id), cancellationToken);
+        if (boq is null || !boq.RemoveSubsection(new SectionId(sectionId), new SubsectionId(subsectionId)))
+        {
+            return false;
+        }
+
+        await unitOfWork.CommitAsync(cancellationToken);
+        return true;
+    }
+
+    public async Task<BillOfQuantitiesDto?> AddSubsectionLineItemAsync(
+        Guid id,
+        Guid sectionId,
+        Guid subsectionId,
+        LineItemCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        var boq = await repository.GetAsync(new BoqId(id), cancellationToken);
+        if (boq is null)
+        {
+            return null;
+        }
+
+        await EnsureActiveUnitAsync(command.UnitOfMeasureId, cancellationToken);
+
+        var added = boq.AddSubsectionLineItem(
+            new SectionId(sectionId),
+            new SubsectionId(subsectionId),
+            command.Description,
+            command.Quantity,
+            new UnitOfMeasureId(command.UnitOfMeasureId),
+            ToMoney(command.UnitPrice),
+            ToVatRate(command.VatRatePercentage),
+            command.Sequence,
+            command.Notes);
+
+        if (added is null)
+        {
+            return null;
+        }
+
+        await unitOfWork.CommitAsync(cancellationToken);
+        return ToDto(boq);
+    }
+
+    public async Task<BillOfQuantitiesDto?> ReviseSubsectionLineItemAsync(
+        Guid id,
+        Guid sectionId,
+        Guid subsectionId,
+        Guid lineItemId,
+        LineItemCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        var boq = await repository.GetAsync(new BoqId(id), cancellationToken);
+        if (boq is null)
+        {
+            return null;
+        }
+
+        await EnsureActiveUnitAsync(command.UnitOfMeasureId, cancellationToken);
+
+        var revised = boq.ReviseSubsectionLineItem(
+            new SectionId(sectionId),
+            new SubsectionId(subsectionId),
+            new LineItemId(lineItemId),
+            command.Description,
+            command.Quantity,
+            new UnitOfMeasureId(command.UnitOfMeasureId),
+            ToMoney(command.UnitPrice),
+            ToVatRate(command.VatRatePercentage),
+            command.Sequence,
+            command.Notes);
+
+        if (!revised)
+        {
+            return null;
+        }
+
+        await unitOfWork.CommitAsync(cancellationToken);
+        return ToDto(boq);
+    }
+
+    public async Task<bool> RemoveSubsectionLineItemAsync(
+        Guid id,
+        Guid sectionId,
+        Guid subsectionId,
+        Guid lineItemId,
+        CancellationToken cancellationToken = default)
+    {
+        var boq = await repository.GetAsync(new BoqId(id), cancellationToken);
+        if (boq is null
+            || !boq.RemoveSubsectionLineItem(new SectionId(sectionId), new SubsectionId(subsectionId), new LineItemId(lineItemId)))
         {
             return false;
         }
@@ -410,6 +611,22 @@ public sealed class BillOfQuantitiesAppService(
         ToDto(section.Subtotal),
         ToDto(section.SubtotalWithVat),
         section.LineItems
+            .OrderBy(li => li.Sequence)
+            .Select(ToDto)
+            .ToList(),
+        section.Subsections
+            .OrderBy(s => s.Sequence)
+            .Select(ToDto)
+            .ToList());
+
+    private static SubsectionDto ToDto(Subsection subsection) => new(
+        subsection.Id.Value,
+        subsection.Name,
+        subsection.Sequence,
+        subsection.Description,
+        ToDto(subsection.Subtotal),
+        ToDto(subsection.SubtotalWithVat),
+        subsection.LineItems
             .OrderBy(li => li.Sequence)
             .Select(ToDto)
             .ToList());

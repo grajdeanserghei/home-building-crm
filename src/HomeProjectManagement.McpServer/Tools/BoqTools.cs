@@ -177,6 +177,122 @@ public static class BoqTools
                ?? throw new McpException($"No bill of quantities exists with id {boqId}.");
     }
 
+    [McpServerTool(Name = "add_boq_subsections"), Description(
+        "Add one or more subsections to a section of a draft BoQ — a fixed second level of grouping (e.g. " +
+        "Excavation, Reinforcement within Foundation). A section may hold line items directly and/or grouped " +
+        "in subsections. Sequence is assigned automatically when omitted. Returns the updated BoQ; read each " +
+        "subsection's id from it before adding its line items.")]
+    public static async Task<BillOfQuantitiesDto> AddBoqSubsections(
+        IBillOfQuantitiesAppService service,
+        [Description("The BoQ id.")] Guid boqId,
+        [Description("The section id (from add_boq_sections / get_boq).")] Guid sectionId,
+        [Description("The subsections to add.")] IReadOnlyList<BoqSectionRow> subsections,
+        CancellationToken ct = default)
+    {
+        var boq = await service.GetAsync(boqId, ct)
+                  ?? throw new McpException($"No bill of quantities exists with id {boqId}.");
+
+        var section = boq.Sections.FirstOrDefault(s => s.Id == sectionId)
+                      ?? throw new McpException($"BoQ {boqId} has no section {sectionId}.");
+
+        var nextSequence = section.Subsections.Count == 0 ? 1 : section.Subsections.Max(s => s.Sequence) + 1;
+
+        BillOfQuantitiesDto? updated = boq;
+        foreach (var subsection in subsections)
+        {
+            updated = await service.AddSubsectionAsync(
+                boqId,
+                sectionId,
+                new SubsectionCommand(subsection.Name, subsection.Sequence ?? nextSequence++, subsection.Description),
+                ct);
+        }
+
+        return updated ?? throw new McpException($"BoQ {boqId} or section {sectionId} was not found.");
+    }
+
+    [McpServerTool(Name = "add_boq_subsection_line_items"), Description(
+        "Bulk-add line items to a subsection of a draft BoQ — the subsection counterpart of " +
+        "add_boq_line_items. Each line's free-text unit token is normalised onto an active canonical unit of " +
+        "measure; line totals are computed server-side. Lines whose unit can't be matched are returned in " +
+        "'unresolved' (flagged with the offending token) while the resolvable lines still persist — a single " +
+        "bad unit does not fail the batch. Unit prices are taken to be in the BoQ's pricing currency.")]
+    public static async Task<AddBoqLineItemsResult> AddBoqSubsectionLineItems(
+        IBillOfQuantitiesAppService service,
+        [Description("The BoQ id.")] Guid boqId,
+        [Description("The section id.")] Guid sectionId,
+        [Description("The subsection id (from add_boq_subsections / get_boq).")] Guid subsectionId,
+        [Description("The line items to add.")] IReadOnlyList<BoqLineRow> items,
+        CancellationToken ct = default)
+    {
+        var boq = await service.GetAsync(boqId, ct)
+                  ?? throw new McpException($"No bill of quantities exists with id {boqId}.");
+
+        var inputs = items
+            .Select(row => new BoqLineItemInput(
+                row.Description,
+                row.Unit,
+                row.Quantity,
+                new MoneyDto(row.UnitPrice, boq.PricingCurrency),
+                row.VatRatePercentage,
+                row.Notes))
+            .ToList();
+
+        return await service.AddSubsectionLineItemsAsync(boqId, sectionId, subsectionId, inputs, ct)
+               ?? throw new McpException(
+                   $"BoQ {boqId}, section {sectionId}, or subsection {subsectionId} was not found.");
+    }
+
+    [McpServerTool(Name = "revise_boq_subsection_line_item"), Description(
+        "Correct a single line inside a subsection of a draft BoQ. Provide the resolved unitOfMeasureId (from " +
+        "list_units_of_measure). The unit price is taken to be in the BoQ's pricing currency. Returns the updated BoQ.")]
+    public static async Task<BillOfQuantitiesDto> ReviseBoqSubsectionLineItem(
+        IBillOfQuantitiesAppService service,
+        [Description("The BoQ id.")] Guid boqId,
+        [Description("The section id.")] Guid sectionId,
+        [Description("The subsection id.")] Guid subsectionId,
+        [Description("The line item id to revise.")] Guid lineItemId,
+        [Description("The corrected description.")] string description,
+        [Description("The corrected quantity.")] decimal quantity,
+        [Description("The resolved canonical unit id (from list_units_of_measure).")] Guid unitOfMeasureId,
+        [Description("The corrected net unit price, in the BoQ's pricing currency.")] decimal unitPrice,
+        [Description("Order of the line within the subsection.")] int sequence,
+        [Description("VAT rate percentage (defaults to 21 when omitted).")] decimal? vatRatePercentage = null,
+        [Description("Optional line notes.")] string? notes = null,
+        CancellationToken ct = default)
+    {
+        var boq = await service.GetAsync(boqId, ct)
+                  ?? throw new McpException($"No bill of quantities exists with id {boqId}.");
+
+        var command = new LineItemCommand(
+            description, quantity, unitOfMeasureId,
+            new MoneyDto(unitPrice, boq.PricingCurrency), vatRatePercentage, sequence, notes);
+
+        return await service.ReviseSubsectionLineItemAsync(boqId, sectionId, subsectionId, lineItemId, command, ct)
+               ?? throw new McpException(
+                   $"BoQ {boqId}, section {sectionId}, subsection {subsectionId}, or line item {lineItemId} was not found.");
+    }
+
+    [McpServerTool(Name = "remove_boq_subsection_line_item"), Description(
+        "Remove a single line from a subsection of a draft BoQ — use this to drop a line added in error. Only " +
+        "works while the BoQ is a draft (line edits lock on submit). Returns the updated BoQ.")]
+    public static async Task<BillOfQuantitiesDto> RemoveBoqSubsectionLineItem(
+        IBillOfQuantitiesAppService service,
+        [Description("The BoQ id.")] Guid boqId,
+        [Description("The section id.")] Guid sectionId,
+        [Description("The subsection id.")] Guid subsectionId,
+        [Description("The line item id to remove.")] Guid lineItemId,
+        CancellationToken ct = default)
+    {
+        if (!await service.RemoveSubsectionLineItemAsync(boqId, sectionId, subsectionId, lineItemId, ct))
+        {
+            throw new McpException(
+                $"BoQ {boqId}, section {sectionId}, subsection {subsectionId}, or line item {lineItemId} was not found.");
+        }
+
+        return await service.GetAsync(boqId, ct)
+               ?? throw new McpException($"No bill of quantities exists with id {boqId}.");
+    }
+
     [McpServerTool(Name = "list_boqs"), Description(
         "List the Bills of Quantities submitted within a bid (oldest version first; a bid may hold several " +
         "revisions). Use this to discover which BoQs exist for a bid — and their boqIds — before reading one " +

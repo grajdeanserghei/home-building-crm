@@ -1,14 +1,20 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { LineItemForm } from "@/app/components/LineItemForm";
+import { LineItemsTable } from "@/app/components/LineItemsTable";
 import { SectionForm } from "@/app/components/SectionForm";
+import { SubsectionForm } from "@/app/components/SubsectionForm";
 import {
   addLineItem,
   addSection,
+  addSubsection,
+  addSubsectionLineItem,
   changeBoqStatus,
   deleteBoq,
   removeLineItem,
   removeSection,
+  removeSubsection,
+  removeSubsectionLineItem,
 } from "@/app/bills-of-quantities/actions";
 import { awardContract } from "@/app/contracts/actions";
 import {
@@ -23,7 +29,7 @@ import {
   type BoqStatus,
   type Contract,
 } from "@/app/lib/api";
-import { formatDate, formatMoney, formatNumber, formatPercent } from "@/app/lib/format";
+import { formatDate, formatMoney, formatNumber } from "@/app/lib/format";
 import { t } from "@/app/lib/i18n";
 import styles from "@/app/page.module.css";
 
@@ -260,72 +266,15 @@ export default async function BillOfQuantitiesDetailPage({
             <p className={styles.muted}>{section.description}</p>
           ) : null}
 
-          {section.lineItems.length === 0 ? (
-            <p>{t("lineItems.empty")}</p>
-          ) : (
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>{t("common.description")}</th>
-                  <th>{t("lineItems.col.unit")}</th>
-                  <th>{t("lineItems.col.qty")}</th>
-                  <th>{t("lineItems.col.unitPriceExclVat")}</th>
-                  <th>{t("lineItems.col.vat")}</th>
-                  <th>{t("lineItems.col.lineTotalExclVat")}</th>
-                  <th>{t("lineItems.col.lineTotalInclVat")}</th>
-                  {editable ? <th aria-label={t("common.actions")} /> : null}
-                </tr>
-              </thead>
-              <tbody>
-                {section.lineItems.map((li) => (
-                  <tr key={li.id}>
-                    <td>{li.sequence}</td>
-                    <td>
-                      <strong>{li.description}</strong>
-                      {li.notes ? (
-                        <div className={styles.muted}>{li.notes}</div>
-                      ) : null}
-                    </td>
-                    <td>{unitCode.get(li.unitOfMeasureId) ?? "—"}</td>
-                    <td>{formatNumber(li.quantity)}</td>
-                    <td>{formatMoney(li.unitPrice)}</td>
-                    <td>{formatPercent(li.vatRatePercentage)}</td>
-                    <td>{formatMoney(li.lineTotal)}</td>
-                    <td>{formatMoney(li.lineTotalWithVat)}</td>
-                    {editable ? (
-                      <td>
-                        <div className={styles.actions}>
-                          <Link
-                            href={`/bills-of-quantities/${boq.id}/sections/${section.id}/line-items/${li.id}/edit`}
-                            className={styles.edit}
-                          >
-                            {t("common.edit")}
-                          </Link>
-                          <form action={removeLineItem}>
-                            <input type="hidden" name="boqId" value={boq.id} />
-                            <input
-                              type="hidden"
-                              name="sectionId"
-                              value={section.id}
-                            />
-                            <input
-                              type="hidden"
-                              name="lineItemId"
-                              value={li.id}
-                            />
-                            <button type="submit" className={styles.delete}>
-                              {t("common.remove")}
-                            </button>
-                          </form>
-                        </div>
-                      </td>
-                    ) : null}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+          <LineItemsTable
+            lineItems={section.lineItems}
+            unitCode={unitCode}
+            editable={editable}
+            boqId={boq.id}
+            sectionId={section.id}
+            editHrefBase={`/bills-of-quantities/${boq.id}/sections/${section.id}/line-items`}
+            removeAction={removeLineItem}
+          />
 
           {editable ? (
             <>
@@ -342,7 +291,79 @@ export default async function BillOfQuantitiesDetailPage({
                   defaultSequence={section.lineItems.length + 1}
                 />
               )}
-              <div className={styles.actions}>
+            </>
+          ) : null}
+
+          {/* Subsections: an optional second level of grouping within the section. */}
+          {section.subsections.map((subsection) => (
+            <div className={styles.subsection} key={subsection.id}>
+              <h3>
+                {section.sequence}.{subsection.sequence} {subsection.name}{" "}
+                <span className={styles.muted}>
+                  · {formatMoney(subsection.subtotalWithVat)} {t("boq.inclVat")} (
+                  {formatMoney(subsection.subtotal)} {t("boq.exclShort")})
+                </span>
+              </h3>
+              {subsection.description ? (
+                <p className={styles.muted}>{subsection.description}</p>
+              ) : null}
+
+              <LineItemsTable
+                lineItems={subsection.lineItems}
+                unitCode={unitCode}
+                editable={editable}
+                boqId={boq.id}
+                sectionId={section.id}
+                subsectionId={subsection.id}
+                editHrefBase={`/bills-of-quantities/${boq.id}/sections/${section.id}/subsections/${subsection.id}/line-items`}
+                removeAction={removeSubsectionLineItem}
+              />
+
+              {editable ? (
+                <>
+                  <h3 style={{ marginTop: 16 }}>{t("subsections.addLine")}</h3>
+                  {activeUnits.length === 0 ? (
+                    <p className={styles.muted}>{t("lineItems.noActiveUnits")}</p>
+                  ) : (
+                    <LineItemForm
+                      action={addSubsectionLineItem}
+                      boqId={boq.id}
+                      sectionId={section.id}
+                      subsectionId={subsection.id}
+                      currency={boq.pricingCurrency}
+                      units={activeUnits}
+                      defaultSequence={subsection.lineItems.length + 1}
+                    />
+                  )}
+                  <div className={styles.actions}>
+                    <form action={removeSubsection}>
+                      <input type="hidden" name="boqId" value={boq.id} />
+                      <input type="hidden" name="sectionId" value={section.id} />
+                      <input
+                        type="hidden"
+                        name="subsectionId"
+                        value={subsection.id}
+                      />
+                      <button type="submit" className={styles.delete}>
+                        {t("subsections.remove")}
+                      </button>
+                    </form>
+                  </div>
+                </>
+              ) : null}
+            </div>
+          ))}
+
+          {editable ? (
+            <>
+              <h3 style={{ marginTop: 20 }}>{t("subsections.add")}</h3>
+              <SubsectionForm
+                action={addSubsection}
+                boqId={boq.id}
+                sectionId={section.id}
+                defaultSequence={section.subsections.length + 1}
+              />
+              <div className={styles.actions} style={{ marginTop: 16 }}>
                 <form action={removeSection}>
                   <input type="hidden" name="boqId" value={boq.id} />
                   <input type="hidden" name="sectionId" value={section.id} />
