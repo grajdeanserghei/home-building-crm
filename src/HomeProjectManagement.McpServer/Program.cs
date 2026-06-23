@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 using HomeProjectManagement.Application;
 using HomeProjectManagement.Infrastructure;
 using HomeProjectManagement.Infrastructure.Persistence;
@@ -20,7 +21,12 @@ builder.Services.AddInfrastructure();
 
 // Serialize enums as their string names in tool I/O so the MCP schema matches the REST contract
 // and the frontend's TypeScript enums (e.g. BidStatus, NoteType, Currency).
-var toolSerializerOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+var toolSerializerOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web)
+{
+    // Reflection-based (de)serialization for the tool argument/result types. Without an explicit
+    // resolver, MakeReadOnly() throws when the MCP library finalizes these options at startup.
+    TypeInfoResolver = new DefaultJsonTypeInfoResolver(),
+};
 toolSerializerOptions.Converters.Add(new JsonStringEnumConverter());
 
 builder.Services

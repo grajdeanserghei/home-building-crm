@@ -156,6 +156,16 @@ public static class BoqTools
                    $"BoQ {boqId}, section {sectionId}, or line item {lineItemId} was not found.");
     }
 
+    [McpServerTool(Name = "list_boqs"), Description(
+        "List the Bills of Quantities submitted within a bid (oldest version first; a bid may hold several " +
+        "revisions). Use this to discover which BoQs exist for a bid — and their boqIds — before reading one " +
+        "with get_boq. Resolve the bidId via list_bids / get_bid first.")]
+    public static async Task<IReadOnlyList<BillOfQuantitiesDto>> ListBoqs(
+        IBillOfQuantitiesAppService service,
+        [Description("The owning bid id (from list_bids / get_bid).")] Guid bidId,
+        CancellationToken ct = default)
+        => await service.ListByBidAsync(bidId, ct);
+
     [McpServerTool(Name = "get_boq"), Description(
         "Read a BoQ back — its sections, line items, and derived totals — to verify an ingestion before submitting.")]
     public static async Task<BillOfQuantitiesDto> GetBoq(

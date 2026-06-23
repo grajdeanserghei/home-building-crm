@@ -13,6 +13,16 @@ namespace HomeProjectManagement.McpServer.Tools;
 [McpServerToolType]
 public static class ContractorTools
 {
+    [McpServerTool(Name = "get_contractor"), Description(
+        "Read a single contractor by id — name, contact, fiscal identifiers, address, and firm-level notes. " +
+        "Use list_contractors to resolve the contractorId first.")]
+    public static async Task<ContractorDto> GetContractor(
+        IContractorAppService service,
+        [Description("The contractor id.")] Guid contractorId,
+        CancellationToken ct = default)
+        => await service.GetAsync(contractorId, ct)
+           ?? throw new McpException($"No contractor exists with id {contractorId}.");
+
     [McpServerTool(Name = "register_contractor"), Description(
         "Register a new contractor (firm) from structured fields. ALWAYS call list_contractors first to " +
         "avoid duplicates. Returns the created contractor including its contractorId, which you then pass " +
