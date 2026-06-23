@@ -338,12 +338,19 @@ export const ro = {
 
   // — Sections (within a BoQ) ——————————————————————————————————————————————
   "sections.add": "Adaugă secțiune",
+  "sections.edit": "Editează secțiunea",
+  "sections.editTitle": "Editează secțiunea",
+  "sections.editSubtitle": "Modificați numele, ordinea sau descrierea secțiunii.",
   "sections.remove": "Elimină secțiunea",
   "sections.namePlaceholder": "Nume secțiune (ex. Fundație)",
   "sections.orderPlaceholder": "Ordine",
 
   // — Subsections (within a section) ———————————————————————————————————————
   "subsections.add": "Adaugă subcapitol",
+  "subsections.edit": "Editează subcapitolul",
+  "subsections.editTitle": "Editează subcapitolul",
+  "subsections.editSubtitle":
+    "Modificați numele, ordinea sau descrierea subcapitolului.",
   "subsections.remove": "Elimină subcapitolul",
   "subsections.namePlaceholder": "Nume subcapitol (ex. Săpături)",
   "subsections.heading": "Subcapitole",
