@@ -24,14 +24,19 @@ let Kubernetes manifests replace Aspire's wiring:
 |---|---|
 | `AddPostgres(...).WithDataVolume()` | CloudNativePG `Cluster` + PVC |
 | `AddProject<…ApiService>(...)` | `api` Deployment from the API image |
+| `AddProject<…McpServer>(...).WithExternalHttpEndpoints()` | `mcp` Deployment + ingress from the MCP image |
 | `AddNextJsApp("web", …)` | `web` Deployment from the web image |
 | `.WithReference(...)` / `.WaitFor(...)` | Service DNS + readiness probes |
 | `WithEnvironment("API_BASE_URL", …)` | env var on the `web` container |
 
 The `AppHost` and `ServiceDefaults` projects are **not** containerized — they are
-dev-time/shared concerns. We build images for exactly two projects:
+dev-time/shared concerns. We build images for exactly three long-lived workloads:
 
 - **API** — `HomeProjectManagement.ApiService` (ASP.NET, .NET 10)
+- **MCP** — `HomeProjectManagement.McpServer` (ASP.NET, .NET 10) — a second
+  driving adapter that lets remote AI agents (Claude / ChatGPT) drive data entry
+  over Streamable HTTP. It shares `projectsdb` with the API but, unlike the API,
+  is reached **directly from outside the cluster**, so it gets its own ingress.
 - **Web** — `src/web` (Next.js 16, `output: "standalone"` already set in
   `next.config.ts`)
 
@@ -42,6 +47,7 @@ Published to the in-cluster registry (same one `bvb-analyzer` uses):
 | Component | Image | Container port |
 |---|---|---|
 | API | `registry.crozy.eu/home-project-management/api` | `8080` |
+| MCP | `registry.crozy.eu/home-project-management/mcp` | `8080` |
 | Web | `registry.crozy.eu/home-project-management/web` | `3000` |
 
 Tag with an explicit semantic version per release (e.g. `v0.1.0`) — **never rely
@@ -73,6 +79,39 @@ Two consequences of running as `Production` that the cluster side relies on:
   want real HTTP probes, expose the health endpoints outside Development in
   `ServiceDefaults/Extensions.cs`.)
 
+### MCP container
+
+The MCP server uses the same connection-string and port contract as the API:
+
+| Env var | Purpose | Example |
+|---|---|---|
+| `ConnectionStrings__projectsdb` | Npgsql connection string. `Program.cs` reads it via `builder.AddNpgsqlDbContext<AppDbContext>("projectsdb")`. | `Host=hpm-db-rw;Port=5432;Database=projectsdb;Username=hpm;Password=…;SSL Mode=Require;Trust Server Certificate=true` |
+| `ASPNETCORE_ENVIRONMENT` | Runs as `Production` in-cluster. | `Production` |
+| `ASPNETCORE_HTTP_PORTS` | Kestrel listen port (defaults to `8080` in the aspnet base image). | `8080` |
+
+Two things differ from the API and the cluster side must honor them:
+
+- **It does NOT migrate.** Schema is owned by the API's startup
+  `db.Database.Migrate()`; the MCP host only reads/writes the same database.
+  Order the rollout so the API has migrated before (or alongside) the MCP
+  Deployment, and never run two migrators.
+- **It is exposed.** Remote agent clients connect to it directly, so `mcp` needs
+  an ingress (the API does not). Because it is reachable from the public internet,
+  the OAuth resource-server role must be turned on in-cluster via the `McpAuth`
+  section — supplied as environment variables, never committed:
+
+  | Env var | Purpose | Example |
+  |---|---|---|
+  | `McpAuth__Enabled` | `true` in-cluster — turns on token validation + the stakeholder allow-list. Defaults to `false` (the network-restricted local-dev posture). | `true` |
+  | `McpAuth__Authority` | Entra External ID tenant authority/issuer (the OAuth authorization server). | `https://<tenant>.ciamlogin.com/<tenant-id>/v2.0` |
+  | `McpAuth__Audience` | This server's resource id; the `aud` claim resource-bound tokens must carry (RFC 8707). | `api://hpm-mcp` |
+  | `McpAuth__ResourceUri` | Canonical public URL advertised in protected-resource metadata (RFC 9728). Defaults to `Audience`. | `https://mcp.crozy.eu` |
+  | `McpAuth__RequiredScope` | The single scope sufficient for the stakeholders. | `project:write` |
+  | `McpAuth__AllowedEmails__0`, `__1`, … | Stakeholder allow-list (verified emails). Empty relies on tenant membership alone. | `someone@example.com` |
+
+  Startup throws if `McpAuth__Enabled=true` but `Authority`/`Audience` are unset,
+  so a misconfigured exposed server fails fast rather than running open.
+
 ### Web container
 
 | Env var | Purpose | Example |
@@ -88,9 +127,9 @@ All frontend data access is **server-side** (Server Components + Server Actions 
 
 ## Dockerfiles
 
-Create these two files (and the two `.dockerignore` files) in the repo. The API
-builds from the **repo root** (it spans multiple projects); the web builds from
-**`src/web`**.
+Create these three Dockerfiles (and the two `.dockerignore` files) in the repo.
+The API and the MCP server both build from the **repo root** (they span multiple
+projects and share the root `.dockerignore`); the web builds from **`src/web`**.
 
 ### `src/HomeProjectManagement.ApiService/Dockerfile`
 
@@ -129,7 +168,48 @@ USER $APP_UID
 ENTRYPOINT ["dotnet", "HomeProjectManagement.ApiService.dll"]
 ```
 
-### `.dockerignore` (repo root — for the API build)
+### `src/HomeProjectManagement.McpServer/Dockerfile`
+
+Identical shape to the API Dockerfile — it builds from the repo root and restores
+the same Application/Domain/Infrastructure/ServiceDefaults graph (plus the
+McpServer csproj). Only the project paths and the entrypoint dll differ.
+
+```dockerfile
+# syntax=docker/dockerfile:1
+
+# ---- Build ----
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
+
+# Solution-wide build config first, for better layer caching. (Central Package
+# Management + shared MSBuild props are required by every project's restore.)
+COPY Directory.Build.props Directory.Packages.props ./
+
+# Restore against just the csproj graph the MCP server needs.
+COPY src/HomeProjectManagement.McpServer/*.csproj       src/HomeProjectManagement.McpServer/
+COPY src/HomeProjectManagement.Application/*.csproj      src/HomeProjectManagement.Application/
+COPY src/HomeProjectManagement.Domain/*.csproj          src/HomeProjectManagement.Domain/
+COPY src/HomeProjectManagement.Infrastructure/*.csproj  src/HomeProjectManagement.Infrastructure/
+COPY src/HomeProjectManagement.ServiceDefaults/*.csproj src/HomeProjectManagement.ServiceDefaults/
+RUN dotnet restore src/HomeProjectManagement.McpServer/HomeProjectManagement.McpServer.csproj
+
+# Copy sources and publish.
+COPY src/ src/
+RUN dotnet publish src/HomeProjectManagement.McpServer/HomeProjectManagement.McpServer.csproj \
+    -c Release -o /app --no-restore
+
+# ---- Runtime ----
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+WORKDIR /app
+COPY --from=build /app ./
+ENV ASPNETCORE_HTTP_PORTS=8080
+EXPOSE 8080
+# Run as the non-root user provided by the base image.
+USER $APP_UID
+ENTRYPOINT ["dotnet", "HomeProjectManagement.McpServer.dll"]
+```
+
+### `.dockerignore` (repo root — shared by the API and MCP builds)
 
 ```gitignore
 **/bin/
@@ -211,20 +291,26 @@ docker build --platform linux/amd64 \
   -t registry.crozy.eu/home-project-management/api:$VERSION .
 docker push registry.crozy.eu/home-project-management/api:$VERSION
 
+# MCP — also built from the repo root.
+docker build --platform linux/amd64 \
+  -f src/HomeProjectManagement.McpServer/Dockerfile \
+  -t registry.crozy.eu/home-project-management/mcp:$VERSION .
+docker push registry.crozy.eu/home-project-management/mcp:$VERSION
+
 # Web — built from src/web.
 docker build --platform linux/amd64 \
   -t registry.crozy.eu/home-project-management/web:$VERSION src/web
 docker push registry.crozy.eu/home-project-management/web:$VERSION
 ```
 
-Then bump the two image tags in the cluster overlay and let Flux roll it out —
+Then bump the three image tags in the cluster overlay and let Flux roll it out —
 see the runbook in `home-lab-infra`.
 
 ## Release checklist
 
 1. Merge the application change to `main`.
 2. Pick the next `VERSION` (semantic, e.g. `v0.2.0`).
-3. Build & push both images (commands above).
-4. In `home-lab-infra`, bump both tags in
+3. Build & push all three images (commands above).
+4. In `home-lab-infra`, bump all three tags in
    `k3s/apps/base/home-project-management/**` (or the relevant overlay) and open
    the DEV PR; validate; then the PROD PR. (Two-PR dev→prod rule — see runbook.)
