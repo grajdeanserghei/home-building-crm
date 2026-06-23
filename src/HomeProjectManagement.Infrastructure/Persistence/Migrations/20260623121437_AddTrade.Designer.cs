@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace HomeProjectManagement.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260623134020_AddTrade")]
+    [Migration("20260623121437_AddTrade")]
     partial class AddTrade
     {
         /// <inheritdoc />
