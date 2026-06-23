@@ -238,6 +238,63 @@ export async function addLineItem(formData: FormData) {
   revalidatePath(`/bills-of-quantities/${boqId}`);
 }
 
+// Edit an existing line item. Mirrors addLineItem but targets the line's PUT route and
+// carries its id (a hidden field). The edit form is its own route, so on success we
+// refresh the detail page and return to it.
+export async function reviseLineItem(formData: FormData) {
+  const boqId = formData.get("boqId") as string;
+  const sectionId = formData.get("sectionId") as string;
+  const lineItemId = formData.get("lineItemId") as string;
+  const description = (formData.get("description") as string)?.trim();
+  const unitOfMeasureId = formData.get("unitOfMeasureId") as string;
+  if (!boqId || !sectionId || !lineItemId || !description || !unitOfMeasureId)
+    return;
+
+  const quantity = Number.parseFloat(
+    (formData.get("quantity") as string)?.trim() || "0",
+  );
+  const amount = Number.parseFloat(
+    (formData.get("unitPriceAmount") as string)?.trim() || "0",
+  );
+  // The VAT rate (percent). Blank → null, letting the backend apply the standard 21%.
+  const vatRaw = (formData.get("vatRatePercentage") as string)?.trim();
+  const vatRatePercentage =
+    vatRaw === undefined || vatRaw === "" ? null : Number.parseFloat(vatRaw);
+  const sequenceRaw = (formData.get("sequence") as string)?.trim();
+  const sequence = sequenceRaw ? Number.parseInt(sequenceRaw, 10) : 0;
+  // The line price is always in the BoQ's pricing currency (carried as a hidden field).
+  const currency = formData.get("currency") as Currency;
+
+  const payload = {
+    description,
+    quantity: Number.isNaN(quantity) ? 0 : quantity,
+    unitOfMeasureId,
+    unitPrice: { amount: Number.isNaN(amount) ? 0 : amount, currency },
+    vatRatePercentage:
+      vatRatePercentage === null || Number.isNaN(vatRatePercentage)
+        ? null
+        : vatRatePercentage,
+    sequence: Number.isNaN(sequence) ? 0 : sequence,
+    notes: (formData.get("notes") as string)?.trim() || null,
+  };
+
+  const res = await fetch(
+    `${apiBaseUrl()}/api/bills-of-quantities/${boqId}/sections/${sectionId}/line-items/${lineItemId}`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    },
+  );
+
+  if (!res.ok) {
+    throw new Error(await describeApiError(res, "common.actionError"));
+  }
+
+  revalidatePath(`/bills-of-quantities/${boqId}`);
+  redirect(`/bills-of-quantities/${boqId}`);
+}
+
 export async function removeLineItem(formData: FormData) {
   const boqId = formData.get("boqId") as string;
   const sectionId = formData.get("sectionId") as string;

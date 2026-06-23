@@ -296,6 +296,12 @@ export default async function BillOfQuantitiesDetailPage({
                     {editable ? (
                       <td>
                         <div className={styles.actions}>
+                          <Link
+                            href={`/bills-of-quantities/${boq.id}/sections/${section.id}/line-items/${li.id}/edit`}
+                            className={styles.edit}
+                          >
+                            {t("common.edit")}
+                          </Link>
                           <form action={removeLineItem}>
                             <input type="hidden" name="boqId" value={boq.id} />
                             <input

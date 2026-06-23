@@ -299,6 +299,8 @@ export const ro = {
 
   // — Line items (within a section) ————————————————————————————————————————
   "lineItems.add": "Adaugă articol",
+  "lineItems.editTitle": "Editează articolul",
+  "lineItems.editSubtitle": "Modificați descrierea, cantitatea, prețul sau cota TVA.",
   "lineItems.empty": "Niciun articol încă.",
   "lineItems.noActiveUnits":
     "Nicio unitate de măsură activă — adăugați una la Unități de măsură mai întâi.",
