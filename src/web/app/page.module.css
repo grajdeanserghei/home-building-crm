@@ -91,6 +91,19 @@
   font-size: 1.1rem;
 }
 
+/* A card title row with the heading on the left and a drill-in link on the right. */
+.cardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.cardHeader h2 {
+  margin: 0;
+}
+
 /* A subsection nested inside a BoQ section: indented with a left rule. */
 .subsection {
   margin: 16px 0 16px 16px;

@@ -1,9 +1,31 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { apiBaseUrl, type ProjectStatus } from "./lib/api";
+import { CURRENT_PROJECT_COOKIE } from "./lib/current-project";
 import { describeApiError } from "./lib/errors";
+
+// Scope the whole UI to a project chosen from the header switcher: persist the
+// selection in a cookie and land on the dashboard ("/"), which renders in its
+// context. `revalidatePath("/", "layout")` refreshes every page (and the header)
+// so the new selection is reflected immediately.
+export async function setCurrentProject(formData: FormData) {
+  const id = (formData.get("projectId") as string) || "";
+  const cookieStore = await cookies();
+  if (id) {
+    cookieStore.set(CURRENT_PROJECT_COOKIE, id, {
+      path: "/",
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24 * 365,
+    });
+  } else {
+    cookieStore.delete(CURRENT_PROJECT_COOKIE);
+  }
+  revalidatePath("/", "layout");
+  redirect("/");
+}
 
 export async function createProject(formData: FormData) {
   const name = (formData.get("name") as string)?.trim();
@@ -27,8 +49,9 @@ export async function createProject(formData: FormData) {
   }
 
   // The create form lives on its own route (/projects/new); return to the list.
-  revalidatePath("/");
-  redirect("/");
+  // Revalidate the whole tree so the header project switcher picks up the new project.
+  revalidatePath("/", "layout");
+  redirect("/projects");
 }
 
 export async function updateProject(formData: FormData) {
@@ -54,8 +77,9 @@ export async function updateProject(formData: FormData) {
   }
 
   // Refresh the list, then return to it (the edit form lives on its own route).
-  revalidatePath("/");
-  redirect("/");
+  // Layout-level revalidation keeps the header switcher's project name in sync.
+  revalidatePath("/", "layout");
+  redirect("/projects");
 }
 
 export async function deleteProject(formData: FormData) {
@@ -70,5 +94,6 @@ export async function deleteProject(formData: FormData) {
     throw new Error(await describeApiError(res, "common.actionError"));
   }
 
-  revalidatePath("/");
+  // Layout-level revalidation drops the deleted project from the header switcher too.
+  revalidatePath("/", "layout");
 }

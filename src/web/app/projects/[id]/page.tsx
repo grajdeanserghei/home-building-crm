@@ -38,7 +38,7 @@ export default async function ProjectDetailPage({
 
   return (
     <main className={styles.main}>
-      <Link href="/" className={styles.backLink}>
+      <Link href="/projects" className={styles.backLink}>
         {t("projects.backToAll")}
       </Link>
       <h1>{project.name}</h1>

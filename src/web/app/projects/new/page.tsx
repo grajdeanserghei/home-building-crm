@@ -14,7 +14,7 @@ export default function NewProjectPage() {
 
       <section className={styles.card}>
         <ProjectForm action={createProject} submitLabel={t("projects.add")} />
-        <Link href="/" className={styles.backLink}>
+        <Link href="/projects" className={styles.backLink}>
           {t("common.cancel")}
         </Link>
       </section>

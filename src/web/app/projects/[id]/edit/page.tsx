@@ -31,7 +31,7 @@ export default async function EditProjectPage({
           project={project}
           submitLabel={t("common.saveChanges")}
         />
-        <Link href="/" className={styles.backLink}>
+        <Link href="/projects" className={styles.backLink}>
           {t("common.cancel")}
         </Link>
       </section>

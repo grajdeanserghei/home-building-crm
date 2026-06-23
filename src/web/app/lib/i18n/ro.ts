@@ -112,6 +112,7 @@ export const ro = {
   "meta.title": "Gestionarea Proiectului Casei",
   "meta.description": "Urmărește lucrările la construcția casei",
   "nav.brand": "Gestionarea Proiectului Casei",
+  "nav.project": "Proiect",
   "nav.projects": "Proiecte",
   "nav.contractors": "Antreprenori",
   "nav.contracts": "Contracte",
@@ -136,7 +137,18 @@ export const ro = {
   "errors.ContractClosed":
     "Un contract în starea {status} este închis și nu se mai poate modifica.",
 
-  // — Projects (home list, detail, form) ——————————————————————————————————
+  // — Dashboard (home, scoped to the selected project) ————————————————————
+  "dashboard.subtitle": "Privire de ansamblu asupra proiectului selectat.",
+  "dashboard.empty":
+    "Niciun proiect încă. Creează primul proiect ca să începi.",
+  "dashboard.statWorkPackages": "Pachete de lucrări",
+  "dashboard.statOpenForBids": "Deschise pentru oferte",
+  "dashboard.statAwarded": "Atribuite",
+  "dashboard.statProjected": "Total proiectat (cu TVA)",
+  "dashboard.workPackagesTitle": "Pachete de lucrări",
+  "dashboard.workPackagesManage": "Gestionează pachetele →",
+
+  // — Projects (management list, detail, form) ————————————————————————————
   "projects.new": "Proiect nou",
   "projects.add": "Adaugă proiect",
   "projects.title": "Proiecte",

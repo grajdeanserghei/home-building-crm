@@ -1,112 +1,198 @@
 import Link from "next/link";
-import { deleteProject } from "./actions";
-import { DeleteProjectButton } from "./components/DeleteProjectButton";
+import { resolveCurrentProject } from "./lib/current-project";
 import {
-  getProjects,
+  formatMoney,
+  getProjectBudget,
+  getWorkPackages,
   PROJECT_STATUS_LABELS,
-  PROJECT_STATUSES,
+  WORK_PACKAGE_STATUS_LABELS,
+  type CurrencyTotals,
+  type Money,
   type Project,
+  type ProjectBudget,
+  type WorkPackage,
 } from "./lib/api";
 import { formatDate } from "./lib/format";
 import { t } from "./lib/i18n";
 import styles from "./page.module.css";
 
+// Render a projected band: a single amount when low === high, otherwise "low – high".
+function band(low: Money, high: Money): string {
+  return low.amount === high.amount
+    ? formatMoney(low)
+    : `${formatMoney(low)} – ${formatMoney(high)}`;
+}
+
+// The single projected-cost figure to headline on the dashboard: the EUR-equivalent
+// projection when available (comparable across currencies), otherwise the lone
+// currency's projection. Null when there is nothing priced yet, or several
+// currencies with no EUR rate to combine them.
+function projectedHeadline(budget: ProjectBudget | null): string | null {
+  if (!budget) return null;
+  const eur = budget.eurEquivalent?.totals;
+  if (eur) return band(eur.projectedLow, eur.projectedHigh);
+  const single: CurrencyTotals | undefined =
+    budget.totalsByCurrency.length === 1
+      ? budget.totalsByCurrency[0]
+      : undefined;
+  return single ? band(single.projectedLow, single.projectedHigh) : null;
+}
+
 export default async function Home() {
-  let projects: Project[] = [];
+  let current: Project | null = null;
   let error: string | null = null;
 
   try {
-    projects = await getProjects();
+    const resolved = await resolveCurrentProject();
+    current = resolved.current;
   } catch (e) {
     error = e instanceof Error ? e.message : t("common.unknownError");
   }
 
-  // Count projects per status for the dashboard summary strip (computed from the
-  // already-loaded list — no extra request).
-  const countByStatus = projects.reduce<Record<string, number>>((acc, p) => {
-    acc[p.status] = (acc[p.status] ?? 0) + 1;
-    return acc;
-  }, {});
+  if (error) {
+    return (
+      <main className={styles.main}>
+        <h1>{t("meta.title")}</h1>
+        <p className={styles.error}>{t("common.apiError", { error })}</p>
+      </main>
+    );
+  }
+
+  // No projects exist yet: prompt the user to create the first one.
+  if (!current) {
+    return (
+      <main className={styles.main}>
+        <div className={styles.toolbar}>
+          <div>
+            <h1>{t("meta.title")}</h1>
+            <p className={styles.subtitle}>{t("dashboard.subtitle")}</p>
+          </div>
+          <Link href="/projects/new" className={styles.primaryButton}>
+            {t("projects.add")}
+          </Link>
+        </div>
+        <section className={styles.card}>
+          <p>{t("dashboard.empty")}</p>
+        </section>
+      </main>
+    );
+  }
+
+  // Load the selected project's work packages and budget for the dashboard.
+  let workPackages: WorkPackage[] = [];
+  let budget: ProjectBudget | null = null;
+  let dataError: string | null = null;
+  try {
+    [workPackages, budget] = await Promise.all([
+      getWorkPackages(current.id),
+      getProjectBudget(current.id),
+    ]);
+  } catch (e) {
+    dataError = e instanceof Error ? e.message : t("common.unknownError");
+  }
+
+  const openForBids = workPackages.filter(
+    (wp) => wp.status === "OpenForBids",
+  ).length;
+  const awarded = workPackages.filter((wp) => wp.status === "Awarded").length;
+  const projected = projectedHeadline(budget);
 
   return (
     <main className={styles.main}>
       <div className={styles.toolbar}>
         <div>
-          <h1>{t("meta.title")}</h1>
-          <p className={styles.subtitle}>{t("projects.subtitle")}</p>
+          <h1>{current.name}</h1>
+          <p className={styles.subtitle}>
+            <span className={`${styles.badge} ${styles[`status${current.status}`]}`}>
+              {PROJECT_STATUS_LABELS[current.status]}
+            </span>
+            {current.description ? ` · ${current.description}` : ""}
+          </p>
         </div>
-        <Link href="/projects/new" className={styles.primaryButton}>
-          {t("projects.add")}
-        </Link>
+        <div className={styles.actions}>
+          <Link href={`/projects/${current.id}/edit`} className={styles.edit}>
+            {t("projects.edit")}
+          </Link>
+          <Link
+            href={`/projects/${current.id}/budget`}
+            className={styles.primaryButton}
+          >
+            {t("budget.link")}
+          </Link>
+        </div>
       </div>
 
-      {!error && projects.length > 0 ? (
-        <section className={styles.stats}>
-          <div className={styles.stat}>
-            <span className={styles.statValue}>{projects.length}</span>
-            <span className={styles.statLabel}>{t("projects.summaryTotal")}</span>
-          </div>
-          {PROJECT_STATUSES.map((s) => (
-            <div key={s} className={styles.stat}>
-              <span className={styles.statValue}>{countByStatus[s] ?? 0}</span>
-              <span className={styles.statLabel}>
-                {PROJECT_STATUS_LABELS[s]}
-              </span>
-            </div>
-          ))}
-        </section>
-      ) : null}
+      <section className={styles.stats}>
+        <div className={styles.stat}>
+          <span className={styles.statValue}>{workPackages.length}</span>
+          <span className={styles.statLabel}>
+            {t("dashboard.statWorkPackages")}
+          </span>
+        </div>
+        <div className={styles.stat}>
+          <span className={styles.statValue}>{openForBids}</span>
+          <span className={styles.statLabel}>
+            {t("dashboard.statOpenForBids")}
+          </span>
+        </div>
+        <div className={styles.stat}>
+          <span className={styles.statValue}>{awarded}</span>
+          <span className={styles.statLabel}>{t("dashboard.statAwarded")}</span>
+        </div>
+        <div className={styles.stat}>
+          <span className={styles.statValue}>{projected ?? "—"}</span>
+          <span className={styles.statLabel}>
+            {t("dashboard.statProjected")}
+          </span>
+        </div>
+      </section>
 
       <section className={styles.card}>
-        <h2>{t("projects.title")}</h2>
-        {error ? (
-          <p className={styles.error}>{t("common.apiError", { error })}</p>
-        ) : projects.length === 0 ? (
-          <p>{t("projects.empty")}</p>
+        <div className={styles.cardHeader}>
+          <h2>{t("dashboard.workPackagesTitle")}</h2>
+          <Link href={`/projects/${current.id}`} className={styles.edit}>
+            {t("dashboard.workPackagesManage")}
+          </Link>
+        </div>
+        {dataError ? (
+          <p className={styles.error}>{t("common.apiError", { error: dataError })}</p>
+        ) : workPackages.length === 0 ? (
+          <p>{t("workPackages.empty")}</p>
         ) : (
           <table className={styles.table}>
             <thead>
               <tr>
+                <th>#</th>
                 <th>{t("common.name")}</th>
                 <th>{t("common.status")}</th>
-                <th>{t("projects.col.due")}</th>
-                <th>{t("common.created")}</th>
-                <th aria-label={t("common.actions")} />
+                <th>{t("workPackages.col.plannedStart")}</th>
+                <th>{t("workPackages.col.plannedEnd")}</th>
               </tr>
             </thead>
             <tbody>
-              {projects.map((p) => (
-                <tr key={p.id}>
+              {workPackages.map((wp) => (
+                <tr key={wp.id}>
+                  <td>{wp.sequence}</td>
                   <td>
-                    <Link href={`/projects/${p.id}`} className={styles.nameLink}>
-                      <strong>{p.name}</strong>
+                    <Link
+                      href={`/work-packages/${wp.id}`}
+                      className={styles.nameLink}
+                    >
+                      <strong>{wp.name}</strong>
                     </Link>
-                    {p.description ? (
-                      <div className={styles.muted}>{p.description}</div>
+                    {wp.description ? (
+                      <div className={styles.muted}>{wp.description}</div>
                     ) : null}
                   </td>
                   <td>
-                    <span className={`${styles.badge} ${styles[`status${p.status}`]}`}>
-                      {PROJECT_STATUS_LABELS[p.status]}
+                    <span
+                      className={`${styles.badge} ${styles[`status${wp.status}`]}`}
+                    >
+                      {WORK_PACKAGE_STATUS_LABELS[wp.status]}
                     </span>
                   </td>
-                  <td>{formatDate(p.dueDate)}</td>
-                  <td>{formatDate(p.createdAt)}</td>
-                  <td>
-                    <div className={styles.actions}>
-                      <Link
-                        href={`/projects/${p.id}/edit`}
-                        className={styles.edit}
-                      >
-                        {t("common.edit")}
-                      </Link>
-                      <DeleteProjectButton
-                        action={deleteProject}
-                        projectId={p.id}
-                        projectName={p.name}
-                      />
-                    </div>
-                  </td>
+                  <td>{formatDate(wp.plannedStartDate)}</td>
+                  <td>{formatDate(wp.plannedEndDate)}</td>
                 </tr>
               ))}
             </tbody>

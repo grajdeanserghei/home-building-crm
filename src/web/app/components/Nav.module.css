@@ -19,9 +19,49 @@
   }
 }
 
+/* Brand + project switcher sit together on the left of the header. */
+.brandGroup {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
 .brand {
   font-weight: 700;
   color: inherit;
+  white-space: nowrap;
+}
+
+/* The project switcher: a small label + native select that auto-submits. */
+.switcher {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.switcherLabel {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+.switcherSelect {
+  max-width: 220px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.switcherSelect:hover {
+  border-color: #2563eb;
 }
 
 .links {
