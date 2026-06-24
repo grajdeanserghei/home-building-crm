@@ -37,6 +37,15 @@ public sealed class BillOfQuantities : AggregateRoot<BoqId>
     /// <summary>The contractor's own <c>deviz</c> number/label. Optional.</summary>
     public string? Reference { get; private set; }
 
+    /// <summary>
+    /// What this quote is priced against, as the supplier provided it: the entire building, or a
+    /// single apartment. Defaults to the whole building. When <see cref="BudgetScopeKind.PerApartment"/>,
+    /// the cost for the whole build is the total times the project's apartment-unit count (see
+    /// <see cref="EffectiveTotal"/>) — so a single per-apartment <c>deviz</c> covers every apartment
+    /// without being duplicated.
+    /// </summary>
+    public BudgetScopeKind Scope { get; private set; }
+
     public BoqStatus Status { get; private set; }
 
     /// <summary>The currency every <see cref="Money"/> amount in this BoQ is stored in (RON or EUR).</summary>
@@ -87,6 +96,20 @@ public sealed class BillOfQuantities : AggregateRoot<BoqId>
     /// <summary>Derived gross total (VAT-inclusive): the sum of every VAT-inclusive line total.</summary>
     public Money TotalWithVat => Sum(_lineItems, li => li.LineTotalWithVat);
 
+    /// <summary>
+    /// The cost multiplier for the whole build given the project's <paramref name="apartmentUnits"/>:
+    /// the unit count for a <see cref="BudgetScopeKind.PerApartment"/> quote, otherwise 1. The count is
+    /// supplied by the caller (it lives on the project) rather than read inside the domain.
+    /// </summary>
+    public int Multiplier(int apartmentUnits) =>
+        Scope == BudgetScopeKind.PerApartment ? apartmentUnits : 1;
+
+    /// <summary>The net (VAT-exclusive) total scaled to the whole build (<see cref="Total"/> × <see cref="Multiplier"/>).</summary>
+    public Money EffectiveTotal(int apartmentUnits) => Total.Multiply(Multiplier(apartmentUnits));
+
+    /// <summary>The gross (VAT-inclusive) total scaled to the whole build.</summary>
+    public Money EffectiveTotalWithVat(int apartmentUnits) => TotalWithVat.Multiply(Multiplier(apartmentUnits));
+
     // EF Core materialisation constructor.
     private BillOfQuantities()
     {
@@ -114,7 +137,8 @@ public sealed class BillOfQuantities : AggregateRoot<BoqId>
         DateTimeOffset? submittedOn = null,
         DateTimeOffset? validUntil = null,
         DocumentReference? sourceDocument = null,
-        string? sourceContentHash = null)
+        string? sourceContentHash = null,
+        BudgetScopeKind scope = BudgetScopeKind.EntireBuilding)
     {
         EnsureRateMatchesCurrency(exchangeRate, pricingCurrency);
 
@@ -122,6 +146,7 @@ public sealed class BillOfQuantities : AggregateRoot<BoqId>
         {
             Status = BoqStatus.Draft,
             Reference = Trim(reference),
+            Scope = scope,
             ExchangeRate = exchangeRate,
             SubmittedOn = submittedOn,
             ValidUntil = validUntil,
@@ -147,6 +172,16 @@ public sealed class BillOfQuantities : AggregateRoot<BoqId>
         ExchangeRate = exchangeRate;
         SubmittedOn = submittedOn;
         ValidUntil = validUntil;
+    }
+
+    /// <summary>
+    /// Set what this quote is priced against (the entire building or per apartment). Allowed only
+    /// while the BoQ is still editable.
+    /// </summary>
+    public void AssignScope(BudgetScopeKind scope)
+    {
+        EnsureMutable();
+        Scope = scope;
     }
 
     /// <summary>

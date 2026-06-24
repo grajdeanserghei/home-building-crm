@@ -24,6 +24,10 @@ public sealed class ProjectConfiguration : IEntityTypeConfiguration<Project>
         builder.Property(p => p.StartDate);
         builder.Property(p => p.TargetCompletionDate);
 
+        // How many dwelling units the build has — the per-apartment cost multiplier. At least 1; the
+        // DB default backfills existing projects to a single unit (changes nothing until raised).
+        builder.Property(p => p.ApartmentUnits).IsRequired().HasDefaultValue(1);
+
         // Audit fields stamped by the unit of work.
         builder.Property(p => p.CreatedOn).IsRequired();
         builder.Property(p => p.CreatedBy).IsRequired();

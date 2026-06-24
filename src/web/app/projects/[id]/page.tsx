@@ -45,6 +45,11 @@ export default async function ProjectDetailPage({
       <p className={styles.subtitle}>
         {project.description || t("projects.workPackagesSubtitle")}
       </p>
+      <p className={styles.muted}>
+        {t("projects.apartmentUnitsSummary", {
+          count: String(project.apartmentUnits),
+        })}
+      </p>
 
       <p>
         <Link href={`/projects/${project.id}/budget`} className={styles.edit}>

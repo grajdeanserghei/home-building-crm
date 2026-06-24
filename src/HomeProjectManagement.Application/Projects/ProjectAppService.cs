@@ -32,7 +32,8 @@ public sealed class ProjectAppService(
             timeProvider.GetUtcNow(),
             command.Description,
             command.Status,
-            targetCompletionDate: command.DueDate);
+            targetCompletionDate: command.DueDate,
+            apartmentUnits: command.ApartmentUnits);
 
         repository.Add(project);
         await unitOfWork.CommitAsync(cancellationToken);
@@ -54,6 +55,7 @@ public sealed class ProjectAppService(
         project.Describe(command.Description);
         project.ChangeStatus(command.Status, timeProvider.GetUtcNow());
         project.Reschedule(project.StartDate, command.DueDate);
+        project.SetApartmentUnits(command.ApartmentUnits);
 
         await unitOfWork.CommitAsync(cancellationToken);
         return ToDto(project);
@@ -78,5 +80,6 @@ public sealed class ProjectAppService(
         project.Description,
         project.Status,
         project.CreatedOn,
-        project.TargetCompletionDate);
+        project.TargetCompletionDate,
+        project.ApartmentUnits);
 }

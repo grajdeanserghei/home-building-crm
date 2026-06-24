@@ -34,6 +34,9 @@ public sealed class BillOfQuantitiesConfiguration : IEntityTypeConfiguration<Bil
         // Persist the enums as their string names.
         builder.Property(b => b.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
         builder.Property(b => b.PricingCurrency).HasConversion<string>().HasMaxLength(3).IsRequired();
+        // What the supplier priced against (entire building / per apartment). Existing rows backfill to
+        // the whole building via the migration's column default.
+        builder.Property(b => b.Scope).HasConversion<string>().HasMaxLength(32).IsRequired();
 
         builder.Property(b => b.SubmittedOn);
         builder.Property(b => b.ValidUntil);

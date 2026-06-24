@@ -5,10 +5,14 @@ import {
   BID_STATUS_LABELS,
   BID_STATUSES,
   BOQ_STATUS_LABELS,
+  BUDGET_SCOPE_KIND_LABELS,
+  budgetMultiplier,
+  effectiveMoney,
   NOTE_TYPE_LABELS,
   getBid,
   getBidBoq,
   getContractor,
+  getProject,
   getWorkPackage,
   type BidStatus,
 } from "@/app/lib/api";
@@ -44,6 +48,14 @@ export default async function BidDetailPage({
   ]);
 
   const contractorName = contractor?.name ?? t("bids.unknownContractor");
+
+  // A per-apartment BoQ's cost for the whole build needs the project's apartment count as the
+  // multiplier; the work package (already loaded) points at the owning project.
+  let apartmentUnits = 1;
+  if (boq?.budgetScopeKind === "PerApartment" && workPackage) {
+    const project = await getProject(workPackage.projectId);
+    apartmentUnits = project?.apartmentUnits ?? 1;
+  }
 
   return (
     <main className={styles.main}>
@@ -125,6 +137,7 @@ export default async function BidDetailPage({
               <tr>
                 <th>{t("bids.boqCol.reference")}</th>
                 <th>{t("common.status")}</th>
+                <th>{t("boq.budgetScope")}</th>
                 <th>{t("bids.boqCol.totalWithVat")}</th>
                 <th aria-label={t("common.actions")} />
               </tr>
@@ -139,7 +152,25 @@ export default async function BidDetailPage({
                     {BOQ_STATUS_LABELS[boq.status]}
                   </span>
                 </td>
-                <td>{formatMoney(boq.totalWithVat)}</td>
+                <td>{BUDGET_SCOPE_KIND_LABELS[boq.budgetScopeKind]}</td>
+                <td>
+                  {formatMoney(
+                    effectiveMoney(
+                      boq.totalWithVat,
+                      boq.budgetScopeKind,
+                      apartmentUnits,
+                    ),
+                  )}
+                  {budgetMultiplier(boq.budgetScopeKind, apartmentUnits) > 1 ? (
+                    <span className={styles.muted}>
+                      {" "}
+                      {t("boq.perApartmentNote", {
+                        base: formatMoney(boq.totalWithVat),
+                        count: String(apartmentUnits),
+                      })}
+                    </span>
+                  ) : null}
+                </td>
                 <td>
                   <div className={styles.actions}>
                     <Link

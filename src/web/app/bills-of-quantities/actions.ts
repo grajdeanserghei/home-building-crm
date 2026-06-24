@@ -6,6 +6,7 @@ import {
   apiBaseUrl,
   type BillOfQuantities,
   type BoqStatus,
+  type BudgetScopeKind,
   type Currency,
 } from "../lib/api";
 import { describeApiError } from "@/app/lib/errors";
@@ -45,6 +46,8 @@ function headerPayload(formData: FormData) {
     exchangeRate: buildExchangeRate(formData),
     submittedOn: toDateTime(formData.get("submittedOn")),
     validUntil: toDateTime(formData.get("validUntil")),
+    budgetScopeKind:
+      (formData.get("budgetScopeKind") as BudgetScopeKind) || "EntireBuilding",
   };
 }
 

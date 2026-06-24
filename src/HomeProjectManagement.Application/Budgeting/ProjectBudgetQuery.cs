@@ -15,7 +15,9 @@ namespace HomeProjectManagement.Application.Budgeting;
 /// of its bids' current priced BoQ totals; otherwise it is pending (bids, no price) or has no bids.
 /// Totals are accumulated per currency because <see cref="Money"/> rejects cross-currency arithmetic.
 /// All figures are VAT-inclusive (gross): bid ranges use the BoQ's <c>TotalWithVat</c>, and the
-/// contract's net agreed value is grossed up by the accepted BoQ's effective VAT ratio.
+/// contract's net agreed value is grossed up by the accepted BoQ's effective VAT ratio. Figures are
+/// also scaled to the whole build: a BoQ a supplier priced <i>per apartment</i> is multiplied by the
+/// project's apartment-unit count, so one quote covers every (identical) apartment without duplication.
 /// </summary>
 public sealed class ProjectBudgetQuery(
     IProjectRepository projects,
@@ -50,7 +52,7 @@ public sealed class ProjectBudgetQuery(
 
         foreach (var package in packages.OrderBy(wp => wp.Sequence))
         {
-            var line = await BuildLineAsync(package, cancellationToken);
+            var line = await BuildLineAsync(package, project.ApartmentUnits, cancellationToken);
             line = line with { EurEquivalent = LineEur(line, asOf) };
             lines.Add(line);
 
@@ -147,6 +149,7 @@ public sealed class ProjectBudgetQuery(
 
     private async Task<WorkPackageBudgetLineDto> BuildLineAsync(
         WorkPackage package,
+        int apartmentUnits,
         CancellationToken cancellationToken)
     {
         // 1. Awarded → the contract value (grossed up to VAT-inclusive) wins.
@@ -155,7 +158,7 @@ public sealed class ProjectBudgetQuery(
             var contract = await contracts.GetByWorkPackageAsync(package.Id, cancellationToken);
             if (contract is not null)
             {
-                var committed = await ContractGrossAsync(contract, cancellationToken);
+                var committed = await ContractGrossAsync(contract, apartmentUnits, cancellationToken);
                 return Line(package, BudgetLineKind.Contract, committed: ToDto(committed), candidates: []);
             }
         }
@@ -177,7 +180,7 @@ public sealed class ProjectBudgetQuery(
             var candidates = pricedBoqs
                 .GroupBy(boq => boq.Total.Currency)
                 .OrderBy(g => (int)g.Key)
-                .Select(BuildRange)
+                .Select(g => BuildRange(g, apartmentUnits))
                 .ToList();
             return Line(package, BudgetLineKind.Bids, committed: null, candidates);
         }
@@ -204,14 +207,15 @@ public sealed class ProjectBudgetQuery(
         return boq;
     }
 
-    private static CandidateRangeDto BuildRange(IGrouping<Currency, BillOfQuantities> group)
+    private static CandidateRangeDto BuildRange(IGrouping<Currency, BillOfQuantities> group, int apartmentUnits)
     {
-        // Ranked by the VAT-inclusive total — the figure the budget reports.
-        var ordered = group.OrderBy(boq => boq.TotalWithVat.Amount).ToList();
+        // Ranked by the effective VAT-inclusive total — each BoQ scaled to the whole build, so a
+        // per-apartment quote is compared against an entire-building one on equal terms.
+        var ordered = group.OrderBy(boq => boq.EffectiveTotalWithVat(apartmentUnits).Amount).ToList();
         return new CandidateRangeDto(
             group.Key,
-            ToDto(ordered[0].TotalWithVat),
-            ToDto(ordered[^1].TotalWithVat),
+            ToDto(ordered[0].EffectiveTotalWithVat(apartmentUnits)),
+            ToDto(ordered[^1].EffectiveTotalWithVat(apartmentUnits)),
             ordered.Count);
     }
 
@@ -221,13 +225,15 @@ public sealed class ProjectBudgetQuery(
     /// (<c>TotalWithVat / Total</c>) — which honours the BoQ's actual per-line VAT mix and any
     /// negotiated value. Falls back to the agreed value when the BoQ is missing or has a zero total.
     /// </summary>
-    private async Task<Money> ContractGrossAsync(Contract contract, CancellationToken cancellationToken)
+    private async Task<Money> ContractGrossAsync(Contract contract, int apartmentUnits, CancellationToken cancellationToken)
     {
         var boq = await billsOfQuantities.GetAsync(contract.AcceptedBoqId, cancellationToken);
         if (boq is not null && boq.Total.Amount != 0m)
         {
             var vatRatio = boq.TotalWithVat.Amount / boq.Total.Amount;
-            return contract.Value.Multiply(vatRatio);
+            // Scale to the whole build the same way the accepted BoQ is: a per-apartment deviz counts
+            // once per apartment unit (the contract value defaults to that per-apartment total).
+            return contract.Value.Multiply(vatRatio).Multiply(boq.Multiplier(apartmentUnits));
         }
 
         return contract.Value;

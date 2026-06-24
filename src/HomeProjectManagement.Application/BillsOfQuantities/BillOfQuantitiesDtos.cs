@@ -6,12 +6,16 @@ namespace HomeProjectManagement.Application.BillsOfQuantities;
 /// <summary>
 /// Read model returned to clients. <c>Total</c>, each section's <c>Subtotal</c>, and each line's
 /// <c>LineTotal</c> are derived in the aggregate; <c>CreatedAt</c> comes from the audit fields.
+/// <c>BudgetScopeKind</c> is what the supplier priced against (entire building, or per apartment); the
+/// cost scaled to the whole build is the total times the owning project's apartment-unit count when
+/// per-apartment — applied by the budget rollup and the UI, which read that count from the project.
 /// </summary>
 public sealed record BillOfQuantitiesDto(
     Guid Id,
     Guid BidId,
     string? Reference,
     BoqStatus Status,
+    BudgetScopeKind BudgetScopeKind,
     Currency PricingCurrency,
     ExchangeRateDto? ExchangeRate,
     DateTimeOffset? SubmittedOn,
@@ -96,7 +100,8 @@ public sealed record DraftBillOfQuantitiesCommand(
     DateTimeOffset? ValidUntil,
     string? SourceContentHash = null,
     string? SourceDocumentFileName = null,
-    string? SourceDocumentUrl = null);
+    string? SourceDocumentUrl = null,
+    BudgetScopeKind BudgetScopeKind = BudgetScopeKind.EntireBuilding);
 
 /// <summary>
 /// Input for replacing a BoQ's contents in place when a revised <c>deviz</c> supersedes it: the
@@ -139,12 +144,16 @@ public sealed record AddBoqLineItemsResult(
 /// <summary>A bulk line that was rejected because its unit token matched no active unit of measure.</summary>
 public sealed record UnresolvedBoqLine(int Index, string Description, string Unit);
 
-/// <summary>Input for editing a BoQ's header details. The pricing currency is fixed at draft time.</summary>
+/// <summary>
+/// Input for editing a BoQ's header details, including what the supplier priced against
+/// (<see cref="BudgetScopeKind"/>). The pricing currency is fixed at draft time.
+/// </summary>
 public sealed record UpdateBillOfQuantitiesCommand(
     string? Reference,
     ExchangeRateDto? ExchangeRate,
     DateTimeOffset? SubmittedOn,
-    DateTimeOffset? ValidUntil);
+    DateTimeOffset? ValidUntil,
+    BudgetScopeKind BudgetScopeKind = BudgetScopeKind.EntireBuilding);
 
 /// <summary>Input for transitioning a BoQ's status (Draft → Submitted → Accepted / Rejected / Withdrawn).</summary>
 public sealed record ChangeBoqStatusCommand(BoqStatus Status);

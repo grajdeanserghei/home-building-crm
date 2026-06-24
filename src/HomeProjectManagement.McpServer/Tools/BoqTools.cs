@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using HomeProjectManagement.Application.BillsOfQuantities;
+using HomeProjectManagement.Domain.BillsOfQuantities;
 using HomeProjectManagement.Domain.Common.ValueObjects;
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
@@ -36,7 +37,9 @@ public static class BoqTools
         "sourceContentHash (the SHA-256 you computed over the source PDF): re-running with the same hash " +
         "returns the existing BoQ instead of duplicating. If a BoQ already exists for the bid from a " +
         "different document, this is rejected — use replace_boq_contents to supersede it with the revised " +
-        "deviz. Returns the draft BoQ including its boqId.")]
+        "deviz. Set budgetScopeKind from what the deviz is priced against: EntireBuilding (the default) " +
+        "or PerApartment when it is the price for a single apartment (its build-wide cost is then that " +
+        "total times the project's apartment count). Returns the draft BoQ including its boqId.")]
     public static async Task<BillOfQuantitiesDto> CreateBoq(
         IBillOfQuantitiesAppService service,
         [Description("The owning bid id (from open_bid).")] Guid bidId,
@@ -51,6 +54,7 @@ public static class BoqTools
         [Description("The date the pinned rate is as-of (yyyy-MM-dd).")] DateOnly? exchangeRateAsOf = null,
         [Description("When the quote was received (absolute ISO timestamp).")] DateTimeOffset? submittedOn = null,
         [Description("Offer expiry (absolute ISO timestamp).")] DateTimeOffset? validUntil = null,
+        [Description("What the deviz is priced against: EntireBuilding (default) or PerApartment (the price for one apartment).")] BudgetScopeKind budgetScopeKind = BudgetScopeKind.EntireBuilding,
         CancellationToken ct = default)
     {
         ExchangeRateDto? rate = null;
@@ -64,7 +68,7 @@ public static class BoqTools
 
         var command = new DraftBillOfQuantitiesCommand(
             pricingCurrency, reference, rate, submittedOn, validUntil,
-            sourceContentHash, sourceDocumentFileName, sourceDocumentUrl);
+            sourceContentHash, sourceDocumentFileName, sourceDocumentUrl, budgetScopeKind);
 
         return await service.DraftAsync(bidId, command, ct)
                ?? throw new McpException($"No bid exists with id {bidId}.");

@@ -11,11 +11,16 @@ import {
 } from "@/app/bills-of-quantities/actions";
 import {
   BOQ_STATUS_LABELS,
+  BUDGET_SCOPE_KIND_LABELS,
+  budgetMultiplier,
   CONTRACT_STATUS_LABELS,
+  effectiveMoney,
   getBid,
   getBillOfQuantities,
   getContractByWorkPackage,
+  getProject,
   getUnitsOfMeasure,
+  getWorkPackage,
   type BoqStatus,
   type Contract,
 } from "@/app/lib/api";
@@ -75,6 +80,23 @@ export default async function BillOfQuantitiesDetailPage({
   }
   const canAward = boq.status === "Accepted" && !existingContract;
 
+  // What the supplier priced against, and the cost scaled to the whole build. For a per-apartment
+  // quote we need the project's apartment count (reached via the bid's work package) as the multiplier.
+  let apartmentUnits = 1;
+  if (boq.budgetScopeKind === "PerApartment") {
+    const scopeBid = await getBid(boq.bidId);
+    const scopeWp = scopeBid ? await getWorkPackage(scopeBid.workPackageId) : null;
+    const scopeProject = scopeWp ? await getProject(scopeWp.projectId) : null;
+    apartmentUnits = scopeProject?.apartmentUnits ?? 1;
+  }
+  const multiplier = budgetMultiplier(boq.budgetScopeKind, apartmentUnits);
+  const effectiveTotal = effectiveMoney(boq.total, boq.budgetScopeKind, apartmentUnits);
+  const effectiveTotalWithVat = effectiveMoney(
+    boq.totalWithVat,
+    boq.budgetScopeKind,
+    apartmentUnits,
+  );
+
   return (
     <main className={styles.main}>
       <Link href={`/bids/${boq.bidId}`} className={styles.backLink}>
@@ -91,11 +113,23 @@ export default async function BillOfQuantitiesDetailPage({
               {BOQ_STATUS_LABELS[boq.status]}
             </span>
             {" · "}
-            <strong>{formatMoney(boq.totalWithVat)}</strong> {t("boq.inclVat")}
+            {t("boq.scopePrefix")}{" "}
+            <strong>{BUDGET_SCOPE_KIND_LABELS[boq.budgetScopeKind]}</strong>
+            {" · "}
+            <strong>{formatMoney(effectiveTotalWithVat)}</strong> {t("boq.inclVat")}
             <span className={styles.muted}>
               {" "}
-              ({formatMoney(boq.total)} {t("boq.exclVat")})
+              ({formatMoney(effectiveTotal)} {t("boq.exclVat")})
             </span>
+            {multiplier > 1 ? (
+              <span className={styles.muted}>
+                {" "}
+                {t("boq.perApartmentNote", {
+                  base: formatMoney(boq.totalWithVat),
+                  count: String(apartmentUnits),
+                })}
+              </span>
+            ) : null}
           </p>
         </div>
         {editable ? (
@@ -135,6 +169,8 @@ export default async function BillOfQuantitiesDetailPage({
           <dd>{boq.reference || "—"}</dd>
           <dt>{t("common.status")}</dt>
           <dd>{BOQ_STATUS_LABELS[boq.status]}</dd>
+          <dt>{t("boq.budgetScope")}</dt>
+          <dd>{BUDGET_SCOPE_KIND_LABELS[boq.budgetScopeKind]}</dd>
           <dt>{t("boq.pricingCurrency")}</dt>
           <dd>{boq.pricingCurrency}</dd>
           <dt>{t("boq.pinnedRate")}</dt>
@@ -156,6 +192,14 @@ export default async function BillOfQuantitiesDetailPage({
           <dd>{formatMoney(boq.total)}</dd>
           <dt>{t("boq.totalInclVat")}</dt>
           <dd>{formatMoney(boq.totalWithVat)}</dd>
+          {multiplier > 1 ? (
+            <>
+              <dt>{t("boq.buildTotalExclVat", { count: String(apartmentUnits) })}</dt>
+              <dd>{formatMoney(effectiveTotal)}</dd>
+              <dt>{t("boq.buildTotalInclVat", { count: String(apartmentUnits) })}</dt>
+              <dd>{formatMoney(effectiveTotalWithVat)}</dd>
+            </>
+          ) : null}
           <dt>{t("common.created")}</dt>
           <dd>{formatDate(boq.createdAt)}</dd>
         </dl>

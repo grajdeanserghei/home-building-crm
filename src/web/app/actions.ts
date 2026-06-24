@@ -36,6 +36,8 @@ export async function createProject(formData: FormData) {
     description: (formData.get("description") as string) || null,
     status: (formData.get("status") as ProjectStatus) || "Planned",
     dueDate: (formData.get("dueDate") as string) || null,
+    apartmentUnits:
+      Number.parseInt((formData.get("apartmentUnits") as string) || "1", 10) || 1,
   };
 
   const res = await fetch(`${apiBaseUrl()}/api/projects`, {
@@ -64,6 +66,8 @@ export async function updateProject(formData: FormData) {
     description: (formData.get("description") as string) || null,
     status: (formData.get("status") as ProjectStatus) || "Planned",
     dueDate: (formData.get("dueDate") as string) || null,
+    apartmentUnits:
+      Number.parseInt((formData.get("apartmentUnits") as string) || "1", 10) || 1,
   };
 
   const res = await fetch(`${apiBaseUrl()}/api/projects/${id}`, {

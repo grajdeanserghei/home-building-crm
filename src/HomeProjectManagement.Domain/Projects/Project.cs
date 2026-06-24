@@ -24,6 +24,13 @@ public sealed class Project : AggregateRoot<ProjectId>
     /// <summary>The build location. Optional.</summary>
     public Address? SiteAddress { get; private set; }
 
+    /// <summary>
+    /// How many dwelling units the build has (e.g. 2 for a duplex). Used as the multiplier for a
+    /// bill of quantities a supplier prices <b>per apartment</b>: its effective cost for the whole
+    /// build is its total times this count. At least 1; defaults to 1 (a single-unit build).
+    /// </summary>
+    public int ApartmentUnits { get; private set; } = 1;
+
     // EF Core materialisation constructor.
     private Project()
     {
@@ -46,15 +53,19 @@ public sealed class Project : AggregateRoot<ProjectId>
         ProjectStatus status = ProjectStatus.Planned,
         DateTimeOffset? startDate = null,
         DateTimeOffset? targetCompletionDate = null,
-        Address? siteAddress = null)
+        Address? siteAddress = null,
+        int apartmentUnits = 1)
     {
+        EnsureApartmentUnitsValid(apartmentUnits);
+
         var project = new Project(ProjectId.New(), NormalizeName(name))
         {
             Description = Trim(description),
             Status = status,
             StartDate = startDate,
             TargetCompletionDate = targetCompletionDate,
-            SiteAddress = siteAddress
+            SiteAddress = siteAddress,
+            ApartmentUnits = apartmentUnits
         };
 
         EnsureDatesConsistent(project.StartDate, project.TargetCompletionDate);
@@ -91,6 +102,23 @@ public sealed class Project : AggregateRoot<ProjectId>
 
     /// <summary>Set or clear the build's site address.</summary>
     public void RelocateSite(Address? siteAddress) => SiteAddress = siteAddress;
+
+    /// <summary>Set how many dwelling units the build has (the per-apartment cost multiplier). At least 1.</summary>
+    public void SetApartmentUnits(int apartmentUnits)
+    {
+        EnsureApartmentUnitsValid(apartmentUnits);
+        ApartmentUnits = apartmentUnits;
+    }
+
+    private static void EnsureApartmentUnitsValid(int apartmentUnits)
+    {
+        if (apartmentUnits < 1)
+        {
+            throw new DomainValidationException(
+                "A project must have at least one apartment unit.",
+                nameof(apartmentUnits));
+        }
+    }
 
     private static string NormalizeName(string name)
     {

@@ -42,6 +42,9 @@ export interface Project {
   status: ProjectStatus;
   createdAt: string;
   dueDate?: string | null;
+  // How many dwelling units the build has (e.g. 2 for a duplex). Multiplies the total of any
+  // bill of quantities a supplier priced "per apartment". At least 1.
+  apartmentUnits: number;
 }
 
 export async function getProjects(): Promise<Project[]> {
@@ -503,6 +506,43 @@ export interface Money {
   currency: Currency;
 }
 
+// What a BoQ was priced against, as the supplier provided it. Mirrors the BudgetScopeKind enum
+// (serialized as its string name). A "PerApartment" quote is the price for one apartment; its cost
+// for the whole build is the total times the project's apartmentUnits.
+export type BudgetScopeKind = "EntireBuilding" | "PerApartment";
+
+export const BUDGET_SCOPE_KINDS: readonly BudgetScopeKind[] = [
+  "EntireBuilding",
+  "PerApartment",
+];
+
+export const BUDGET_SCOPE_KIND_LABELS: Record<BudgetScopeKind, string> = {
+  EntireBuilding: t("enum.budgetScopeKind.EntireBuilding"),
+  PerApartment: t("enum.budgetScopeKind.PerApartment"),
+};
+
+// The cost multiplier for a BoQ given the project's apartment count: the count for a per-apartment
+// quote, otherwise 1. Single source for the "× N" rule on the frontend (the budget rollup applies
+// the same rule on the backend).
+export function budgetMultiplier(
+  scope: BudgetScopeKind,
+  apartmentUnits: number,
+): number {
+  return scope === "PerApartment" ? apartmentUnits : 1;
+}
+
+// A BoQ money amount scaled to the whole build (base × multiplier).
+export function effectiveMoney(
+  base: Money,
+  scope: BudgetScopeKind,
+  apartmentUnits: number,
+): Money {
+  return {
+    amount: base.amount * budgetMultiplier(scope, apartmentUnits),
+    currency: base.currency,
+  };
+}
+
 // A pinned EUR↔RON conversion rate (mirrors the ExchangeRate value object). `asOf`
 // is a plain `yyyy-MM-dd` date.
 export interface ExchangeRate {
@@ -562,6 +602,9 @@ export interface BillOfQuantities {
   bidId: string;
   reference?: string | null;
   status: BoqStatus;
+  // What the supplier priced against: the entire building, or one apartment. For "PerApartment",
+  // the build-wide cost is the total × the owning project's apartmentUnits (see effectiveMoney).
+  budgetScopeKind: BudgetScopeKind;
   pricingCurrency: Currency;
   exchangeRate?: ExchangeRate | null;
   submittedOn?: string | null;

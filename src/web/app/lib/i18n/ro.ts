@@ -50,6 +50,9 @@ export const ro = {
   "enum.scopeItemRequirement.Mandatory": "Obligatoriu",
   "enum.scopeItemRequirement.Optional": "Opțional",
 
+  "enum.budgetScopeKind.EntireBuilding": "Întreaga clădire",
+  "enum.budgetScopeKind.PerApartment": "Pe apartament",
+
   "enum.bidStatus.InDiscussion": "În discuție",
   "enum.bidStatus.BoqExpected": "Deviz așteptat",
   "enum.bidStatus.BoqReceived": "Deviz primit",
@@ -162,6 +165,9 @@ export const ro = {
   "projects.col.due": "Termen",
   "projects.namePlaceholder": "Numele proiectului",
   "projects.descriptionPlaceholder": "Descriere (opțional)",
+  "projects.apartmentUnits": "Număr de apartamente",
+  "projects.apartmentUnitsSummary":
+    "{count} apartamente — un deviz „pe apartament” se înmulțește cu acest număr pentru costul întregii clădiri.",
   "projects.backToAll": "← Toate proiectele",
   "projects.workPackagesSubtitle": "Pachetele de lucrări ale acestui proiect.",
   "projects.workPackages": "Pachete de lucrări",
@@ -363,6 +369,11 @@ export const ro = {
   "boq.noSectionsLocked":
     "Acest deviz nu are secțiuni și nu mai poate fi editat.",
   "boq.referencePlaceholder": "Referință / nr. deviz (opțional)",
+  "boq.budgetScope": "Tarifat pentru",
+  "boq.scopePrefix": "Tarifat pentru:",
+  "boq.perApartmentNote": "({base} × {count} apartamente)",
+  "boq.buildTotalExclVat": "Total pe clădire (fără TVA, × {count})",
+  "boq.buildTotalInclVat": "Total pe clădire (cu TVA, × {count})",
   "boq.pinnedRateField": "Curs fixat (1 EUR = ? RON)",
   "boq.pinnedRatePlaceholder": "ex. 4,97",
   "boq.rateAsOf": "Curs la data de",

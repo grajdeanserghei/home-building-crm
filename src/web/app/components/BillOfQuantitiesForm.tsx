@@ -1,4 +1,6 @@
 import {
+  BUDGET_SCOPE_KINDS,
+  BUDGET_SCOPE_KIND_LABELS,
   CURRENCIES,
   type BillOfQuantities,
   type Currency,
@@ -49,6 +51,20 @@ export function BillOfQuantitiesForm({
         placeholder={t("boq.referencePlaceholder")}
         defaultValue={boq?.reference ?? ""}
       />
+
+      <label className={styles.fieldLabel}>
+        {t("boq.budgetScope")}
+        <select
+          name="budgetScopeKind"
+          defaultValue={boq?.budgetScopeKind ?? "EntireBuilding"}
+        >
+          {BUDGET_SCOPE_KINDS.map((k) => (
+            <option key={k} value={k}>
+              {BUDGET_SCOPE_KIND_LABELS[k]}
+            </option>
+          ))}
+        </select>
+      </label>
 
       {editing ? (
         // Pricing currency is immutable after drafting; show it, don't submit it.

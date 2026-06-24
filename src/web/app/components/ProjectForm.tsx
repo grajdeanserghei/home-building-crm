@@ -52,6 +52,16 @@ export function ProjectForm({ action, project, submitLabel }: ProjectFormProps) 
         type="date"
         defaultValue={toDateInputValue(project?.dueDate)}
       />
+      <label className={styles.fieldLabel}>
+        {t("projects.apartmentUnits")}
+        <input
+          name="apartmentUnits"
+          type="number"
+          min={1}
+          step={1}
+          defaultValue={project?.apartmentUnits ?? 1}
+        />
+      </label>
       <button type="submit">{submitLabel}</button>
     </form>
   );

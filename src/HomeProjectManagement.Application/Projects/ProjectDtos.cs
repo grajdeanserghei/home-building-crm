@@ -13,18 +13,21 @@ public sealed record ProjectDto(
     string? Description,
     ProjectStatus Status,
     DateTimeOffset CreatedAt,
-    DateTimeOffset? DueDate);
+    DateTimeOffset? DueDate,
+    int ApartmentUnits);
 
 /// <summary>Input for creating a project (matches the frontend POST payload).</summary>
 public sealed record CreateProjectCommand(
     string Name,
     string? Description,
     ProjectStatus Status,
-    DateTimeOffset? DueDate);
+    DateTimeOffset? DueDate,
+    int ApartmentUnits = 1);
 
 /// <summary>Input for updating a project (matches the frontend PUT payload).</summary>
 public sealed record UpdateProjectCommand(
     string Name,
     string? Description,
     ProjectStatus Status,
-    DateTimeOffset? DueDate);
+    DateTimeOffset? DueDate,
+    int ApartmentUnits = 1);

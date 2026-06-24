@@ -82,7 +82,8 @@ public sealed class BillOfQuantitiesAppService(
             command.SubmittedOn,
             command.ValidUntil,
             ToSourceDocument(command.SourceDocumentFileName, command.SourceDocumentUrl, now),
-            command.SourceContentHash);
+            command.SourceContentHash,
+            command.BudgetScopeKind);
 
         repository.Add(boq);
         await unitOfWork.CommitAsync(cancellationToken);
@@ -105,6 +106,7 @@ public sealed class BillOfQuantitiesAppService(
             ToExchangeRate(command.ExchangeRate),
             command.SubmittedOn,
             command.ValidUntil);
+        boq.AssignScope(command.BudgetScopeKind);
 
         await unitOfWork.CommitAsync(cancellationToken);
         return ToDto(boq);
@@ -671,6 +673,7 @@ public sealed class BillOfQuantitiesAppService(
         boq.BidId.Value,
         boq.Reference,
         boq.Status,
+        boq.Scope,
         boq.PricingCurrency,
         ToDto(boq.ExchangeRate),
         boq.SubmittedOn,
