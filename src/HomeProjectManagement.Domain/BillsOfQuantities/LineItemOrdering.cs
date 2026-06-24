@@ -25,6 +25,8 @@ internal static class LineItemOrdering
     /// <summary>Remove the line from this list and renumber the remainder; returns the removed instance.</summary>
     internal static LineItem Detach(List<LineItem> items, LineItemId id)
     {
+        OrderBySequence(items);
+
         var item = items.FirstOrDefault(li => li.Id == id)
             ?? throw new DomainValidationException("The line item is not in this container.", code: "BoqLineItemNotFound");
 
@@ -41,6 +43,8 @@ internal static class LineItemOrdering
     internal static void InsertCopy(List<LineItem> items, LineItem source, int index, Currency currency)
     {
         EnsureSharedCurrency(source.UnitPrice, currency);
+
+        OrderBySequence(items);
 
         // Sequence is assigned by Renumber below; pass a placeholder.
         var copy = new LineItem(
@@ -60,6 +64,8 @@ internal static class LineItemOrdering
     /// <summary>Reorder an existing line within the same list to <paramref name="index"/> (clamped), then renumber.</summary>
     internal static void MoveWithin(List<LineItem> items, LineItemId id, int index)
     {
+        OrderBySequence(items);
+
         var item = items.FirstOrDefault(li => li.Id == id)
             ?? throw new DomainValidationException("The line item is not in this container.", code: "BoqLineItemNotFound");
 
@@ -75,6 +81,23 @@ internal static class LineItemOrdering
         {
             items[i].Resequence(i + 1);
         }
+    }
+
+    /// <summary>
+    /// Reorder the backing list in place to match <see cref="LineItem.Sequence"/> order. The order of a
+    /// freshly loaded owned collection is <b>not</b> guaranteed (EF maps no ordering, so it follows the
+    /// physical row order, which need not match <c>Sequence</c> until a container has been renumbered).
+    /// Every index-based reorder here interprets its target index against the order the reader shows —
+    /// which is <c>Sequence</c>-sorted (<c>ToDto</c> does <c>OrderBy(Sequence)</c>) — so we must align
+    /// the list to that same order first, or the index lands in the wrong slot and renumbering scrambles
+    /// untouched lines. A stable <see cref="Enumerable.OrderBy{TSource,TKey}(IEnumerable{TSource},Func{TSource,TKey})"/>
+    /// matches the reader's tie-break exactly.
+    /// </summary>
+    private static void OrderBySequence(List<LineItem> items)
+    {
+        var ordered = items.OrderBy(li => li.Sequence).ToList();
+        items.Clear();
+        items.AddRange(ordered);
     }
 
     private static void EnsureSharedCurrency(Money unitPrice, Currency currency)
