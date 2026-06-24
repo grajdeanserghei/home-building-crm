@@ -336,9 +336,16 @@ export const ro = {
   "boq.pinnedRateField": "Curs fixat (1 EUR = ? RON)",
   "boq.pinnedRatePlaceholder": "ex. 4,97",
   "boq.rateAsOf": "Curs la data de",
+  "boq.changeStatusSubtitle":
+    "Mutați devizul în următoarea etapă a ciclului său de viață.",
+  "boq.awardTitle": "Atribuie contract",
+  "boq.noSectionsYet":
+    "Acest deviz nu are încă secțiuni. Adăugați prima secțiune pentru a începe.",
 
   // — Sections (within a BoQ) ——————————————————————————————————————————————
   "sections.add": "Adaugă secțiune",
+  "sections.addTitle": "Secțiune nouă",
+  "sections.addSubtitle": "Adăugați o secțiune la acest deviz.",
   "sections.edit": "Editează secțiunea",
   "sections.editTitle": "Editează secțiunea",
   "sections.editSubtitle": "Modificați numele, ordinea sau descrierea secțiunii.",
@@ -356,9 +363,13 @@ export const ro = {
   "subsections.namePlaceholder": "Nume subcapitol (ex. Săpături)",
   "subsections.heading": "Subcapitole",
   "subsections.addLine": "Adaugă articol în subcapitol",
+  "subsections.addTitle": "Subcapitol nou",
+  "subsections.addSubtitle": "Adăugați un subcapitol la această secțiune.",
 
   // — Line items (within a section) ————————————————————————————————————————
   "lineItems.add": "Adaugă articol",
+  "lineItems.addTitle": "Articol nou",
+  "lineItems.addSubtitle": "Adăugați un articol tarifat la această listă.",
   "lineItems.editTitle": "Editează articolul",
   "lineItems.editSubtitle": "Modificați descrierea, cantitatea, prețul sau cota TVA.",
   "lineItems.empty": "Niciun articol încă.",

@@ -113,6 +113,8 @@ export async function changeBoqStatus(formData: FormData) {
   if (bidId) {
     revalidatePath(`/bids/${bidId}`);
   }
+  // The status form is its own route; return to the read-only detail on success.
+  redirect(`/bills-of-quantities/${id}`);
 }
 
 export async function deleteBoq(formData: FormData) {
@@ -165,6 +167,8 @@ export async function addSection(formData: FormData) {
   }
 
   revalidatePath(`/bills-of-quantities/${boqId}`);
+  // The add form is its own route; return to the read-only detail on success.
+  redirect(`/bills-of-quantities/${boqId}`);
 }
 
 // Rename / reorder / re-describe an existing section. Mirrors addSection but targets the
@@ -250,6 +254,8 @@ export async function addSubsection(formData: FormData) {
   }
 
   revalidatePath(`/bills-of-quantities/${boqId}`);
+  // The add form is its own route; return to the read-only detail on success.
+  redirect(`/bills-of-quantities/${boqId}`);
 }
 
 // Rename / reorder / re-describe an existing subsection. Mirrors addSubsection but targets
@@ -363,6 +369,8 @@ export async function addLineItem(formData: FormData) {
   }
 
   revalidatePath(`/bills-of-quantities/${boqId}`);
+  // The add form is its own route; return to the read-only detail on success.
+  redirect(`/bills-of-quantities/${boqId}`);
 }
 
 // Edit an existing line item. Mirrors addLineItem but targets the line's PUT route and
@@ -448,6 +456,8 @@ export async function addSubsectionLineItem(formData: FormData) {
   }
 
   revalidatePath(`/bills-of-quantities/${boqId}`);
+  // The add form is its own route; return to the read-only detail on success.
+  redirect(`/bills-of-quantities/${boqId}`);
 }
 
 export async function reviseSubsectionLineItem(formData: FormData) {
