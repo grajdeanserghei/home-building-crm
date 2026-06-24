@@ -1,14 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { BidNoteForm } from "@/app/components/BidNoteForm";
-import { BillOfQuantitiesForm } from "@/app/components/BillOfQuantitiesForm";
-import {
-  changeBidStatus,
-  deleteBid,
-  logBidNote,
-  removeBidNote,
-} from "@/app/bids/actions";
-import { draftBoq } from "@/app/bills-of-quantities/actions";
+import { deleteBid, removeBidNote } from "@/app/bids/actions";
 import {
   BID_STATUS_LABELS,
   BID_STATUSES,
@@ -24,15 +16,15 @@ import { formatDate, formatMoney } from "@/app/lib/format";
 import { t } from "@/app/lib/i18n";
 import styles from "@/app/page.module.css";
 
-// The statuses a bid may move to from its current one. A Withdrawn bid is terminal, so
-// it has no targets; selecting is unavailable from Rejected (the backend forbids it).
-function allowedTargets(current: BidStatus): BidStatus[] {
-  if (current === "Withdrawn") return [];
-  return BID_STATUSES.filter(
-    (s) => s !== current && !(current === "Rejected" && s === "Selected"),
-  );
+// Whether the bid has any onward transitions. A Withdrawn bid is terminal, so the
+// change-status action is hidden; the targets themselves are computed on the status route.
+function canChangeStatus(current: BidStatus): boolean {
+  return current !== "Withdrawn" && BID_STATUSES.length > 0;
 }
 
+// Read-first detail page: it shows the bid, its priced BoQ and its discussion log, with no
+// inline create/edit forms. Every mutation (status change, edit, drafting a BoQ, logging a
+// note) is a deliberate step away on its own route.
 export default async function BidDetailPage({
   params,
 }: {
@@ -52,9 +44,6 @@ export default async function BidDetailPage({
   ]);
 
   const contractorName = contractor?.name ?? t("bids.unknownContractor");
-  const targets = allowedTargets(bid.status);
-  // `new Date()` here runs server-side at request time; the picker seed is just a default.
-  const today = new Date().toISOString().slice(0, 10);
 
   return (
     <main className={styles.main}>
@@ -66,16 +55,24 @@ export default async function BidDetailPage({
           name: workPackage?.name ?? t("bids.workPackageFallback"),
         })}
       </Link>
-      <h1>{contractorName}</h1>
-      <p className={styles.subtitle}>
-        {t("bids.bidOn", {
-          name: workPackage?.name ?? t("bids.thisWorkPackage"),
-        })}
-        {" · "}
-        <span className={`${styles.badge} ${styles[`status${bid.status}`]}`}>
-          {BID_STATUS_LABELS[bid.status]}
-        </span>
-      </p>
+
+      <div className={styles.toolbar}>
+        <div>
+          <h1>{contractorName}</h1>
+          <p className={styles.subtitle}>
+            {t("bids.bidOn", {
+              name: workPackage?.name ?? t("bids.thisWorkPackage"),
+            })}
+            {" · "}
+            <span className={`${styles.badge} ${styles[`status${bid.status}`]}`}>
+              {BID_STATUS_LABELS[bid.status]}
+            </span>
+          </p>
+        </div>
+        <Link href={`/bids/${bid.id}/notes/new`} className={styles.primaryButton}>
+          {t("notes.logHeading")}
+        </Link>
+      </div>
 
       <section className={styles.card}>
         <dl className={styles.detailList}>
@@ -89,6 +86,11 @@ export default async function BidDetailPage({
           <dd>{formatDate(bid.createdAt)}</dd>
         </dl>
         <div className={styles.actions}>
+          {canChangeStatus(bid.status) ? (
+            <Link href={`/bids/${bid.id}/status`} className={styles.edit}>
+              {t("bids.changeStatus")}
+            </Link>
+          ) : null}
           <Link href={`/bids/${bid.id}/edit`} className={styles.edit}>
             {t("common.edit")}
           </Link>
@@ -107,34 +109,16 @@ export default async function BidDetailPage({
       </section>
 
       <section className={styles.card}>
-        <h2>{t("bids.changeStatus")}</h2>
-        {targets.length === 0 ? (
-          <p className={styles.muted}>{t("bids.withdrawnFinal")}</p>
-        ) : (
-          <form action={changeBidStatus} className={styles.form}>
-            <input type="hidden" name="id" value={bid.id} />
-            <input
-              type="hidden"
-              name="workPackageId"
-              value={bid.workPackageId}
-            />
-            <select name="status" defaultValue={targets[0]}>
-              {targets.map((s) => (
-                <option key={s} value={s}>
-                  {BID_STATUS_LABELS[s]}
-                </option>
-              ))}
-            </select>
-            <button type="submit">{t("bids.updateStatus")}</button>
-          </form>
-        )}
-        <p className={styles.muted}>{t("bids.selectWinnerNote")}</p>
-      </section>
-
-      <section className={styles.card}>
         <h2>{t("bids.boqHeading")}</h2>
         {!boq ? (
-          <p>{t("bids.boqEmpty")}</p>
+          <>
+            <p className={styles.muted}>{t("bids.boqEmpty")}</p>
+            <div className={styles.actions}>
+              <Link href={`/bids/${bid.id}/boq/new`} className={styles.edit}>
+                {t("bids.draftBoqSubmit")}
+              </Link>
+            </div>
+          </>
         ) : (
           <table className={styles.table}>
             <thead>
@@ -172,26 +156,20 @@ export default async function BidDetailPage({
         )}
       </section>
 
-      {!boq && (
-        <section className={styles.card}>
-          <h2>{t("bids.draftBoqHeading")}</h2>
-          <BillOfQuantitiesForm
-            action={draftBoq}
-            bidId={bid.id}
-            submitLabel={t("bids.draftBoqSubmit")}
-          />
-        </section>
-      )}
-
-      <section className={styles.card}>
-        <h2>{t("notes.logHeading")}</h2>
-        <BidNoteForm action={logBidNote} bidId={bid.id} today={today} />
-      </section>
-
       <section className={styles.card}>
         <h2>{t("notes.discussionLog")}</h2>
         {bid.notes.length === 0 ? (
-          <p>{t("notes.empty")}</p>
+          <>
+            <p className={styles.muted}>{t("notes.empty")}</p>
+            <div className={styles.actions}>
+              <Link
+                href={`/bids/${bid.id}/notes/new`}
+                className={styles.edit}
+              >
+                {t("notes.logHeading")}
+              </Link>
+            </div>
+          </>
         ) : (
           <table className={styles.table}>
             <thead>

@@ -83,6 +83,8 @@ export async function changeBidStatus(formData: FormData) {
   if (workPackageId) {
     revalidatePath(`/work-packages/${workPackageId}`);
   }
+  // The change is driven from the dedicated status route; return to the bid's read view.
+  redirect(`/bids/${id}`);
 }
 
 export async function deleteBid(formData: FormData) {
@@ -129,7 +131,9 @@ export async function logBidNote(formData: FormData) {
     throw new Error(await describeApiError(res, "common.actionError"));
   }
 
+  // Logging is a step away on its own route; revalidate and return to the bid's read view.
   revalidatePath(`/bids/${bidId}`);
+  redirect(`/bids/${bidId}`);
 }
 
 export async function removeBidNote(formData: FormData) {

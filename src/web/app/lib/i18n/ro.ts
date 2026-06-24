@@ -259,19 +259,21 @@ export const ro = {
   "bids.firstContacted": "Primul contact",
   "bids.summary": "Rezumat",
   "bids.opened": "Deschisă",
+  "bids.backToBid": "← Înapoi la ofertă",
   "bids.changeStatus": "Schimbă statusul",
-  "bids.withdrawnFinal":
-    "Această ofertă este retrasă — statusul ei este definitiv.",
+  "bids.changeStatusSubtitle":
+    "Mută oferta în următoarea etapă din ciclul ei de viață.",
   "bids.updateStatus": "Actualizează statusul",
   "bids.selectWinnerNote":
     "Selectarea acestei oferte drept câștigătoare respinge celelalte oferte active pentru acest pachet de lucrări.",
   "bids.boqHeading": "Liste de cantități",
-  "bids.boqEmpty":
-    "Nicio listă de cantități încă. Întocmește devizul antreprenorului mai jos.",
+  "bids.boqEmpty": "Nicio listă de cantități încă.",
   "bids.boqCol.reference": "Referință",
   "bids.boqCol.totalWithVat": "Total (cu TVA)",
   "bids.view": "Vizualizează",
   "bids.draftBoqHeading": "Întocmește o listă de cantități",
+  "bids.draftBoqSubtitle":
+    "Întocmește devizul antreprenorului pentru această ofertă. Vei putea adăuga secțiuni și articole după creare.",
   "bids.draftBoqSubmit": "Întocmește deviz",
   "bids.edit": "Editează oferta",
   "bids.editSubtitle":
@@ -282,9 +284,11 @@ export const ro = {
 
   // — Discussion notes (within a bid) ——————————————————————————————————————
   "notes.logHeading": "Înregistrează o notă",
+  "notes.logSubtitle":
+    "Înregistrează o întâlnire, un apel, un email sau o notă în jurnalul de discuții al ofertei.",
   "notes.discussionLog": "Jurnal de discuții",
   "notes.empty":
-    "Nicio notă încă. Înregistrează întâlniri, apeluri și emailuri mai sus.",
+    "Nicio notă încă. Înregistrează întâlniri, apeluri și emailuri pentru a urmări discuția.",
   "notes.col.when": "Când",
   "notes.col.type": "Tip",
   "notes.col.note": "Notă",
