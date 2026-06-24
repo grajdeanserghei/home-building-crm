@@ -107,6 +107,8 @@ export const ro = {
   "common.notFound": "Nu a fost găsit.",
   "common.yes": "Da",
   "common.no": "Nu",
+  "common.close": "Închide",
+  "common.saving": "Se salvează…",
 
   // — Navigation & document metadata ——————————————————————————————————————
   "meta.title": "Gestionarea Proiectului Casei",
@@ -400,6 +402,7 @@ export const ro = {
   "lineItems.addSubtitle": "Adăugați un articol tarifat la această listă.",
   "lineItems.editTitle": "Editează articolul",
   "lineItems.editSubtitle": "Modificați descrierea, cantitatea, prețul sau cota TVA.",
+  "lineItems.incomplete": "Completați toate câmpurile obligatorii.",
   "lineItems.empty": "Niciun articol încă.",
   "lineItems.noActiveUnits":
     "Nicio unitate de măsură activă — adăugați una la Unități de măsură mai întâi.",

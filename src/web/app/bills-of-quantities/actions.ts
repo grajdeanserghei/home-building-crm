@@ -9,6 +9,7 @@ import {
   type Currency,
 } from "../lib/api";
 import { describeApiError } from "@/app/lib/errors";
+import { t } from "@/app/lib/i18n";
 
 // An <input type="date"> yields a bare `yyyy-MM-dd`. The BoQ's submittedOn / validUntil
 // are DateTimeOffset on the backend, whose System.Text.Json converter wants a full ISO
@@ -467,6 +468,127 @@ export async function removeLineItem(formData: FormData) {
   }
 
   revalidatePath(`/bills-of-quantities/${boqId}`);
+}
+
+// Modal line-item forms ---------------------------------------------------
+// The add/revise actions above are bound to full-page form routes and redirect() back to the
+// detail page on success — which lands at the top, losing the reader's place. The intercepting
+// routes under [id]/@modal render the same form as an overlay over the still-mounted detail page,
+// and these variants serve them: they report a result the client acts on (close the overlay on
+// success — restoring scroll via router.back() — or show the message inline) instead of
+// redirecting. revalidatePath still refreshes the detail underneath. Validation mirrors the
+// full-page guards; the visible inputs are `required`, so the incomplete branch is a safety net.
+export type LineItemFormResult = { ok: true } | { ok: false; error: string };
+
+async function saveLineItem(
+  url: string,
+  method: "POST" | "PUT",
+  boqId: string,
+  payload: ReturnType<typeof lineItemPayload>,
+): Promise<LineItemFormResult> {
+  const res = await fetch(url, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    return { ok: false, error: await describeApiError(res, "common.actionError") };
+  }
+
+  revalidatePath(`/bills-of-quantities/${boqId}`);
+  return { ok: true };
+}
+
+export async function addLineItemModal(
+  formData: FormData,
+): Promise<LineItemFormResult> {
+  const boqId = formData.get("boqId") as string;
+  const sectionId = formData.get("sectionId") as string;
+  const payload = lineItemPayload(formData);
+  if (!boqId || !sectionId || !payload.description || !payload.unitOfMeasureId)
+    return { ok: false, error: t("lineItems.incomplete") };
+
+  return saveLineItem(
+    `${apiBaseUrl()}/api/bills-of-quantities/${boqId}/sections/${sectionId}/line-items`,
+    "POST",
+    boqId,
+    payload,
+  );
+}
+
+export async function reviseLineItemModal(
+  formData: FormData,
+): Promise<LineItemFormResult> {
+  const boqId = formData.get("boqId") as string;
+  const sectionId = formData.get("sectionId") as string;
+  const lineItemId = formData.get("lineItemId") as string;
+  const payload = lineItemPayload(formData);
+  if (
+    !boqId ||
+    !sectionId ||
+    !lineItemId ||
+    !payload.description ||
+    !payload.unitOfMeasureId
+  )
+    return { ok: false, error: t("lineItems.incomplete") };
+
+  return saveLineItem(
+    `${apiBaseUrl()}/api/bills-of-quantities/${boqId}/sections/${sectionId}/line-items/${lineItemId}`,
+    "PUT",
+    boqId,
+    payload,
+  );
+}
+
+export async function addSubsectionLineItemModal(
+  formData: FormData,
+): Promise<LineItemFormResult> {
+  const boqId = formData.get("boqId") as string;
+  const sectionId = formData.get("sectionId") as string;
+  const subsectionId = formData.get("subsectionId") as string;
+  const payload = lineItemPayload(formData);
+  if (
+    !boqId ||
+    !sectionId ||
+    !subsectionId ||
+    !payload.description ||
+    !payload.unitOfMeasureId
+  )
+    return { ok: false, error: t("lineItems.incomplete") };
+
+  return saveLineItem(
+    `${apiBaseUrl()}/api/bills-of-quantities/${boqId}/sections/${sectionId}/subsections/${subsectionId}/line-items`,
+    "POST",
+    boqId,
+    payload,
+  );
+}
+
+export async function reviseSubsectionLineItemModal(
+  formData: FormData,
+): Promise<LineItemFormResult> {
+  const boqId = formData.get("boqId") as string;
+  const sectionId = formData.get("sectionId") as string;
+  const subsectionId = formData.get("subsectionId") as string;
+  const lineItemId = formData.get("lineItemId") as string;
+  const payload = lineItemPayload(formData);
+  if (
+    !boqId ||
+    !sectionId ||
+    !subsectionId ||
+    !lineItemId ||
+    !payload.description ||
+    !payload.unitOfMeasureId
+  )
+    return { ok: false, error: t("lineItems.incomplete") };
+
+  return saveLineItem(
+    `${apiBaseUrl()}/api/bills-of-quantities/${boqId}/sections/${sectionId}/subsections/${subsectionId}/line-items/${lineItemId}`,
+    "PUT",
+    boqId,
+    payload,
+  );
 }
 
 // Subsection line items ---------------------------------------------------

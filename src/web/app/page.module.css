@@ -534,6 +534,68 @@
   justify-content: flex-end;
 }
 
+/* Form modal (intercepting-route overlay for line-item add/edit) ------- */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 48px 16px;
+  overflow-y: auto;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.modalDialog {
+  border: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 560px;
+  width: 100%;
+  margin: auto;
+  color: var(--foreground);
+  background: var(--background);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+}
+
+.modalHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.modalTitle {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.modalSubtitle {
+  margin: 4px 0 0;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.modalClose {
+  flex-shrink: 0;
+  padding: 0 6px;
+  border: none;
+  background: none;
+  color: var(--foreground);
+  font-size: 1.6rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.modalActions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
 /* Trade chips ---------------------------------------------------------- */
 /* A wrap-around list of assigned trades; each chip is itself a remove form. */
 .chipList {
