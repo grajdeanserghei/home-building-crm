@@ -254,8 +254,9 @@ public sealed class BillOfQuantitiesAppService(
         // Load the active vocabulary once; each line's free-text token is normalised against it.
         var activeUnits = await units.ListAsync(includeInactive: false, cancellationToken);
 
-        // Append after the section's current lines, keeping a stable order for the batch.
-        var nextSequence = section.LineItems.Count == 0 ? 1 : section.LineItems.Max(li => li.Sequence) + 1;
+        // Append after the section's current direct lines, keeping a stable order for the batch.
+        var existingLines = boq.DirectLineItemsOf(section.Id);
+        var nextSequence = existingLines.Count == 0 ? 1 : existingLines.Max(li => li.Sequence) + 1;
 
         var unresolved = new List<UnresolvedBoqLine>();
         var addedAny = false;
@@ -315,7 +316,8 @@ public sealed class BillOfQuantitiesAppService(
         var activeUnits = await units.ListAsync(includeInactive: false, cancellationToken);
 
         // Append after the subsection's current lines, keeping a stable order for the batch.
-        var nextSequence = subsection.LineItems.Count == 0 ? 1 : subsection.LineItems.Max(li => li.Sequence) + 1;
+        var existingLines = boq.LineItemsOf(subsection.Id);
+        var nextSequence = existingLines.Count == 0 ? 1 : existingLines.Max(li => li.Sequence) + 1;
 
         var unresolved = new List<UnresolvedBoqLine>();
         var addedAny = false;
@@ -677,7 +679,7 @@ public sealed class BillOfQuantitiesAppService(
         ToDto(boq.TotalWithVat),
         boq.Sections
             .OrderBy(s => s.Sequence)
-            .Select(ToDto)
+            .Select(s => ToDto(boq, s))
             .ToList(),
         boq.SourceContentHash,
         boq.SourceDocument is null
@@ -689,31 +691,31 @@ public sealed class BillOfQuantitiesAppService(
                 boq.SourceDocument.UploadedBy.Value),
         boq.CreatedOn);
 
-    private static SectionDto ToDto(Section section) => new(
+    // Sections/subsections are headings; their lines and subtotals are projected from the root's flat
+    // line collection, grouped by id — so the DTO shape (direct lines + subsections) is unchanged.
+    private static SectionDto ToDto(BillOfQuantities boq, Section section) => new(
         section.Id.Value,
         section.Name,
         section.Sequence,
         section.Description,
-        ToDto(section.Subtotal),
-        ToDto(section.SubtotalWithVat),
-        section.LineItems
-            .OrderBy(li => li.Sequence)
+        ToDto(boq.SubtotalOf(section.Id)),
+        ToDto(boq.SubtotalWithVatOf(section.Id)),
+        boq.DirectLineItemsOf(section.Id)
             .Select(ToDto)
             .ToList(),
         section.Subsections
             .OrderBy(s => s.Sequence)
-            .Select(ToDto)
+            .Select(sub => ToDto(boq, sub))
             .ToList());
 
-    private static SubsectionDto ToDto(Subsection subsection) => new(
+    private static SubsectionDto ToDto(BillOfQuantities boq, Subsection subsection) => new(
         subsection.Id.Value,
         subsection.Name,
         subsection.Sequence,
         subsection.Description,
-        ToDto(subsection.Subtotal),
-        ToDto(subsection.SubtotalWithVat),
-        subsection.LineItems
-            .OrderBy(li => li.Sequence)
+        ToDto(boq.SubtotalOf(subsection.Id)),
+        ToDto(boq.SubtotalWithVatOf(subsection.Id)),
+        boq.LineItemsOf(subsection.Id)
             .Select(ToDto)
             .ToList());
 

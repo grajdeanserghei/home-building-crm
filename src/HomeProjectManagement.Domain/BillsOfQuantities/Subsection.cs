@@ -1,25 +1,24 @@
 using HomeProjectManagement.Domain.Common;
 using HomeProjectManagement.Domain.Common.ValueObjects;
-using HomeProjectManagement.Domain.UnitsOfMeasure;
 
 namespace HomeProjectManagement.Domain.BillsOfQuantities;
 
 /// <summary>
-/// A fixed second-level grouping of <see cref="LineItem"/>s inside a <see cref="Section"/> (e.g.
-/// "Excavation" and "Reinforcement" within a Foundation section). The nesting depth is fixed: a
-/// subsection groups line items but never holds further subsections.
+/// A fixed second-level grouping heading inside a <see cref="Section"/> (e.g. "Excavation" and
+/// "Reinforcement" within a Foundation section). The nesting depth is fixed: a subsection groups line
+/// items but never holds further subsections.
 /// </summary>
 /// <remarks>
-/// A <b>local entity inside the Bill of Quantities aggregate</b>: it has identity within the BoQ
-/// but is never referenced from outside it, so the BoQ root (via its owning <see cref="Section"/>)
-/// owns its whole lifecycle and that of its <see cref="LineItem"/>s. Like a <see cref="Section"/>
-/// it carries the BoQ's pricing <see cref="Currency"/> so its <see cref="Subtotal"/> is well-defined
-/// even when empty and so every line shares one currency.
+/// A <b>local entity inside the Bill of Quantities aggregate</b>: it has identity within the BoQ but
+/// is never referenced from outside it, so the BoQ root (via its owning <see cref="Section"/>) owns
+/// its lifecycle. It is a <b>heading only</b> — the line items it groups are held in the
+/// <see cref="BillOfQuantities"/> root's flat line collection, each tagged with this subsection's id
+/// (see <see cref="LineItem.SubsectionId"/>); the subsection's subtotal is derived by the root from
+/// those lines. It carries the BoQ's pricing <see cref="Currency"/> for consistency with its parent
+/// section.
 /// </remarks>
 public sealed class Subsection : Entity<SubsectionId>
 {
-    private readonly List<LineItem> _lineItems = [];
-
     /// <summary>The subsection heading (e.g. "Excavation").</summary>
     public string Name { get; private set; } = null!;
 
@@ -29,22 +28,8 @@ public sealed class Subsection : Entity<SubsectionId>
     /// <summary>Optional notes about the subsection.</summary>
     public string? Description { get; private set; }
 
-    /// <summary>The BoQ's pricing currency; every line item in the subsection shares it.</summary>
+    /// <summary>The BoQ's pricing currency; every line item grouped under it shares it.</summary>
     public Currency Currency { get; private set; }
-
-    /// <summary>
-    /// The line items in this subsection (internal entities). Mutated only through the
-    /// <see cref="BillOfQuantities"/> root; EF reaches the backing field directly.
-    /// </summary>
-    public IReadOnlyList<LineItem> LineItems => _lineItems.AsReadOnly();
-
-    /// <summary>Derived net subtotal (VAT-exclusive): the sum of the subsection's line totals, in the pricing currency.</summary>
-    public Money Subtotal =>
-        _lineItems.Aggregate(Money.Zero(Currency), (sum, item) => sum.Add(item.LineTotal));
-
-    /// <summary>Derived gross subtotal (VAT-inclusive): the sum of the subsection's VAT-inclusive line totals.</summary>
-    public Money SubtotalWithVat =>
-        _lineItems.Aggregate(Money.Zero(Currency), (sum, item) => sum.Add(item.LineTotalWithVat));
 
     // EF Core materialisation constructor.
     private Subsection()
@@ -66,83 +51,6 @@ public sealed class Subsection : Entity<SubsectionId>
         Name = NormalizeName(name);
         Sequence = sequence;
         Description = Trim(description);
-    }
-
-    internal LineItem AddLineItem(
-        string description,
-        decimal quantity,
-        UnitOfMeasureId unitOfMeasureId,
-        Money unitPrice,
-        VatRate vatRate,
-        int sequence,
-        string? notes)
-    {
-        EnsureSharedCurrency(unitPrice);
-        var item = new LineItem(LineItemId.New(), description, quantity, unitOfMeasureId, unitPrice, vatRate, sequence, notes);
-        _lineItems.Add(item);
-        return item;
-    }
-
-    internal bool ReviseLineItem(
-        LineItemId lineItemId,
-        string description,
-        decimal quantity,
-        UnitOfMeasureId unitOfMeasureId,
-        Money unitPrice,
-        VatRate vatRate,
-        int sequence,
-        string? notes)
-    {
-        var item = _lineItems.FirstOrDefault(li => li.Id == lineItemId);
-        if (item is null)
-        {
-            return false;
-        }
-
-        EnsureSharedCurrency(unitPrice);
-        item.Revise(description, quantity, unitOfMeasureId, unitPrice, vatRate, sequence, notes);
-        return true;
-    }
-
-    internal bool RemoveLineItem(LineItemId lineItemId)
-    {
-        var item = _lineItems.FirstOrDefault(li => li.Id == lineItemId);
-        if (item is null)
-        {
-            return false;
-        }
-
-        _lineItems.Remove(item);
-        return true;
-    }
-
-    // — Reordering of the subsection's lines (driven by the BoQ root's MoveLineItem). —
-
-    /// <summary>Whether a line is held in this subsection.</summary>
-    internal bool ContainsLineItem(LineItemId lineItemId) => LineItemOrdering.Contains(_lineItems, lineItemId);
-
-    /// <summary>Detach a line for a move to another container (renumbers the remainder).</summary>
-    internal LineItem DetachLineItem(LineItemId lineItemId) => LineItemOrdering.Detach(_lineItems, lineItemId);
-
-    /// <summary>Insert a line (copy, same id) into this subsection at an index, then renumber.</summary>
-    internal void InsertLineItem(LineItem source, int index) => LineItemOrdering.InsertCopy(_lineItems, source, index, Currency);
-
-    /// <summary>Reorder a line within this subsection to an index, then renumber.</summary>
-    internal void MoveLineItemWithin(LineItemId lineItemId, int index) => LineItemOrdering.MoveWithin(_lineItems, lineItemId, index);
-
-    private void EnsureSharedCurrency(Money unitPrice)
-    {
-        if (unitPrice.Currency != Currency)
-        {
-            throw new DomainValidationException(
-                $"Line item price currency ({unitPrice.Currency}) must match the bill's pricing currency ({Currency}).",
-                code: "LineItemCurrencyMismatch",
-                parameters: new Dictionary<string, object?>
-                {
-                    ["lineCurrency"] = unitPrice.Currency.ToString(),
-                    ["billCurrency"] = Currency.ToString(),
-                });
-        }
     }
 
     private static string NormalizeName(string name)

@@ -5,10 +5,13 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 namespace HomeProjectManagement.Infrastructure.Persistence.Configurations;
 
 /// <summary>
-/// EF Core mapping for the <see cref="BillOfQuantities"/> aggregate root and its owned section /
-/// line-item hierarchy. Sections are a child table; each section in turn owns its line items, and
-/// each line item flattens its <c>Money</c> unit price into amount + currency columns. Derived
-/// totals (BoQ total, section subtotal, line total) are computed in the domain and never stored.
+/// EF Core mapping for the <see cref="BillOfQuantities"/> aggregate root. The root owns its
+/// <see cref="Section"/> headings (each owning its <see cref="Subsection"/> headings) and, in a single
+/// flat child table, every <see cref="LineItem"/> — each carrying the section (and optional
+/// subsection) it is grouped under as plain id columns. Keeping the lines in one table makes moving a
+/// line between containers a column update rather than a delete+insert across owned tables. Each line
+/// flattens its <c>Money</c> unit price into amount + currency columns. Derived totals (BoQ total,
+/// section/subsection subtotal, line total) are computed in the domain and never stored.
 /// </summary>
 public sealed class BillOfQuantitiesConfiguration : IEntityTypeConfiguration<BillOfQuantities>
 {
@@ -61,12 +64,12 @@ public sealed class BillOfQuantitiesConfiguration : IEntityTypeConfiguration<Bil
             rate.Property(r => r.AsOf).HasColumnName("exchange_rate_as_of");
         });
 
-        // The totals are derived from the section subtotals; never stored.
+        // The totals are derived from the line totals; never stored.
         builder.Ignore(b => b.Total);
         builder.Ignore(b => b.TotalWithVat);
 
-        // Sections are internal entities owned by the BoQ; each section owns its line items in turn,
-        // and optionally a second level of subsections that own line items of their own.
+        // Sections are internal heading entities owned by the BoQ; each section optionally owns a
+        // second level of subsection headings. Neither owns line items — those are held flat (below).
         builder.OwnsMany(b => b.Sections, sections =>
         {
             sections.ToTable("boq_sections");
@@ -80,21 +83,9 @@ public sealed class BillOfQuantitiesConfiguration : IEntityTypeConfiguration<Bil
             sections.Property(s => s.Description).HasMaxLength(1000);
             sections.Property(s => s.Currency).HasConversion<string>().HasMaxLength(3).IsRequired();
 
-            // Subtotals are derived from the line totals (direct + subsection); never stored.
-            sections.Ignore(s => s.Subtotal);
-            sections.Ignore(s => s.SubtotalWithVat);
-
             sections.HasIndex("BoqId");
 
-            // Line items held directly in the section.
-            sections.OwnsMany(s => s.LineItems, items => ConfigureLineItems(items, "boq_line_items", "SectionId"));
-
-            // Line items are mutated only through the aggregate; EF reaches the backing field.
-            sections.Navigation(s => s.LineItems)
-                .HasField("_lineItems")
-                .UsePropertyAccessMode(PropertyAccessMode.Field);
-
-            // Subsections: an optional second level of grouping, each owning its own line items.
+            // Subsections: an optional second level of grouping headings.
             sections.OwnsMany(s => s.Subsections, subsections =>
             {
                 subsections.ToTable("boq_subsections");
@@ -108,16 +99,7 @@ public sealed class BillOfQuantitiesConfiguration : IEntityTypeConfiguration<Bil
                 subsections.Property(s => s.Description).HasMaxLength(1000);
                 subsections.Property(s => s.Currency).HasConversion<string>().HasMaxLength(3).IsRequired();
 
-                subsections.Ignore(s => s.Subtotal);
-                subsections.Ignore(s => s.SubtotalWithVat);
-
                 subsections.HasIndex("SectionId");
-
-                subsections.OwnsMany(s => s.LineItems, items => ConfigureLineItems(items, "boq_subsection_line_items", "SubsectionId"));
-
-                subsections.Navigation(s => s.LineItems)
-                    .HasField("_lineItems")
-                    .UsePropertyAccessMode(PropertyAccessMode.Field);
             });
 
             sections.Navigation(s => s.Subsections)
@@ -130,6 +112,58 @@ public sealed class BillOfQuantitiesConfiguration : IEntityTypeConfiguration<Bil
             .HasField("_sections")
             .UsePropertyAccessMode(PropertyAccessMode.Field);
 
+        // All line items live in one flat table owned directly by the BoQ. Each line carries the
+        // section it belongs to (always) and the subsection it sits in (null when held directly in the
+        // section) as plain id columns, so re-grouping a line is a column update on the same row.
+        builder.OwnsMany(b => b.LineItems, items =>
+        {
+            items.ToTable("boq_line_items");
+
+            items.WithOwner().HasForeignKey("BoqId");
+            items.HasKey(li => li.Id);
+            items.Property(li => li.Id).ValueGeneratedNever();
+
+            // Grouping carried by id columns (mapped to Guid via the strongly-typed id convention).
+            items.Property(li => li.SectionId).IsRequired();
+            items.Property(li => li.SubsectionId);
+
+            items.Property(li => li.Description).HasMaxLength(1000).IsRequired();
+            items.Property(li => li.Quantity).HasPrecision(18, 4).IsRequired();
+            // The referenced canonical unit is held by id, not as a navigation.
+            items.Property(li => li.UnitOfMeasureId).IsRequired();
+            items.Property(li => li.Sequence).IsRequired();
+            items.Property(li => li.Notes).HasMaxLength(1000);
+
+            // Net/gross line totals and the gross unit price are derived; never stored.
+            items.Ignore(li => li.LineTotal);
+            items.Ignore(li => li.LineTotalWithVat);
+            items.Ignore(li => li.UnitPriceWithVat);
+
+            // Net unit price is an owned value object flattened into amount + currency columns.
+            items.OwnsOne(li => li.UnitPrice, price =>
+            {
+                price.Property(p => p.Amount).HasColumnName("unit_price_amount").HasPrecision(18, 2);
+                price.Property(p => p.Currency)
+                    .HasColumnName("unit_price_currency").HasConversion<string>().HasMaxLength(3);
+            });
+            items.Navigation(li => li.UnitPrice).IsRequired();
+
+            // VAT rate is an owned value object flattened into a single percentage column.
+            items.OwnsOne(li => li.VatRate, vat =>
+            {
+                vat.Property(v => v.Percentage).HasColumnName("vat_rate_percentage").HasPrecision(5, 2);
+            });
+            items.Navigation(li => li.VatRate).IsRequired();
+
+            items.HasIndex("BoqId");
+            items.HasIndex(li => li.SectionId);
+            items.HasIndex(li => li.SubsectionId);
+        });
+
+        builder.Navigation(b => b.LineItems)
+            .HasField("_lineItems")
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+
         // Audit fields stamped by the unit of work.
         builder.Property(b => b.CreatedOn).IsRequired();
         builder.Property(b => b.CreatedBy).IsRequired();
@@ -138,54 +172,5 @@ public sealed class BillOfQuantitiesConfiguration : IEntityTypeConfiguration<Bil
 
         // Domain events are an in-memory concern, never persisted.
         builder.Ignore(b => b.DomainEvents);
-    }
-
-    /// <summary>
-    /// Maps a <see cref="LineItem"/> collection into its own child table. Used for both the line
-    /// items held directly in a <see cref="Section"/> and those grouped inside a
-    /// <see cref="Subsection"/>; <paramref name="table"/> and <paramref name="foreignKey"/> differ
-    /// per owner, the column shape is identical.
-    /// </summary>
-    private static void ConfigureLineItems<TOwner>(
-        OwnedNavigationBuilder<TOwner, LineItem> items,
-        string table,
-        string foreignKey)
-        where TOwner : class
-    {
-        items.ToTable(table);
-
-        items.WithOwner().HasForeignKey(foreignKey);
-        items.HasKey(li => li.Id);
-        items.Property(li => li.Id).ValueGeneratedNever();
-
-        items.Property(li => li.Description).HasMaxLength(1000).IsRequired();
-        items.Property(li => li.Quantity).HasPrecision(18, 4).IsRequired();
-        // The referenced canonical unit is held by id, not as a navigation.
-        items.Property(li => li.UnitOfMeasureId).IsRequired();
-        items.Property(li => li.Sequence).IsRequired();
-        items.Property(li => li.Notes).HasMaxLength(1000);
-
-        // Net/gross line totals and the gross unit price are derived; never stored.
-        items.Ignore(li => li.LineTotal);
-        items.Ignore(li => li.LineTotalWithVat);
-        items.Ignore(li => li.UnitPriceWithVat);
-
-        // Net unit price is an owned value object flattened into amount + currency columns.
-        items.OwnsOne(li => li.UnitPrice, price =>
-        {
-            price.Property(p => p.Amount).HasColumnName("unit_price_amount").HasPrecision(18, 2);
-            price.Property(p => p.Currency)
-                .HasColumnName("unit_price_currency").HasConversion<string>().HasMaxLength(3);
-        });
-        items.Navigation(li => li.UnitPrice).IsRequired();
-
-        // VAT rate is an owned value object flattened into a single percentage column.
-        items.OwnsOne(li => li.VatRate, vat =>
-        {
-            vat.Property(v => v.Percentage).HasColumnName("vat_rate_percentage").HasPrecision(5, 2);
-        });
-        items.Navigation(li => li.VatRate).IsRequired();
-
-        items.HasIndex(foreignKey);
     }
 }

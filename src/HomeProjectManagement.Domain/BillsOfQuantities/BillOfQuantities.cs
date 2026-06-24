@@ -8,22 +8,28 @@ namespace HomeProjectManagement.Domain.BillsOfQuantities;
 
 /// <summary>
 /// A contractor's priced, itemized cost estimate (<c>deviz</c>) submitted within a bid. It is
-/// organised into <see cref="Section"/>s of <see cref="LineItem"/>s, priced in a single
-/// <see cref="PricingCurrency"/>. There is at most one BoQ per bid; a revised <c>deviz</c> replaces
-/// its contents in place (see <see cref="ReplaceContents"/>) rather than creating another version.
+/// organised into <see cref="Section"/>s (and optional <see cref="Subsection"/>s) of
+/// <see cref="LineItem"/>s, priced in a single <see cref="PricingCurrency"/>. There is at most one BoQ
+/// per bid; a revised <c>deviz</c> replaces its contents in place (see <see cref="ReplaceContents"/>)
+/// rather than creating another version.
 /// </summary>
 /// <remarks>
-/// Aggregate root. It references its owning <see cref="BidId"/> <b>by identity</b> (the work
-/// package and contractor are reached through the bid) and owns its sections and line items as
-/// internal entities. Line items reference their <see cref="UnitOfMeasure"/> by id. All
-/// <see cref="Money"/> amounts share the <see cref="PricingCurrency"/>; the <see cref="Total"/>
-/// (and section subtotals and line totals) are <b>derived</b>, never stored. Construction goes
-/// through the <see cref="Draft"/> factory; structural edits are allowed only while the BoQ is
-/// <see cref="BoqStatus.Draft"/> or <see cref="BoqStatus.Submitted"/>.
+/// Aggregate root. It references its owning <see cref="BidId"/> <b>by identity</b> (the work package
+/// and contractor are reached through the bid). It owns its <see cref="Section"/> headings (which in
+/// turn own their <see cref="Subsection"/> headings) and, in <b>one flat collection</b>, every
+/// <see cref="LineItem"/> — each line carrying the <see cref="Section"/> (and optional
+/// <see cref="Subsection"/>) it is grouped under by id. Holding the lines flat makes moving a line
+/// between containers a plain field update rather than a delete+insert across owned tables. Line items
+/// reference their <see cref="UnitOfMeasure"/> by id. All <see cref="Money"/> amounts share the
+/// <see cref="PricingCurrency"/>; the <see cref="Total"/> (and section/subsection subtotals and line
+/// totals) are <b>derived</b>, never stored. Construction goes through the <see cref="Draft"/>
+/// factory; structural edits are allowed only while the BoQ is <see cref="BoqStatus.Draft"/> or
+/// <see cref="BoqStatus.Submitted"/>.
 /// </remarks>
 public sealed class BillOfQuantities : AggregateRoot<BoqId>
 {
     private readonly List<Section> _sections = [];
+    private readonly List<LineItem> _lineItems = [];
 
     /// <summary>The bid this BoQ belongs to (by id). Work package &amp; contractor are reached through it.</summary>
     public BidId BidId { get; private set; }
@@ -62,18 +68,24 @@ public sealed class BillOfQuantities : AggregateRoot<BoqId>
     public string? SourceContentHash { get; private set; }
 
     /// <summary>
-    /// The sections of this BoQ (internal entities). Mutated only through the aggregate's methods;
-    /// EF reaches the backing field directly.
+    /// The sections of this BoQ (internal heading entities). Mutated only through the aggregate's
+    /// methods; EF reaches the backing field directly.
     /// </summary>
     public IReadOnlyList<Section> Sections => _sections.AsReadOnly();
 
-    /// <summary>Derived net total (VAT-exclusive): the sum of the section subtotals, in the pricing currency.</summary>
-    public Money Total =>
-        _sections.Aggregate(Money.Zero(PricingCurrency), (sum, section) => sum.Add(section.Subtotal));
+    /// <summary>
+    /// Every line item in this BoQ, held flat (each tagged with its <see cref="Section"/> and optional
+    /// <see cref="Subsection"/> by id). Mutated only through the aggregate's methods; EF reaches the
+    /// backing field directly. Order is not significant here — read it grouped via
+    /// <see cref="DirectLineItemsOf"/> / <see cref="LineItemsOf"/>, which sort by <c>Sequence</c>.
+    /// </summary>
+    public IReadOnlyList<LineItem> LineItems => _lineItems.AsReadOnly();
 
-    /// <summary>Derived gross total (VAT-inclusive): the sum of the section VAT-inclusive subtotals.</summary>
-    public Money TotalWithVat =>
-        _sections.Aggregate(Money.Zero(PricingCurrency), (sum, section) => sum.Add(section.SubtotalWithVat));
+    /// <summary>Derived net total (VAT-exclusive): the sum of every line total, in the pricing currency.</summary>
+    public Money Total => Sum(_lineItems, li => li.LineTotal);
+
+    /// <summary>Derived gross total (VAT-inclusive): the sum of every VAT-inclusive line total.</summary>
+    public Money TotalWithVat => Sum(_lineItems, li => li.LineTotalWithVat);
 
     // EF Core materialisation constructor.
     private BillOfQuantities()
@@ -139,16 +151,16 @@ public sealed class BillOfQuantities : AggregateRoot<BoqId>
 
     /// <summary>
     /// Replace the quote's contents in place when a revised <c>deviz</c> supersedes it: drop every
-    /// section (cascading to its subsections and line items) and re-point the provenance to the new
-    /// source document, so the new <c>deviz</c> can be re-ingested onto the same BoQ. The pricing
-    /// currency is fixed; header details are updated separately via <see cref="UpdateDetails"/>.
-    /// Allowed only while the BoQ is still editable (<see cref="BoqStatus.Draft"/> or
-    /// <see cref="BoqStatus.Submitted"/>).
+    /// section (and subsection) and every line item, and re-point the provenance to the new source
+    /// document, so the new <c>deviz</c> can be re-ingested onto the same BoQ. The pricing currency is
+    /// fixed; header details are updated separately via <see cref="UpdateDetails"/>. Allowed only while
+    /// the BoQ is still editable (<see cref="BoqStatus.Draft"/> or <see cref="BoqStatus.Submitted"/>).
     /// </summary>
     public void ReplaceContents(DocumentReference? sourceDocument, string? sourceContentHash, DateTimeOffset now)
     {
         EnsureMutable();
 
+        _lineItems.Clear();
         _sections.Clear();
         SourceDocument = sourceDocument;
         SourceContentHash = NormalizeHash(sourceContentHash);
@@ -179,7 +191,7 @@ public sealed class BillOfQuantities : AggregateRoot<BoqId>
         return true;
     }
 
-    /// <summary>Remove a section (and its line items). Returns false if no such section exists.</summary>
+    /// <summary>Remove a section, its subsections, and all of its line items. Returns false if no such section exists.</summary>
     public bool RemoveSection(SectionId sectionId)
     {
         EnsureMutable();
@@ -189,14 +201,16 @@ public sealed class BillOfQuantities : AggregateRoot<BoqId>
             return false;
         }
 
+        // Every line under the section (direct or in one of its subsections) carries this SectionId.
+        _lineItems.RemoveAll(li => li.SectionId == sectionId);
         _sections.Remove(section);
         return true;
     }
 
     /// <summary>
-    /// Add a priced line to a section and return it. Returns null if the section does not exist.
-    /// The <paramref name="unitPrice"/> (net, VAT-exclusive) must be in the BoQ's pricing currency;
-    /// the <paramref name="vatRate"/> applied to it is 21% by default.
+    /// Add a priced line directly to a section and return it. Returns null if the section does not
+    /// exist. The <paramref name="unitPrice"/> (net, VAT-exclusive) must be in the BoQ's pricing
+    /// currency; the <paramref name="vatRate"/> applied to it is 21% by default.
     /// </summary>
     public LineItem? AddLineItem(
         SectionId sectionId,
@@ -209,11 +223,15 @@ public sealed class BillOfQuantities : AggregateRoot<BoqId>
         string? notes = null)
     {
         EnsureMutable();
-        var section = FindSection(sectionId);
-        return section?.AddLineItem(description, quantity, unitOfMeasureId, unitPrice, vatRate, sequence, notes);
+        if (FindSection(sectionId) is null)
+        {
+            return null;
+        }
+
+        return AddLine(sectionId, subsectionId: null, description, quantity, unitOfMeasureId, unitPrice, vatRate, sequence, notes);
     }
 
-    /// <summary>Revise a line item in place. Returns false if the section or line item is absent.</summary>
+    /// <summary>Revise a line held directly in a section. Returns false if the section or line item is absent.</summary>
     public bool ReviseLineItem(
         SectionId sectionId,
         LineItemId lineItemId,
@@ -223,21 +241,14 @@ public sealed class BillOfQuantities : AggregateRoot<BoqId>
         Money unitPrice,
         VatRate vatRate,
         int sequence,
-        string? notes)
-    {
-        EnsureMutable();
-        var section = FindSection(sectionId);
-        return section is not null
-            && section.ReviseLineItem(lineItemId, description, quantity, unitOfMeasureId, unitPrice, vatRate, sequence, notes);
-    }
+        string? notes) =>
+        Revise(
+            _lineItems.FirstOrDefault(li => li.Id == lineItemId && li.SectionId == sectionId && li.SubsectionId is null),
+            description, quantity, unitOfMeasureId, unitPrice, vatRate, sequence, notes);
 
-    /// <summary>Remove a line item from a section. Returns false if the section or line item is absent.</summary>
-    public bool RemoveLineItem(SectionId sectionId, LineItemId lineItemId)
-    {
-        EnsureMutable();
-        var section = FindSection(sectionId);
-        return section is not null && section.RemoveLineItem(lineItemId);
-    }
+    /// <summary>Remove a line held directly in a section. Returns false if the section or line item is absent.</summary>
+    public bool RemoveLineItem(SectionId sectionId, LineItemId lineItemId) =>
+        Remove(_lineItems.FirstOrDefault(li => li.Id == lineItemId && li.SectionId == sectionId && li.SubsectionId is null));
 
     /// <summary>Add a subsection to a section and return it. Returns null if the section does not exist.</summary>
     public Subsection? AddSubsection(SectionId sectionId, string name, int sequence, string? description = null)
@@ -255,12 +266,18 @@ public sealed class BillOfQuantities : AggregateRoot<BoqId>
         return section is not null && section.UpdateSubsection(subsectionId, name, sequence, description);
     }
 
-    /// <summary>Remove a subsection (and its line items). Returns false if the section or subsection is absent.</summary>
+    /// <summary>Remove a subsection and all of its line items. Returns false if the section or subsection is absent.</summary>
     public bool RemoveSubsection(SectionId sectionId, SubsectionId subsectionId)
     {
         EnsureMutable();
         var section = FindSection(sectionId);
-        return section is not null && section.RemoveSubsection(subsectionId);
+        if (section is null || !section.RemoveSubsection(subsectionId))
+        {
+            return false;
+        }
+
+        _lineItems.RemoveAll(li => li.SubsectionId == subsectionId);
+        return true;
     }
 
     /// <summary>
@@ -279,11 +296,15 @@ public sealed class BillOfQuantities : AggregateRoot<BoqId>
         string? notes = null)
     {
         EnsureMutable();
-        var section = FindSection(sectionId);
-        return section?.AddSubsectionLineItem(subsectionId, description, quantity, unitOfMeasureId, unitPrice, vatRate, sequence, notes);
+        if (FindSection(sectionId)?.FindSubsection(subsectionId) is null)
+        {
+            return null;
+        }
+
+        return AddLine(sectionId, subsectionId, description, quantity, unitOfMeasureId, unitPrice, vatRate, sequence, notes);
     }
 
-    /// <summary>Revise a line item inside a subsection. Returns false if the section, subsection, or line item is absent.</summary>
+    /// <summary>Revise a line inside a subsection. Returns false if the section, subsection, or line item is absent.</summary>
     public bool ReviseSubsectionLineItem(
         SectionId sectionId,
         SubsectionId subsectionId,
@@ -294,21 +315,14 @@ public sealed class BillOfQuantities : AggregateRoot<BoqId>
         Money unitPrice,
         VatRate vatRate,
         int sequence,
-        string? notes)
-    {
-        EnsureMutable();
-        var section = FindSection(sectionId);
-        return section is not null
-            && section.ReviseSubsectionLineItem(subsectionId, lineItemId, description, quantity, unitOfMeasureId, unitPrice, vatRate, sequence, notes);
-    }
+        string? notes) =>
+        Revise(
+            _lineItems.FirstOrDefault(li => li.Id == lineItemId && li.SectionId == sectionId && li.SubsectionId == subsectionId),
+            description, quantity, unitOfMeasureId, unitPrice, vatRate, sequence, notes);
 
-    /// <summary>Remove a line item from a subsection. Returns false if the section, subsection, or line item is absent.</summary>
-    public bool RemoveSubsectionLineItem(SectionId sectionId, SubsectionId subsectionId, LineItemId lineItemId)
-    {
-        EnsureMutable();
-        var section = FindSection(sectionId);
-        return section is not null && section.RemoveSubsectionLineItem(subsectionId, lineItemId);
-    }
+    /// <summary>Remove a line from a subsection. Returns false if the section, subsection, or line item is absent.</summary>
+    public bool RemoveSubsectionLineItem(SectionId sectionId, SubsectionId subsectionId, LineItemId lineItemId) =>
+        Remove(_lineItems.FirstOrDefault(li => li.Id == lineItemId && li.SectionId == sectionId && li.SubsectionId == subsectionId));
 
     /// <summary>
     /// Move a line item to a target container — a section's direct list when
@@ -327,7 +341,7 @@ public sealed class BillOfQuantities : AggregateRoot<BoqId>
     {
         EnsureMutable();
 
-        var source = LocateLineItem(lineItemId)
+        var line = _lineItems.FirstOrDefault(li => li.Id == lineItemId)
             ?? throw new DomainValidationException(
                 "The line item does not exist in this bill of quantities.",
                 code: "BoqLineItemNotFound",
@@ -339,43 +353,24 @@ public sealed class BillOfQuantities : AggregateRoot<BoqId>
                 code: "BoqTargetSectionNotFound",
                 parameters: new Dictionary<string, object?> { ["sectionId"] = targetSectionId.Value });
 
-        var targetSubsection = targetSubsectionId is { } subId
-            ? targetSection.FindSubsection(subId)
-                ?? throw new DomainValidationException(
-                    "The target subsection does not exist in the target section.",
-                    code: "BoqTargetSubsectionNotFound",
-                    parameters: new Dictionary<string, object?> { ["subsectionId"] = subId.Value })
-            : null;
-
-        var sameContainer = source.Section.Id == targetSection.Id
-            && source.Subsection?.Id == targetSubsection?.Id;
-
-        if (sameContainer)
+        if (targetSubsectionId is { } subId && targetSection.FindSubsection(subId) is null)
         {
-            if (targetSubsection is not null)
-            {
-                targetSubsection.MoveLineItemWithin(lineItemId, targetIndex);
-            }
-            else
-            {
-                targetSection.MoveLineItemWithin(lineItemId, targetIndex);
-            }
+            throw new DomainValidationException(
+                "The target subsection does not exist in the target section.",
+                code: "BoqTargetSubsectionNotFound",
+                parameters: new Dictionary<string, object?> { ["subsectionId"] = subId.Value });
         }
-        else
-        {
-            // Detach from the source container, then re-create under the target preserving the id.
-            var detached = source.Subsection is not null
-                ? source.Subsection.DetachLineItem(lineItemId)
-                : source.Section.DetachLineItem(lineItemId);
 
-            if (targetSubsection is not null)
-            {
-                targetSubsection.InsertLineItem(detached, targetIndex);
-            }
-            else
-            {
-                targetSection.InsertLineItem(detached, targetIndex);
-            }
+        var sourceSectionId = line.SectionId;
+        var sourceSubsectionId = line.SubsectionId;
+
+        // Re-group the line, place it at the target index, and keep both containers' sequences dense.
+        line.Reassign(targetSectionId, targetSubsectionId);
+        PlaceInContainer(line, targetSectionId, targetSubsectionId, targetIndex);
+
+        if (sourceSectionId != targetSectionId || sourceSubsectionId != targetSubsectionId)
+        {
+            RenumberContainer(sourceSectionId, sourceSubsectionId);
         }
 
         Raise(new BoqLineItemMoved(Id, BidId, lineItemId, now));
@@ -398,6 +393,38 @@ public sealed class BillOfQuantities : AggregateRoot<BoqId>
 
     /// <summary>Transition the BoQ to a new status, raising an event if it changed.</summary>
     public void ChangeStatus(BoqStatus status, DateTimeOffset now) => TransitionTo(status, now);
+
+    // ----- Grouped reads (the line collection is flat; these project it per container, Sequence-sorted) -----
+
+    /// <summary>The lines held directly in a section (not in a subsection), ordered by sequence.</summary>
+    public IReadOnlyList<LineItem> DirectLineItemsOf(SectionId sectionId) =>
+        _lineItems
+            .Where(li => li.SectionId == sectionId && li.SubsectionId is null)
+            .OrderBy(li => li.Sequence)
+            .ToList();
+
+    /// <summary>The lines grouped under a subsection, ordered by sequence.</summary>
+    public IReadOnlyList<LineItem> LineItemsOf(SubsectionId subsectionId) =>
+        _lineItems
+            .Where(li => li.SubsectionId == subsectionId)
+            .OrderBy(li => li.Sequence)
+            .ToList();
+
+    /// <summary>Derived net subtotal of a section (its direct lines plus every subsection's lines).</summary>
+    public Money SubtotalOf(SectionId sectionId) =>
+        Sum(_lineItems.Where(li => li.SectionId == sectionId), li => li.LineTotal);
+
+    /// <summary>Derived gross (VAT-inclusive) subtotal of a section.</summary>
+    public Money SubtotalWithVatOf(SectionId sectionId) =>
+        Sum(_lineItems.Where(li => li.SectionId == sectionId), li => li.LineTotalWithVat);
+
+    /// <summary>Derived net subtotal of a subsection.</summary>
+    public Money SubtotalOf(SubsectionId subsectionId) =>
+        Sum(_lineItems.Where(li => li.SubsectionId == subsectionId), li => li.LineTotal);
+
+    /// <summary>Derived gross (VAT-inclusive) subtotal of a subsection.</summary>
+    public Money SubtotalWithVatOf(SubsectionId subsectionId) =>
+        Sum(_lineItems.Where(li => li.SubsectionId == subsectionId), li => li.LineTotalWithVat);
 
     private void TransitionTo(BoqStatus status, DateTimeOffset now)
     {
@@ -430,31 +457,107 @@ public sealed class BillOfQuantities : AggregateRoot<BoqId>
         }
     }
 
-    private Section? FindSection(SectionId sectionId) =>
-        _sections.FirstOrDefault(s => s.Id == sectionId);
-
-    // Find which container currently holds a line: its section, and the subsection within it when the
-    // line sits one level deeper (null when held directly in the section). Null if no section holds it.
-    private (Section Section, Subsection? Subsection)? LocateLineItem(LineItemId lineItemId)
+    // Create a line under a container (subsectionId null = section's direct list) and track it flat.
+    private LineItem AddLine(
+        SectionId sectionId,
+        SubsectionId? subsectionId,
+        string description,
+        decimal quantity,
+        UnitOfMeasureId unitOfMeasureId,
+        Money unitPrice,
+        VatRate vatRate,
+        int sequence,
+        string? notes)
     {
-        foreach (var section in _sections)
-        {
-            if (section.ContainsLineItem(lineItemId))
-            {
-                return (section, null);
-            }
+        EnsureSharedCurrency(unitPrice);
+        var item = new LineItem(
+            LineItemId.New(), sectionId, subsectionId, description, quantity, unitOfMeasureId, unitPrice, vatRate, sequence, notes);
+        _lineItems.Add(item);
+        return item;
+    }
 
-            foreach (var subsection in section.Subsections)
-            {
-                if (subsection.ContainsLineItem(lineItemId))
-                {
-                    return (section, subsection);
-                }
-            }
+    private bool Revise(
+        LineItem? line,
+        string description,
+        decimal quantity,
+        UnitOfMeasureId unitOfMeasureId,
+        Money unitPrice,
+        VatRate vatRate,
+        int sequence,
+        string? notes)
+    {
+        EnsureMutable();
+        if (line is null)
+        {
+            return false;
         }
 
-        return null;
+        EnsureSharedCurrency(unitPrice);
+        line.Revise(description, quantity, unitOfMeasureId, unitPrice, vatRate, sequence, notes);
+        return true;
     }
+
+    private bool Remove(LineItem? line)
+    {
+        EnsureMutable();
+        if (line is null)
+        {
+            return false;
+        }
+
+        _lineItems.Remove(line);
+        RenumberContainer(line.SectionId, line.SubsectionId);
+        return true;
+    }
+
+    // Insert a line at an index within its (already-assigned) container, against the container's
+    // Sequence-sorted order — the order the reader shows — then renumber the container dense 1..N.
+    private void PlaceInContainer(LineItem line, SectionId sectionId, SubsectionId? subsectionId, int index)
+    {
+        var container = _lineItems
+            .Where(li => li.Id != line.Id && li.SectionId == sectionId && li.SubsectionId == subsectionId)
+            .OrderBy(li => li.Sequence)
+            .ToList();
+
+        container.Insert(Math.Clamp(index, 0, container.Count), line);
+        Renumber(container);
+    }
+
+    // Renumber a container's lines dense 1..N following their current Sequence order.
+    private void RenumberContainer(SectionId sectionId, SubsectionId? subsectionId) =>
+        Renumber(_lineItems
+            .Where(li => li.SectionId == sectionId && li.SubsectionId == subsectionId)
+            .OrderBy(li => li.Sequence)
+            .ToList());
+
+    private static void Renumber(List<LineItem> ordered)
+    {
+        for (var i = 0; i < ordered.Count; i++)
+        {
+            ordered[i].Resequence(i + 1);
+        }
+    }
+
+    private Money Sum(IEnumerable<LineItem> lines, Func<LineItem, Money> amount) =>
+        lines.Aggregate(Money.Zero(PricingCurrency), (acc, li) => acc.Add(amount(li)));
+
+    private void EnsureSharedCurrency(Money unitPrice)
+    {
+        if (unitPrice.Currency != PricingCurrency)
+        {
+            throw new DomainValidationException(
+                $"Line item price currency ({unitPrice.Currency}) must match the bill's pricing currency ({PricingCurrency}).",
+                code: "LineItemCurrencyMismatch",
+                parameters: new Dictionary<string, object?>
+                {
+                    ["lineCurrency"] = unitPrice.Currency.ToString(),
+                    ["billCurrency"] = PricingCurrency.ToString(),
+                });
+        }
+    }
+
+    private Section? FindSection(SectionId sectionId) =>
+        _sections.FirstOrDefault(s => s.Id == sectionId);
 
     private static void EnsureRateMatchesCurrency(ExchangeRate? rate, Currency pricingCurrency)
     {
