@@ -136,6 +136,40 @@ export async function logBidNote(formData: FormData) {
   redirect(`/bids/${bidId}`);
 }
 
+// Append a note to a bid from the project-wide offers overview. Unlike `logBidNote`
+// it does not redirect to the bid: the owner is triaging offers on the overview (call,
+// then jot down when a quote is due), so it just revalidates that page and stays put.
+export async function logBidNoteOnProject(formData: FormData) {
+  const bidId = formData.get("bidId") as string;
+  const projectId = formData.get("projectId") as string;
+  const content = (formData.get("content") as string)?.trim();
+  const occurredOn = (formData.get("occurredOn") as string)?.trim();
+  if (!bidId || !content || !occurredOn) return;
+
+  const payload = {
+    type: (formData.get("type") as NoteType) || "Note",
+    occurredOn,
+    content,
+  };
+
+  const res = await fetch(`${apiBaseUrl()}/api/bids/${bidId}/notes`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    throw new Error(await describeApiError(res, "common.actionError"));
+  }
+
+  // Stay on the overview (no redirect); refresh it so the new note appears, and the
+  // bid's own page if it's visited next.
+  if (projectId) {
+    revalidatePath(`/projects/${projectId}/bids`);
+  }
+  revalidatePath(`/bids/${bidId}`);
+}
+
 export async function removeBidNote(formData: FormData) {
   const bidId = formData.get("bidId") as string;
   const noteId = formData.get("noteId") as string;

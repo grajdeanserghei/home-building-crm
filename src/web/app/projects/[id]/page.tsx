@@ -50,6 +50,10 @@ export default async function ProjectDetailPage({
         <Link href={`/projects/${project.id}/budget`} className={styles.edit}>
           {t("budget.link")} →
         </Link>
+        {" · "}
+        <Link href={`/projects/${project.id}/bids`} className={styles.edit}>
+          {t("projectBids.link")} →
+        </Link>
       </p>
 
       <section className={styles.card}>

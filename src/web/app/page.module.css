@@ -222,6 +222,68 @@
   text-decoration: underline;
 }
 
+/* Offer block (project-wide offers overview) --------------------------- */
+/* Each offer rendered as a sub-card inside its work-package section: contractor +
+   status, contact details to act on, the contractor's notes, the last discussion note,
+   and a quick add-note form. */
+.offer {
+  border: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+  border-radius: 10px;
+  padding: 16px;
+  margin-top: 12px;
+}
+
+.offerHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.offerHead h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+/* Push the drill-in link to the right edge of the offer header. */
+.offerHead .nameLink {
+  margin-left: auto;
+  font-size: 0.85rem;
+  color: #2563eb;
+}
+
+/* The actionable contact line: phone (tel:) and email (mailto:) the owner can tap to call. */
+.contactRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  align-items: baseline;
+  margin: 6px 0;
+}
+
+.contactRow a {
+  color: #2563eb;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.contactRow a:hover {
+  text-decoration: underline;
+}
+
+/* The most-recent discussion note, shown above the add-note form. */
+.lastNote {
+  margin: 8px 0;
+  font-size: 0.9rem;
+}
+
+.lastNote .noteLabel {
+  color: #6b7280;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 /* Status badges -------------------------------------------------------- */
 .badge {
   display: inline-block;

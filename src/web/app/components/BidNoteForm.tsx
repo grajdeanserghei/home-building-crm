@@ -10,16 +10,22 @@ interface BidNoteFormProps {
   // Today's date (yyyy-MM-dd), used to pre-fill the "occurred on" picker. Passed in so
   // the component stays a pure server component (the page provides the clock).
   today: string;
+  // When the form is used on the project-wide offers overview, the project id is carried
+  // as a hidden field so the action can revalidate that page (and stay on it).
+  projectId?: string;
 }
 
 /**
  * The form for logging a dated interaction (meeting / call / email / note) on a bid's
  * discussion log. The author is filled in server-side from the current user.
  */
-export function BidNoteForm({ action, bidId, today }: BidNoteFormProps) {
+export function BidNoteForm({ action, bidId, today, projectId }: BidNoteFormProps) {
   return (
     <form action={action} className={styles.form}>
       <input type="hidden" name="bidId" value={bidId} />
+      {projectId ? (
+        <input type="hidden" name="projectId" value={projectId} />
+      ) : null}
       <select name="type" defaultValue="Note">
         {NOTE_TYPES.map((t) => (
           <option key={t} value={t}>

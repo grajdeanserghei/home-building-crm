@@ -238,6 +238,22 @@ export const ro = {
   "budget.unpricedNoteOne":
     "Un pachet de lucrări nu are încă un preț și nu este inclus în estimare.",
 
+  // — Project bids (all offers, grouped by work package) ————————————————————
+  "projectBids.link": "Oferte",
+  "projectBids.backToProject": "← Înapoi la proiect",
+  "projectBids.title": "Oferte — {name}",
+  "projectBids.subtitle":
+    "Toate ofertele din proiect, grupate pe pachet de lucrări.",
+  "projectBids.empty": "Niciun pachet de lucrări încă.",
+  "projectBids.noBids": "Nicio ofertă pentru acest pachet încă.",
+  "projectBids.bidCountOne": "1 ofertă",
+  "projectBids.bidCountMany": "{count} oferte",
+  "projectBids.viewBid": "Vezi oferta →",
+  "projectBids.noContact":
+    "Fără date de contact — adaugă-le în fișa antreprenorului.",
+  "projectBids.lastNote": "Ultima notiță",
+  "projectBids.noNotes": "Nicio notiță încă.",
+
   // — Scope items (within a work package) ————————————————————————————————
   "scopeItems.title": "Cerințe de execuție",
   "scopeItems.subtitle":
