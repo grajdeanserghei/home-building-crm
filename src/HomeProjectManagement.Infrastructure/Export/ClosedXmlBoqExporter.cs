@@ -108,7 +108,7 @@ public sealed class ClosedXmlBoqExporter : IBoqSpreadsheetExporter
         {
             row++; // spacer separating this band from what precedes it
 
-            ws.Cell(row, ColIndex).Value = $"Subcapitol: {section.Sequence}.{subsection.Sequence} {subsection.Name}";
+            ws.Cell(row, ColIndex).Value = $"{section.Sequence}.{subsection.Sequence} {subsection.Name}";
             var band = ws.Range(row, ColIndex, row, ColumnCount).Merge();
             band.Style.Font.Bold = true;
             band.Style.Fill.BackgroundColor = BandFill;
@@ -126,7 +126,7 @@ public sealed class ClosedXmlBoqExporter : IBoqSpreadsheetExporter
             }
 
             // Subtotal of just this subsection.
-            ws.Cell(row, ColDescription).Value = "Subtotal subcapitol";
+            ws.Cell(row, ColDescription).Value = $"Subtotal {subsection.Name}";
             SetSumFormula(ws, row, subLineRows);
             StyleTotalRow(ws, row, bold: true, doubleTop: false);
             subtotalRows.Add(row);
@@ -136,7 +136,7 @@ public sealed class ClosedXmlBoqExporter : IBoqSpreadsheetExporter
         row++; // spacer before the grand section total
 
         var totalRow = row;
-        ws.Cell(totalRow, ColDescription).Value = "TOTAL SECȚIUNE";
+        ws.Cell(totalRow, ColDescription).Value = $"TOTAL {section.Name}";
         // The section total = the contiguous direct lines + each subsection subtotal cell.
         ws.Cell(totalRow, ColExcl).FormulaA1 = SectionTotalFormula(ColExcl, directRows, subtotalRows);
         ws.Cell(totalRow, ColIncl).FormulaA1 = SectionTotalFormula(ColIncl, directRows, subtotalRows);
