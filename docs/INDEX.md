@@ -23,6 +23,7 @@ A complete map of the documentation under `docs/`. Start with the
 | Document | What it covers |
 | --- | --- |
 | [Guides overview](./guides/README.md) | Index of how-to guides and suggested topics. |
+| [UI Principles — Read-First](./guides/ui-principles.md) | The frontend's read-first discipline: pages default to reading, creation is a separate `/new` destination, one primary action per view; `projects/page.tsx` as the reference and the forms-above-the-list pages to migrate. |
 | [Central Package Management (NuGet)](./guides/central-package-management.md) | Why and how all NuGet versions are pinned centrally in the root `Directory.Packages.props`. |
 | [Building & publishing container images](./guides/container-images.md) | Dockerfiles and the image build/push flow for deploying to the homelab k3s cluster (the app-repo half of deployment). |
 
@@ -35,6 +36,7 @@ A complete map of the documentation under `docs/`. Start with the
 | [Project Budget View](./specifications/project-budget-view.md) | Implemented | Read-only `/projects/{id}/budget` page rolling up committed (contract) and candidate (BoQ) costs per currency. |
 | [Romanian Localization](./specifications/romanian-localization.md) | Implemented | Romanian-only presentation layer plus the reviewed glossary that fixes the Romanian ubiquitous language. |
 | [Remote MCP Server](./specifications/remote-mcp-server.md) | Implemented | A remote MCP server letting an AI agent drive conversational and document-based data entry; covers the prerequisite `Bid` and `BillOfQuantities` aggregates. |
+| [BoQ Excel Export](./specifications/boq-excel-export.md) | Implemented | Export a *deviz* to `.xlsx` — one worksheet per Section, Subsections as visually separated bands, summary sheet, live `SUM()` totals; ClosedXML behind a driven port. |
 
 ## Conventions
 
