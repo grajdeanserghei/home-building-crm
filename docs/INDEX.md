@@ -37,6 +37,7 @@ A complete map of the documentation under `docs/`. Start with the
 | [Romanian Localization](./specifications/romanian-localization.md) | Implemented | Romanian-only presentation layer plus the reviewed glossary that fixes the Romanian ubiquitous language. |
 | [Remote MCP Server](./specifications/remote-mcp-server.md) | Implemented | A remote MCP server letting an AI agent drive conversational and document-based data entry; covers the prerequisite `Bid` and `BillOfQuantities` aggregates. |
 | [BoQ Excel Export](./specifications/boq-excel-export.md) | Implemented | Export a *deviz* to `.xlsx` — one worksheet per Section, Subsections as visually separated bands, summary sheet, live `SUM()` totals; ClosedXML behind a driven port. |
+| [BoQ Line-Item Reordering](./specifications/boq-line-item-reordering.md) | Implemented | Drag-and-drop reorder of BoQ line items, including moving a line between subcapitols anywhere in the BoQ; root `MoveLineItem` with dense renumbering, a `move-line-item` endpoint, and a read-first "Arrange" mode using `@dnd-kit`. |
 
 ## Conventions
 

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { BoqDndBoard } from "@/app/components/BoqDndBoard";
 import { LineItemsTable } from "@/app/components/LineItemsTable";
 import {
   deleteBoq,
@@ -39,10 +40,13 @@ function canChangeStatus(status: BoqStatus): boolean {
 // sections, subsections and lines) is a deliberate step away on its own route.
 export default async function BillOfQuantitiesDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ arrange?: string }>;
 }) {
   const { id } = await params;
+  const { arrange } = await searchParams;
   const boq = await getBillOfQuantities(id);
 
   if (!boq) {
@@ -55,6 +59,9 @@ export default async function BillOfQuantitiesDetailPage({
   const unitCode = new Map(allUnits.map((u) => [u.id, u.code]));
 
   const editable = isEditable(boq.status);
+  // Arrange mode: a deliberate, editable-only drag-and-drop view for reordering and moving lines.
+  // Gated behind ?arrange=1 so the detail page stays read-first by default.
+  const arranging = editable && arrange === "1" && boq.sections.length > 0;
   const title = t("boq.title") + (boq.reference ? ` · ${boq.reference}` : "");
 
   // A contract is awarded from an accepted BoQ. Resolve any contract already on the owning
@@ -92,12 +99,33 @@ export default async function BillOfQuantitiesDetailPage({
           </p>
         </div>
         {editable ? (
-          <Link
-            href={`/bills-of-quantities/${boq.id}/sections/new`}
-            className={styles.primaryButton}
-          >
-            {t("sections.add")}
-          </Link>
+          <div className={styles.actions}>
+            {arranging ? (
+              <Link
+                href={`/bills-of-quantities/${boq.id}`}
+                className={styles.primaryButton}
+              >
+                {t("boq.arrangeDone")}
+              </Link>
+            ) : (
+              <>
+                {boq.sections.length > 0 ? (
+                  <Link
+                    href={`/bills-of-quantities/${boq.id}?arrange=1`}
+                    className={styles.edit}
+                  >
+                    {t("boq.arrange")}
+                  </Link>
+                ) : null}
+                <Link
+                  href={`/bills-of-quantities/${boq.id}/sections/new`}
+                  className={styles.primaryButton}
+                >
+                  {t("sections.add")}
+                </Link>
+              </>
+            )}
+          </div>
         ) : null}
       </div>
 
@@ -193,7 +221,18 @@ export default async function BillOfQuantitiesDetailPage({
         </section>
       ) : null}
 
-      {boq.sections.map((section) => (
+      {arranging ? (
+        <section className={styles.card}>
+          <BoqDndBoard
+            boqId={boq.id}
+            sections={boq.sections}
+            unitCode={Object.fromEntries(unitCode)}
+          />
+        </section>
+      ) : null}
+
+      {!arranging &&
+        boq.sections.map((section) => (
         <section className={styles.card} key={section.id}>
           <h2>
             {section.sequence}. {section.name}{" "}

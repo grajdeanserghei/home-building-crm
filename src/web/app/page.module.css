@@ -116,6 +116,31 @@
   font-size: 0.98rem;
 }
 
+/* Arrange mode: a container's droppable line list and its draggable rows. */
+.dropList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 40px;
+  padding: 4px;
+  border: 1px solid color-mix(in srgb, currentColor 10%, transparent);
+  border-radius: 8px;
+}
+
+.dragRow {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--background, #fff);
+  border: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+}
+
+.dragRow:hover {
+  border-color: color-mix(in srgb, currentColor 28%, transparent);
+}
+
 .form {
   display: grid;
   grid-template-columns: 1fr 1fr;

@@ -94,6 +94,10 @@ public sealed class LineItem : Entity<LineItemId>
         Notes = Trim(notes);
     }
 
+    // Set the ordering position only, leaving the priced data untouched. Used by the BoQ root's
+    // reorder/move flow to keep a container's sequences dense (1..N) after a drag.
+    internal void Resequence(int sequence) => Sequence = sequence;
+
     private static string NormalizeDescription(string description)
     {
         if (string.IsNullOrWhiteSpace(description))

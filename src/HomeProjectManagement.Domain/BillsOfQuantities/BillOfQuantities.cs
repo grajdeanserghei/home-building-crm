@@ -310,6 +310,77 @@ public sealed class BillOfQuantities : AggregateRoot<BoqId>
         return section is not null && section.RemoveSubsectionLineItem(subsectionId, lineItemId);
     }
 
+    /// <summary>
+    /// Move a line item to a target container — a section's direct list when
+    /// <paramref name="targetSubsectionId"/> is null, otherwise the named subsection — and place it at
+    /// <paramref name="targetIndex"/> (0-based, clamped to the container's size). The line keeps its id
+    /// and priced data; the source and target containers are renumbered to a dense 1..N
+    /// <see cref="LineItem.Sequence"/>. A move within the same container is a pure reorder. Allowed only
+    /// while the BoQ is editable. Throws if the line, target section, or target subsection is absent.
+    /// </summary>
+    public void MoveLineItem(
+        LineItemId lineItemId,
+        SectionId targetSectionId,
+        SubsectionId? targetSubsectionId,
+        int targetIndex,
+        DateTimeOffset now)
+    {
+        EnsureMutable();
+
+        var source = LocateLineItem(lineItemId)
+            ?? throw new DomainValidationException(
+                "The line item does not exist in this bill of quantities.",
+                code: "BoqLineItemNotFound",
+                parameters: new Dictionary<string, object?> { ["lineItemId"] = lineItemId.Value });
+
+        var targetSection = FindSection(targetSectionId)
+            ?? throw new DomainValidationException(
+                "The target section does not exist in this bill of quantities.",
+                code: "BoqTargetSectionNotFound",
+                parameters: new Dictionary<string, object?> { ["sectionId"] = targetSectionId.Value });
+
+        var targetSubsection = targetSubsectionId is { } subId
+            ? targetSection.FindSubsection(subId)
+                ?? throw new DomainValidationException(
+                    "The target subsection does not exist in the target section.",
+                    code: "BoqTargetSubsectionNotFound",
+                    parameters: new Dictionary<string, object?> { ["subsectionId"] = subId.Value })
+            : null;
+
+        var sameContainer = source.Section.Id == targetSection.Id
+            && source.Subsection?.Id == targetSubsection?.Id;
+
+        if (sameContainer)
+        {
+            if (targetSubsection is not null)
+            {
+                targetSubsection.MoveLineItemWithin(lineItemId, targetIndex);
+            }
+            else
+            {
+                targetSection.MoveLineItemWithin(lineItemId, targetIndex);
+            }
+        }
+        else
+        {
+            // Detach from the source container, then re-create under the target preserving the id.
+            var detached = source.Subsection is not null
+                ? source.Subsection.DetachLineItem(lineItemId)
+                : source.Section.DetachLineItem(lineItemId);
+
+            if (targetSubsection is not null)
+            {
+                targetSubsection.InsertLineItem(detached, targetIndex);
+            }
+            else
+            {
+                targetSection.InsertLineItem(detached, targetIndex);
+            }
+        }
+
+        Raise(new BoqLineItemMoved(Id, BidId, lineItemId, now));
+    }
+
     /// <summary>Mark the BoQ as submitted (a firm quote handed over by the contractor).</summary>
     public void Submit(DateTimeOffset now) => TransitionTo(BoqStatus.Submitted, now);
 
@@ -361,6 +432,29 @@ public sealed class BillOfQuantities : AggregateRoot<BoqId>
 
     private Section? FindSection(SectionId sectionId) =>
         _sections.FirstOrDefault(s => s.Id == sectionId);
+
+    // Find which container currently holds a line: its section, and the subsection within it when the
+    // line sits one level deeper (null when held directly in the section). Null if no section holds it.
+    private (Section Section, Subsection? Subsection)? LocateLineItem(LineItemId lineItemId)
+    {
+        foreach (var section in _sections)
+        {
+            if (section.ContainsLineItem(lineItemId))
+            {
+                return (section, null);
+            }
+
+            foreach (var subsection in section.Subsections)
+            {
+                if (subsection.ContainsLineItem(lineItemId))
+                {
+                    return (section, subsection);
+                }
+            }
+        }
+
+        return null;
+    }
 
     private static void EnsureRateMatchesCurrency(ExchangeRate? rate, Currency pricingCurrency)
     {

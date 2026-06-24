@@ -2,7 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { apiBaseUrl, type BoqStatus, type Currency } from "../lib/api";
+import {
+  apiBaseUrl,
+  type BillOfQuantities,
+  type BoqStatus,
+  type Currency,
+} from "../lib/api";
 import { describeApiError } from "@/app/lib/errors";
 
 // An <input type="date"> yields a bare `yyyy-MM-dd`. The BoQ's submittedOn / validUntil
@@ -405,6 +410,45 @@ export async function reviseLineItem(formData: FormData) {
 
   revalidatePath(`/bills-of-quantities/${boqId}`);
   redirect(`/bills-of-quantities/${boqId}`);
+}
+
+// Outcome of a drag-and-drop move: on success the BoQ with its containers freshly renumbered (so
+// the board reconciles to canonical order), otherwise a localized message to surface and revert.
+export type MoveLineItemResult =
+  | { ok: true; boq: BillOfQuantities }
+  | { ok: false; error: string };
+
+// Reorder a line, or move it between containers (a section's direct list or any subsection) anywhere
+// in the BoQ. Called programmatically by the Arrange board (not a form) — one call per drop. Returns
+// the updated BoQ rather than redirecting; `revalidatePath` keeps the read view fresh on exit.
+export async function moveLineItem(input: {
+  boqId: string;
+  lineItemId: string;
+  targetSectionId: string;
+  targetSubsectionId: string | null;
+  targetIndex: number;
+}): Promise<MoveLineItemResult> {
+  const res = await fetch(
+    `${apiBaseUrl()}/api/bills-of-quantities/${input.boqId}/move-line-item`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        lineItemId: input.lineItemId,
+        targetSectionId: input.targetSectionId,
+        targetSubsectionId: input.targetSubsectionId,
+        targetIndex: input.targetIndex,
+      }),
+    },
+  );
+
+  if (!res.ok) {
+    return { ok: false, error: await describeApiError(res, "common.actionError") };
+  }
+
+  const boq = (await res.json()) as BillOfQuantities;
+  revalidatePath(`/bills-of-quantities/${input.boqId}`);
+  return { ok: true, boq };
 }
 
 export async function removeLineItem(formData: FormData) {

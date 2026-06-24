@@ -116,6 +116,20 @@ public sealed class Subsection : Entity<SubsectionId>
         return true;
     }
 
+    // — Reordering of the subsection's lines (driven by the BoQ root's MoveLineItem). —
+
+    /// <summary>Whether a line is held in this subsection.</summary>
+    internal bool ContainsLineItem(LineItemId lineItemId) => LineItemOrdering.Contains(_lineItems, lineItemId);
+
+    /// <summary>Detach a line for a move to another container (renumbers the remainder).</summary>
+    internal LineItem DetachLineItem(LineItemId lineItemId) => LineItemOrdering.Detach(_lineItems, lineItemId);
+
+    /// <summary>Insert a line (copy, same id) into this subsection at an index, then renumber.</summary>
+    internal void InsertLineItem(LineItem source, int index) => LineItemOrdering.InsertCopy(_lineItems, source, index, Currency);
+
+    /// <summary>Reorder a line within this subsection to an index, then renumber.</summary>
+    internal void MoveLineItemWithin(LineItemId lineItemId, int index) => LineItemOrdering.MoveWithin(_lineItems, lineItemId, index);
+
     private void EnsureSharedCurrency(Money unitPrice)
     {
         if (unitPrice.Currency != Currency)

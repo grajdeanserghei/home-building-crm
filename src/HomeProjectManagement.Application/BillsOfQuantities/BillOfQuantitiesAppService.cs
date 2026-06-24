@@ -403,6 +403,28 @@ public sealed class BillOfQuantitiesAppService(
         return true;
     }
 
+    public async Task<BillOfQuantitiesDto?> MoveLineItemAsync(
+        Guid id,
+        MoveBoqLineItemCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        var boq = await repository.GetAsync(new BoqId(id), cancellationToken);
+        if (boq is null)
+        {
+            return null;
+        }
+
+        boq.MoveLineItem(
+            new LineItemId(command.LineItemId),
+            new SectionId(command.TargetSectionId),
+            command.TargetSubsectionId is { } subsectionId ? new SubsectionId(subsectionId) : null,
+            command.TargetIndex,
+            timeProvider.GetUtcNow());
+
+        await unitOfWork.CommitAsync(cancellationToken);
+        return ToDto(boq);
+    }
+
     public async Task<BillOfQuantitiesDto?> AddSubsectionAsync(
         Guid id,
         Guid sectionId,

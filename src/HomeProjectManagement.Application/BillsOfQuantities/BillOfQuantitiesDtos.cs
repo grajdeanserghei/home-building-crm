@@ -156,6 +156,18 @@ public sealed record SectionCommand(string Name, int Sequence, string? Descripti
 public sealed record SubsectionCommand(string Name, int Sequence, string? Description);
 
 /// <summary>
+/// Input for moving a line item by drag-and-drop. <see cref="TargetSubsectionId"/> is null to target a
+/// section's directly-held lines, or the subsection's id to target a subsection.
+/// <see cref="TargetIndex"/> is the 0-based drop position within the target container (clamped). The
+/// move may cross sections and subsections within the same BoQ; the affected containers are renumbered.
+/// </summary>
+public sealed record MoveBoqLineItemCommand(
+    Guid LineItemId,
+    Guid TargetSectionId,
+    Guid? TargetSubsectionId,
+    int TargetIndex);
+
+/// <summary>
 /// Input for adding or editing a line item. The unit price (net, VAT-exclusive) must be in the
 /// BoQ's pricing currency, and the unit of measure must reference an active canonical unit.
 /// <see cref="VatRatePercentage"/> is the VAT rate as a percentage (e.g. 21 for 21%); when omitted

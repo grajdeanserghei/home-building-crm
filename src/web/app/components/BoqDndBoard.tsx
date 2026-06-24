@@ -1,0 +1,320 @@
+"use client";
+
+import { useState } from "react";
+import {
+  closestCorners,
+  DndContext,
+  DragOverlay,
+  KeyboardSensor,
+  PointerSensor,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { moveLineItem } from "@/app/bills-of-quantities/actions";
+import type { LineItem, Section } from "@/app/lib/api";
+import { formatMoney, formatNumber } from "@/app/lib/format";
+import { t } from "@/app/lib/i18n";
+import styles from "@/app/page.module.css";
+
+// A line-item container the board can drag between: a section's directly-held lines (subsectionId
+// null) or one subsection. Its `key` is the stable droppable id; the structure (which containers
+// exist, their headings) is fixed during a drag — only line membership and order change.
+interface Container {
+  key: string;
+  sectionId: string;
+  subsectionId: string | null;
+  label: string;
+  isSection: boolean;
+}
+
+interface Board {
+  layout: Container[];
+  // Ordered line ids per container key.
+  items: Record<string, string[]>;
+  // Every line by id (content is read-only here; only position changes).
+  lines: Record<string, LineItem>;
+}
+
+const sectionKey = (sectionId: string) => `sec:${sectionId}`;
+const subKey = (sectionId: string, subsectionId: string) =>
+  `sub:${sectionId}:${subsectionId}`;
+
+// Flatten the BoQ's sections into the board model. Re-run to reconcile with the server's response
+// (which carries the authoritative, renumbered order) after a successful move.
+function buildBoard(sections: Section[]): Board {
+  const layout: Container[] = [];
+  const items: Record<string, string[]> = {};
+  const lines: Record<string, LineItem> = {};
+
+  for (const section of sections) {
+    const sk = sectionKey(section.id);
+    layout.push({
+      key: sk,
+      sectionId: section.id,
+      subsectionId: null,
+      label: `${section.sequence}. ${section.name}`,
+      isSection: true,
+    });
+    items[sk] = section.lineItems.map((li) => li.id);
+    for (const li of section.lineItems) lines[li.id] = li;
+
+    for (const sub of section.subsections) {
+      const k = subKey(section.id, sub.id);
+      layout.push({
+        key: k,
+        sectionId: section.id,
+        subsectionId: sub.id,
+        label: `${section.sequence}.${sub.sequence} ${sub.name}`,
+        isSection: false,
+      });
+      items[k] = sub.lineItems.map((li) => li.id);
+      for (const li of sub.lineItems) lines[li.id] = li;
+    }
+  }
+
+  return { layout, items, lines };
+}
+
+/**
+ * The Arrange-mode board: a single drag-and-drop surface spanning the whole BoQ so a line can be
+ * reordered within its container or moved between a section's direct lines and any subsection
+ * anywhere in the bill. Each drop calls the move action and reconciles to the server's renumbered
+ * order; failures revert the optimistic change and surface a message. Read-first detail editing
+ * (rename/remove/price) stays on the regular detail page.
+ */
+export function BoqDndBoard({
+  boqId,
+  sections,
+  unitCode,
+}: {
+  boqId: string;
+  sections: Section[];
+  unitCode: Record<string, string>;
+}) {
+  const [board, setBoard] = useState<Board>(() => buildBoard(sections));
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  // Which container holds an id — or the container itself when `id` is a droppable container key
+  // (e.g. dropping onto an empty subsection).
+  function findContainer(id: string): string | null {
+    if (id in board.items) return id;
+    return board.layout.find((c) => board.items[c.key].includes(id))?.key ?? null;
+  }
+
+  function onDragStart(event: DragStartEvent) {
+    setActiveId(String(event.active.id));
+  }
+
+  function onDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    setActiveId(null);
+    if (!over) return;
+
+    const lineId = String(active.id);
+    const overId = String(over.id);
+    const from = findContainer(lineId);
+    const to = findContainer(overId);
+    if (!from || !to) return;
+
+    const snapshot = board.items;
+    const items: Record<string, string[]> = {};
+    for (const k of Object.keys(board.items)) items[k] = [...board.items[k]];
+
+    let targetIndex: number;
+    if (from === to) {
+      const list = items[to];
+      const oldIndex = list.indexOf(lineId);
+      const overIndex = overId === to ? list.length - 1 : list.indexOf(overId);
+      const newIndex = overIndex < 0 ? list.length - 1 : overIndex;
+      if (oldIndex === newIndex) return; // dropped in place — nothing to do
+      items[to] = arrayMove(list, oldIndex, newIndex);
+      targetIndex = items[to].indexOf(lineId);
+    } else {
+      items[from] = items[from].filter((x) => x !== lineId);
+      const toList = items[to];
+      const overIndex = overId === to ? toList.length : toList.indexOf(overId);
+      targetIndex = overIndex < 0 ? toList.length : overIndex;
+      toList.splice(targetIndex, 0, lineId);
+    }
+
+    const meta = board.layout.find((c) => c.key === to);
+    if (!meta) return;
+
+    setBoard((prev) => ({ ...prev, items }));
+    void persistMove(lineId, meta, targetIndex, snapshot);
+  }
+
+  async function persistMove(
+    lineItemId: string,
+    target: Container,
+    targetIndex: number,
+    snapshot: Record<string, string[]>,
+  ) {
+    setSaving(true);
+    setError(null);
+    const result = await moveLineItem({
+      boqId,
+      lineItemId,
+      targetSectionId: target.sectionId,
+      targetSubsectionId: target.subsectionId,
+      targetIndex,
+    });
+    setSaving(false);
+
+    if (!result.ok) {
+      setError(result.error || t("boq.arrangeError"));
+      setBoard((prev) => ({ ...prev, items: snapshot })); // revert the optimistic move
+      return;
+    }
+
+    // Reconcile to the server's canonical, renumbered order.
+    setBoard(buildBoard(result.boq.sections));
+  }
+
+  const activeLine = activeId ? board.lines[activeId] : null;
+
+  return (
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCorners}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+    >
+      <p className={styles.muted}>
+        {t("boq.arrangeHint")}
+        {saving ? <> · {t("boq.arrangeSaving")}</> : null}
+      </p>
+      {error ? (
+        <p className={styles.error} role="alert">
+          {error}
+        </p>
+      ) : null}
+
+      {board.layout.map((container) => (
+        <div key={container.key}>
+          {container.isSection ? (
+            <h2 style={{ marginTop: 24 }}>{container.label}</h2>
+          ) : (
+            <h3 style={{ marginTop: 16 }}>{container.label}</h3>
+          )}
+          <ContainerList
+            container={container}
+            lineIds={board.items[container.key]}
+            lines={board.lines}
+            unitCode={unitCode}
+          />
+        </div>
+      ))}
+
+      <DragOverlay>
+        {activeLine ? (
+          <div className={styles.dragRow} style={{ boxShadow: "0 4px 12px rgba(0,0,0,0.2)" }}>
+            <span aria-hidden>⠿</span>
+            <strong>{activeLine.description}</strong>
+          </div>
+        ) : null}
+      </DragOverlay>
+    </DndContext>
+  );
+}
+
+// One container's lines as a vertical sortable list. The whole body is a droppable (keyed by the
+// container key) so a line can be dropped into it even when empty.
+function ContainerList({
+  container,
+  lineIds,
+  lines,
+  unitCode,
+}: {
+  container: Container;
+  lineIds: string[];
+  lines: Record<string, LineItem>;
+  unitCode: Record<string, string>;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: container.key });
+
+  return (
+    <SortableContext items={lineIds} strategy={verticalListSortingStrategy}>
+      <div
+        ref={setNodeRef}
+        className={styles.dropList}
+        style={isOver ? { outline: "2px dashed var(--accent, #888)" } : undefined}
+      >
+        {lineIds.length === 0 ? (
+          <p className={styles.muted} style={{ padding: "8px 4px" }}>
+            {t("boq.arrangeEmpty")}
+          </p>
+        ) : (
+          lineIds.map((id, index) => (
+            <SortableLineRow
+              key={id}
+              line={lines[id]}
+              position={index + 1}
+              unitCode={unitCode}
+            />
+          ))
+        )}
+      </div>
+    </SortableContext>
+  );
+}
+
+// A single draggable line row. The whole row is the drag handle (with a visible grip), kept compact
+// — just the columns that matter while arranging (position, description, unit, qty, total).
+function SortableLineRow({
+  line,
+  position,
+  unitCode,
+}: {
+  line: LineItem;
+  position: number;
+  unitCode: Record<string, string>;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: line.id });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={styles.dragRow}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.4 : 1,
+        cursor: "grab",
+      }}
+      {...attributes}
+      {...listeners}
+    >
+      <span aria-hidden style={{ color: "var(--muted, #999)" }}>
+        ⠿
+      </span>
+      <span style={{ width: "2ch", textAlign: "right" }}>{position}</span>
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <strong>{line.description}</strong>
+        {line.notes ? <div className={styles.muted}>{line.notes}</div> : null}
+      </span>
+      <span className={styles.muted}>{unitCode[line.unitOfMeasureId] ?? "—"}</span>
+      <span className={styles.muted}>{formatNumber(line.quantity)}</span>
+      <span>{formatMoney(line.lineTotalWithVat)}</span>
+    </div>
+  );
+}

@@ -199,7 +199,22 @@ public sealed class Section : Entity<SectionId>
         return subsection is not null && subsection.RemoveLineItem(lineItemId);
     }
 
-    private Subsection? FindSubsection(SubsectionId subsectionId) =>
+    // — Reordering of the section's directly-held lines (driven by the BoQ root's MoveLineItem). —
+    // The section's direct list and each subsection are the line-item "containers" the root addresses.
+
+    /// <summary>Whether a line is held <b>directly</b> in this section (not inside a subsection).</summary>
+    internal bool ContainsLineItem(LineItemId lineItemId) => LineItemOrdering.Contains(_lineItems, lineItemId);
+
+    /// <summary>Detach a directly-held line for a move to another container (renumbers the remainder).</summary>
+    internal LineItem DetachLineItem(LineItemId lineItemId) => LineItemOrdering.Detach(_lineItems, lineItemId);
+
+    /// <summary>Insert a line (copy, same id) into the section's direct list at an index, then renumber.</summary>
+    internal void InsertLineItem(LineItem source, int index) => LineItemOrdering.InsertCopy(_lineItems, source, index, Currency);
+
+    /// <summary>Reorder a directly-held line within the section to an index, then renumber.</summary>
+    internal void MoveLineItemWithin(LineItemId lineItemId, int index) => LineItemOrdering.MoveWithin(_lineItems, lineItemId, index);
+
+    internal Subsection? FindSubsection(SubsectionId subsectionId) =>
         _subsections.FirstOrDefault(s => s.Id == subsectionId);
 
     private void EnsureSharedCurrency(Money unitPrice)

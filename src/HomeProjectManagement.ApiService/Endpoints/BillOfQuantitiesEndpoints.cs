@@ -110,6 +110,14 @@ public static class BillOfQuantitiesEndpoints
                     ? Results.NoContent()
                     : Results.NotFound());
 
+        // Reorder a line, or move it between containers (a section's direct list or any subsection),
+        // anywhere within the BoQ. One call per drop; returns the BoQ with its containers renumbered.
+        boqs.MapPost("/{id:guid}/move-line-item",
+            async (Guid id, MoveBoqLineItemCommand command, IBillOfQuantitiesAppService service, CancellationToken ct) =>
+                await service.MoveLineItemAsync(id, command, ct) is { } updated
+                    ? Results.Ok(updated)
+                    : Results.NotFound());
+
         // Subsections: an optional second level of grouping within a section.
         boqs.MapPost("/{id:guid}/sections/{sectionId:guid}/subsections",
             async (Guid id, Guid sectionId, SubsectionCommand command, IBillOfQuantitiesAppService service, CancellationToken ct) =>

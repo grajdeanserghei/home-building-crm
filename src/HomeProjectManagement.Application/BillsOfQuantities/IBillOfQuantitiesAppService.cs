@@ -60,6 +60,15 @@ public interface IBillOfQuantitiesAppService
     /// <summary>Remove a line item. Returns false if the BoQ, section, or line item is absent.</summary>
     Task<bool> RemoveLineItemAsync(Guid id, Guid sectionId, Guid lineItemId, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Move a line item to a target container (a section's direct list, or a subsection) at a 0-based
+    /// index, anywhere within the BoQ — reordering it or moving it between subcapitols. The affected
+    /// containers are renumbered densely; the line keeps its id and data. Returns the updated BoQ, or
+    /// null if the BoQ does not exist; an absent line/target or a locked BoQ is reported as a domain
+    /// exception (400/409).
+    /// </summary>
+    Task<BillOfQuantitiesDto?> MoveLineItemAsync(Guid id, MoveBoqLineItemCommand command, CancellationToken cancellationToken = default);
+
     /// <summary>Add a subsection to a section. Returns null if the BoQ or section is absent.</summary>
     Task<BillOfQuantitiesDto?> AddSubsectionAsync(Guid id, Guid sectionId, SubsectionCommand command, CancellationToken cancellationToken = default);
 
