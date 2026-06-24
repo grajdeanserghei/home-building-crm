@@ -116,6 +116,63 @@
   font-size: 0.98rem;
 }
 
+/*
+ * BoQ detail: keep the section number / heading and the table's column row visible while
+ * scrolling a long bill, so it's always clear which (sub)section a row belongs to. Pure CSS
+ * `position: sticky` — no scroll listeners. Scoped to `.boqSection` so the shared `.card h2`
+ * / `.table th` styles elsewhere are unaffected.
+ *
+ * Each heading gets a FIXED height and the column row pins at exactly that height (same
+ * variable), so a heading's opaque background fills the full band down to where the column
+ * row starts — no transparent gap for rows to peek through. The bars stack: section heading
+ * at the top, then the subsection heading, then the column row, ordered by z-index.
+ */
+.boqSection {
+  --boq-section-h: 2.75rem;
+  --boq-subsection-h: 2.5rem;
+}
+
+.boqSection > h2 {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: var(--boq-section-h);
+  margin: 0;
+  background: var(--background);
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, currentColor 12%, transparent);
+}
+
+.boqSection .subsection > h3 {
+  position: sticky;
+  top: var(--boq-section-h); /* parks just below the pinned section heading */
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: var(--boq-subsection-h);
+  margin: 0;
+  background: var(--background);
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, currentColor 10%, transparent);
+}
+
+/* Column header row, pinned below the section heading for a section's own lines… */
+.boqSection .table th {
+  position: sticky;
+  top: var(--boq-section-h);
+  z-index: 1;
+  background: var(--background);
+  /* a collapsed-table cell's border scrolls away when pinned, so paint the rule instead */
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, currentColor 10%, transparent);
+}
+
+/* …and below both headings when the lines live in a subsection. */
+.boqSection .subsection .table th {
+  top: calc(var(--boq-section-h) + var(--boq-subsection-h));
+}
+
 /* Arrange mode: a container's droppable line list and its draggable rows. */
 .dropList {
   display: flex;

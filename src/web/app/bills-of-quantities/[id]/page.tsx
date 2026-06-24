@@ -233,7 +233,7 @@ export default async function BillOfQuantitiesDetailPage({
 
       {!arranging &&
         boq.sections.map((section) => (
-        <section className={styles.card} key={section.id}>
+        <section className={`${styles.card} ${styles.boqSection}`} key={section.id}>
           <h2>
             {section.sequence}. {section.name}{" "}
             <span className={styles.muted}>

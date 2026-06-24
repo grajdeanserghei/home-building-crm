@@ -17,7 +17,10 @@ html {
 html,
 body {
   max-width: 100vw;
-  overflow-x: hidden;
+  /* `clip`, not `hidden`: both prevent horizontal scroll, but `hidden` forces overflow-y
+     to compute as `auto`, making this a scroll container that breaks `position: sticky`
+     on descendants (e.g. the BoQ section headers). `clip` clips without that side effect. */
+  overflow-x: clip;
 }
 
 body {
