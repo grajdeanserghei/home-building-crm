@@ -65,6 +65,13 @@ public static class BillOfQuantitiesEndpoints
                     ? Results.NoContent()
                     : Results.NotFound());
 
+        // Export the whole BoQ to an Excel workbook (read-only; allowed in any status).
+        boqs.MapGet("/{id:guid}/export",
+            async (Guid id, IBillOfQuantitiesAppService service, CancellationToken ct) =>
+                await service.ExportAsync(id, ct) is { } file
+                    ? Results.File(file.Content, file.ContentType, file.FileName)
+                    : Results.NotFound());
+
         // Sections: internal entities of the BoQ, addressed as sub-resources.
         boqs.MapPost("/{id:guid}/sections",
             async (Guid id, SectionCommand command, IBillOfQuantitiesAppService service, CancellationToken ct) =>

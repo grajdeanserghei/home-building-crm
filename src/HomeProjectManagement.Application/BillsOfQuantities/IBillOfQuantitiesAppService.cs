@@ -92,5 +92,13 @@ public interface IBillOfQuantitiesAppService
     /// </summary>
     Task<BillOfQuantitiesDto?> SubmitAsync(Guid id, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Render the BoQ to an Excel workbook (one worksheet per section, subsections as visually
+    /// separated bands, a leading summary sheet, live <c>SUM</c> totals). Read-only and allowed in
+    /// every status. Returns null if the BoQ does not exist. The file name is built from the owning
+    /// bid's contractor and work-package names.
+    /// </summary>
+    Task<BoqExportFile?> ExportAsync(Guid id, CancellationToken cancellationToken = default);
+
     Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default);
 }

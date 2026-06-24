@@ -7,9 +7,11 @@ using HomeProjectManagement.Domain.Contracts;
 using HomeProjectManagement.Domain.Projects;
 using HomeProjectManagement.Domain.Trades;
 using HomeProjectManagement.Domain.UnitsOfMeasure;
+using HomeProjectManagement.Application.BillsOfQuantities;
 using HomeProjectManagement.Domain.WorkPackages;
 using HomeProjectManagement.Infrastructure.Events;
 using HomeProjectManagement.Infrastructure.ExchangeRates;
+using HomeProjectManagement.Infrastructure.Export;
 using HomeProjectManagement.Infrastructure.Identity;
 using HomeProjectManagement.Infrastructure.Persistence;
 using HomeProjectManagement.Infrastructure.Persistence.Repositories;
@@ -41,6 +43,10 @@ public static class DependencyInjection
         // (FakeTimeProvider is its test double); no custom IClock/SystemClock needed.
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<ICurrentUser, StubCurrentUser>();
+
+        // BoQ Excel export renderer (stateless; a workbook is built per call).
+        services.AddSingleton<IBoqSpreadsheetExporter, ClosedXmlBoqExporter>();
+
         services.AddSingleton<IExchangeRateProvider, ManualExchangeRateProvider>();
         services.AddScoped<IDomainEventDispatcher, InProcessDomainEventDispatcher>();
 

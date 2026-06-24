@@ -131,6 +131,12 @@ export default async function BillOfQuantitiesDetailPage({
           <dd>{formatDate(boq.createdAt)}</dd>
         </dl>
         <div className={styles.actions}>
+          <a
+            href={`/bills-of-quantities/${boq.id}/export`}
+            className={styles.edit}
+          >
+            {t("boq.exportExcel")}
+          </a>
           {editable ? (
             <Link
               href={`/bills-of-quantities/${boq.id}/edit`}

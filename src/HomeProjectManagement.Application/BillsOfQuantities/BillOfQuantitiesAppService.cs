@@ -3,7 +3,9 @@ using HomeProjectManagement.Domain.BillsOfQuantities;
 using HomeProjectManagement.Domain.Bids;
 using HomeProjectManagement.Domain.Common;
 using HomeProjectManagement.Domain.Common.ValueObjects;
+using HomeProjectManagement.Domain.Contractors;
 using HomeProjectManagement.Domain.UnitsOfMeasure;
+using HomeProjectManagement.Domain.WorkPackages;
 
 namespace HomeProjectManagement.Application.BillsOfQuantities;
 
@@ -18,6 +20,9 @@ public sealed class BillOfQuantitiesAppService(
     IBillOfQuantitiesRepository repository,
     IBidRepository bids,
     IUnitOfMeasureRepository units,
+    IContractorRepository contractors,
+    IWorkPackageRepository workPackages,
+    IBoqSpreadsheetExporter exporter,
     ICurrentUser currentUser,
     IUnitOfWork unitOfWork,
     TimeProvider timeProvider) : IBillOfQuantitiesAppService
@@ -556,6 +561,35 @@ public sealed class BillOfQuantitiesAppService(
 
         await unitOfWork.CommitAsync(cancellationToken);
         return ToDto(boq);
+    }
+
+    public async Task<BoqExportFile?> ExportAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var boq = await repository.GetAsync(new BoqId(id), cancellationToken);
+        if (boq is null)
+        {
+            return null;
+        }
+
+        // Resolve the owning bid's contractor and work package for the file name. A bid references
+        // exactly one of each, and there is one BoQ per bid, so this is a single contractor + WP.
+        var bid = await bids.GetAsync(boq.BidId, cancellationToken);
+        var contractor = bid is null ? null : await contractors.GetAsync(bid.ContractorId, cancellationToken);
+        var workPackage = bid is null ? null : await workPackages.GetAsync(bid.WorkPackageId, cancellationToken);
+
+        // The "U.M." column shows unit codes, but line items reference units by id — build the lookup
+        // once (including retired units, so a deactivated unit on an old line still renders its code).
+        var allUnits = await units.ListAsync(includeInactive: true, cancellationToken);
+        var unitCodes = allUnits.ToDictionary(u => u.Id.Value, u => u.Code);
+
+        var model = new BoqExportModel(
+            ToDto(boq),
+            contractor?.Name ?? "Contractor",
+            workPackage?.Name ?? "Deviz",
+            unitCodes,
+            timeProvider.GetUtcNow());
+
+        return exporter.Export(model);
     }
 
     public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default)

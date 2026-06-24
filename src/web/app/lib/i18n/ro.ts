@@ -299,6 +299,7 @@ export const ro = {
     "Actualizați antetul. Moneda de tarifare este fixă; secțiunile și articolele se editează în pagina devizului.",
   "boq.backToBid": "← Înapoi la ofertă",
   "boq.backToBoq": "← Înapoi la deviz",
+  "boq.exportExcel": "Descarcă Excel",
   "boq.subtitle": "Listă de cantități, tarifată în {currency}",
   "boq.inclVat": "cu TVA",
   "boq.exclVat": "fără TVA",
