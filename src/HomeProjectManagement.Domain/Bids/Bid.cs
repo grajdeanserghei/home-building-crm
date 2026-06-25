@@ -16,12 +16,12 @@ namespace HomeProjectManagement.Domain.Bids;
 /// <remarks>
 /// Aggregate root. It references its <see cref="WorkPackageId"/> and <see cref="ContractorId"/>
 /// <b>by identity</b>, never by holding the other aggregate, and owns its
-/// <see cref="DiscussionNote"/> log as internal entities. There is at most one bid per
-/// (work package, contractor) pair, and at most one bid per work package may be
-/// <see cref="BidStatus.Selected"/> — both guarded by the application service and unique
-/// database indexes, since they span more than this single aggregate instance. State changes go
-/// through intention-revealing methods that enforce invariants; construction goes through the
-/// <see cref="Open"/> factory.
+/// <see cref="DiscussionNote"/> log as internal entities. A contractor may hold several bids on
+/// the same work package (e.g. a "Premium" and a "Buget" variant, told apart by their
+/// <see cref="Label"/>); at most one bid per work package may be <see cref="BidStatus.Selected"/>,
+/// guarded by the application service and a filtered unique database index, since it spans more
+/// than this single aggregate instance. State changes go through intention-revealing methods that
+/// enforce invariants; construction goes through the <see cref="Open"/> factory.
 /// </remarks>
 public sealed class Bid : AggregateRoot<BidId>
 {
@@ -49,6 +49,12 @@ public sealed class Bid : AggregateRoot<BidId>
     public string? Summary { get; private set; }
 
     /// <summary>
+    /// Short variant title that tells apart several bids from the same contractor on one work
+    /// package (e.g. "Premium", "Buget"). Optional.
+    /// </summary>
+    public string? Label { get; private set; }
+
+    /// <summary>
     /// The discussion log (internal entities). Mutated only through <see cref="LogNote"/> and
     /// <see cref="RemoveNote"/>; EF reaches the backing field directly.
     /// </summary>
@@ -67,32 +73,44 @@ public sealed class Bid : AggregateRoot<BidId>
     }
 
     /// <summary>
-    /// Factory: open a contractor's bid on a work package, validating its invariants.
-    /// <paramref name="now"/> is supplied by the caller (from <c>TimeProvider</c>) rather than
-    /// read inside the domain. A freshly opened bid starts <see cref="BidStatus.InDiscussion"/>.
-    /// The "one bid per work-package/contractor pair" rule spans the set of bids and is enforced
-    /// by the application service plus a unique index, not here.
+    /// Factory: open a contractor's bid on a work package. <paramref name="now"/> is supplied by
+    /// the caller (from <c>TimeProvider</c>) rather than read inside the domain. A freshly opened
+    /// bid starts <see cref="BidStatus.InDiscussion"/>.
     /// </summary>
     public static Bid Open(
         WorkPackageId workPackageId,
         ContractorId contractorId,
         DateTimeOffset now,
         DateTimeOffset? firstContactedOn = null,
-        string? summary = null)
+        string? summary = null,
+        string? label = null)
     {
         var bid = new Bid(BidId.New(), workPackageId, contractorId)
         {
             Status = BidStatus.InDiscussion,
             FirstContactedOn = firstContactedOn,
-            Summary = Trim(summary)
+            Summary = Trim(summary),
+            Label = Trim(label)
         };
 
         bid.Raise(new BidOpened(bid.Id, workPackageId, contractorId, now));
         return bid;
     }
 
+    /// <summary>
+    /// Factory: open a fresh bid copied from an existing one — same work package and contractor,
+    /// carrying over its summary, first-contact date and label. The copy starts a new selection:
+    /// status <see cref="BidStatus.InDiscussion"/>, an empty discussion log, no expected-BoQ date
+    /// and no BoQ link. Callers adjust the <see cref="Label"/> afterwards (e.g. a "(copie)" suffix).
+    /// </summary>
+    public static Bid DuplicateFrom(Bid source, DateTimeOffset now) =>
+        Open(source.WorkPackageId, source.ContractorId, now, source.FirstContactedOn, source.Summary, source.Label);
+
     /// <summary>Update the free-text summary/standing of the bid.</summary>
     public void Summarize(string? summary) => Summary = Trim(summary);
+
+    /// <summary>Set or clear the bid's variant label.</summary>
+    public void Relabel(string? label) => Label = Trim(label);
 
     /// <summary>Set or clear the date discussions began.</summary>
     public void SetFirstContact(DateTimeOffset? firstContactedOn) => FirstContactedOn = firstContactedOn;

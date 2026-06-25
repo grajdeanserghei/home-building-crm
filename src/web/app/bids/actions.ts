@@ -17,6 +17,7 @@ export async function openBid(formData: FormData) {
     contractorId,
     firstContactedOn: (formData.get("firstContactedOn") as string) || null,
     summary: (formData.get("summary") as string) || null,
+    label: (formData.get("label") as string) || null,
   };
 
   const res = await fetch(
@@ -46,6 +47,7 @@ export async function updateBid(formData: FormData) {
   const payload = {
     summary: (formData.get("summary") as string) || null,
     firstContactedOn: (formData.get("firstContactedOn") as string) || null,
+    label: (formData.get("label") as string) || null,
   };
 
   const res = await fetch(`${apiBaseUrl()}/api/bids/${id}`, {
@@ -61,6 +63,26 @@ export async function updateBid(formData: FormData) {
   // Refresh the bid detail, then return to it (the edit form is its own route).
   revalidatePath(`/bids/${id}`);
   redirect(`/bids/${id}`);
+}
+
+// Duplicate a bid in place: the backend clones it for the same contractor on the same work
+// package (a new offer, e.g. a "Buget" variant of a "Premium" one) with a fresh discussion log,
+// then we jump to the copy so it can be tweaked.
+export async function duplicateBid(formData: FormData) {
+  const id = formData.get("id") as string;
+  if (!id) return;
+
+  const res = await fetch(`${apiBaseUrl()}/api/bids/${id}/duplicate`, {
+    method: "POST",
+  });
+
+  if (!res.ok) {
+    throw new Error(await describeApiError(res, "common.actionError"));
+  }
+
+  const created = (await res.json()) as { id: string; workPackageId: string };
+  revalidatePath(`/work-packages/${created.workPackageId}`);
+  redirect(`/bids/${created.id}`);
 }
 
 // Move a bid through its lifecycle. Selecting a winner rejects the rival bids on the

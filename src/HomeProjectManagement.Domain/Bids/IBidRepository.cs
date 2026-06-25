@@ -20,13 +20,4 @@ public interface IBidRepository : IRepository<Bid, BidId>
     Task<IReadOnlyList<Bid>> ListByContractorAsync(
         ContractorId contractorId,
         CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Whether a bid already exists for the given work-package/contractor pair — the "one bid per
-    /// pair" invariant checked by the application service before opening a new one.
-    /// </summary>
-    Task<bool> ExistsForPairAsync(
-        WorkPackageId workPackageId,
-        ContractorId contractorId,
-        CancellationToken cancellationToken = default);
 }

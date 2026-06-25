@@ -28,14 +28,6 @@ public sealed class BidRepository(AppDbContext db) : IBidRepository
             .Where(b => b.ContractorId == contractorId)
             .ToListAsync(cancellationToken);
 
-    public async Task<bool> ExistsForPairAsync(
-        WorkPackageId workPackageId,
-        ContractorId contractorId,
-        CancellationToken cancellationToken = default) =>
-        await db.Bids.AnyAsync(
-            b => b.WorkPackageId == workPackageId && b.ContractorId == contractorId,
-            cancellationToken);
-
     public void Add(Bid root) => db.Bids.Add(root);
 
     public void Remove(Bid root) => db.Bids.Remove(root);

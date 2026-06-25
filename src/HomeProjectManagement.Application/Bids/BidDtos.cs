@@ -14,6 +14,7 @@ public sealed record BidDto(
     DateTimeOffset? FirstContactedOn,
     DateTimeOffset? ExpectedBoqDate,
     string? Summary,
+    string? Label,
     IReadOnlyList<DiscussionNoteDto> Notes,
     DateTimeOffset CreatedAt);
 
@@ -27,12 +28,14 @@ public sealed record DiscussionNoteDto(
 
 /// <summary>
 /// Input for opening a contractor's bid on a work package. The owning work package comes from
-/// the route, not the body. A freshly opened bid starts in status <c>InDiscussion</c>.
+/// the route, not the body. A freshly opened bid starts in status <c>InDiscussion</c>. The
+/// optional <see cref="Label"/> tells apart several bids from the same contractor on one package.
 /// </summary>
 public sealed record OpenBidCommand(
     Guid ContractorId,
     DateTimeOffset? FirstContactedOn,
-    string? Summary);
+    string? Summary,
+    string? Label);
 
 /// <summary>Input for editing a bid's summary and first-contact date.</summary>
 /// <remarks>
@@ -42,7 +45,8 @@ public sealed record OpenBidCommand(
 /// </remarks>
 public sealed record UpdateBidCommand(
     string? Summary,
-    DateTimeOffset? FirstContactedOn);
+    DateTimeOffset? FirstContactedOn,
+    string? Label);
 
 /// <summary>
 /// Input for transitioning a bid's status. Moving to <c>BoqExpected</c> records the optional

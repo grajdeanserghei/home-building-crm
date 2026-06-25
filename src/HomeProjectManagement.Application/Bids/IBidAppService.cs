@@ -17,10 +17,16 @@ public interface IBidAppService
 
     /// <summary>
     /// Open a contractor's bid on a work package. Returns null if the work package or the
-    /// contractor does not exist. Throws <see cref="InvalidOperationException"/> if a bid already
-    /// exists for that pair (the "one bid per pair" invariant).
+    /// contractor does not exist. A contractor may hold several bids on one package (variants).
     /// </summary>
     Task<BidDto?> OpenAsync(Guid workPackageId, OpenBidCommand command, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Duplicate an existing bid in place — same work package and contractor, carrying over its
+    /// summary, first-contact date and (suffixed) label, with a fresh discussion log. Returns null
+    /// if the source bid does not exist.
+    /// </summary>
+    Task<BidDto?> DuplicateAsync(Guid id, CancellationToken cancellationToken = default);
 
     Task<BidDto?> UpdateAsync(Guid id, UpdateBidCommand command, CancellationToken cancellationToken = default);
 

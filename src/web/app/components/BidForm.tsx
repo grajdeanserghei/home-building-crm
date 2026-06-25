@@ -57,6 +57,12 @@ export function BidForm({
         </select>
       )}
 
+      <input
+        name="label"
+        placeholder={t("bids.labelPlaceholder")}
+        defaultValue={bid?.label ?? ""}
+      />
+
       <label className={styles.fieldLabel}>
         {t("bids.firstContacted")}
         <input

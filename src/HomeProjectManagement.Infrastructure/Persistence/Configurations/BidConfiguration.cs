@@ -20,8 +20,12 @@ public sealed class BidConfiguration : IEntityTypeConfiguration<Bid>
         builder.Property(b => b.WorkPackageId).IsRequired();
         builder.Property(b => b.ContractorId).IsRequired();
 
-        // One bid per work-package/contractor pair (the aggregate's headline invariant).
-        builder.HasIndex(b => new { b.WorkPackageId, b.ContractorId }).IsUnique();
+        // A contractor may submit several bids on one work package (variants such as "Premium" /
+        // "Buget"). Non-unique indexes back the per-work-package and per-contractor list queries.
+        // The WorkPackageId index is named explicitly so EF keeps it distinct from the filtered
+        // "one Selected per work package" index below (which is also keyed on WorkPackageId).
+        builder.HasIndex(b => b.WorkPackageId, "IX_bids_WorkPackageId");
+        builder.HasIndex(b => b.ContractorId);
 
         // At most one Selected bid per work package. A filtered unique index enforces it at the
         // database level, backing the application-service coordination that rejects the rivals.
@@ -36,6 +40,7 @@ public sealed class BidConfiguration : IEntityTypeConfiguration<Bid>
         builder.Property(b => b.FirstContactedOn);
         builder.Property(b => b.ExpectedBoqDate);
         builder.Property(b => b.Summary).HasMaxLength(1000);
+        builder.Property(b => b.Label).HasMaxLength(120);
 
         // Discussion notes are internal entities owned by the bid: a child table whose rows live
         // and die with the bid and are loaded with it.

@@ -206,8 +206,6 @@ export const ro = {
     "Deschide o ofertă cu un antreprenor pentru acest pachet de lucrări.",
   "workPackages.noContractors":
     "Niciun antreprenor înregistrat încă — adaugă unul mai întâi în secțiunea Antreprenori.",
-  "workPackages.allContractorsBid":
-    "Fiecare antreprenor înregistrat are deja o ofertă pentru acest pachet de lucrări.",
   "workPackages.openBid": "Deschide ofertă",
   "workPackages.bidsTitle": "Oferte",
   "workPackages.bidsEmpty": "Nicio ofertă încă.",
@@ -362,6 +360,10 @@ export const ro = {
   "bids.thisContractor": "acest antreprenor",
   "bids.selectContractor": "Selectează antreprenorul…",
   "bids.summaryPlaceholder": "Rezumat (ex. a ofertat 120k, răspunde greu)",
+  "bids.label": "Etichetă",
+  "bids.labelPlaceholder": "Etichetă (ex. Premium, Buget)",
+  "bids.duplicate": "Duplică oferta",
+  "bids.duplicating": "Se duplică…",
   "bids.deleteTitle": "Ștergi oferta?",
   "bids.deleteBody":
     "Această acțiune va șterge definitiv oferta de la {name}, împreună cu notele ei de discuție. Acțiunea nu poate fi anulată.",

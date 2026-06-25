@@ -47,6 +47,14 @@ public static class BidEndpoints
                     ? Results.Ok(updated)
                     : Results.NotFound());
 
+        // Duplicate a bid in place: clones it for the same contractor on the same work package as a
+        // new offer (a root, hence Created), so a contractor can submit Premium/Buget variants.
+        bids.MapPost("/{id:guid}/duplicate",
+            async (Guid id, IBidAppService service, CancellationToken ct) =>
+                await service.DuplicateAsync(id, ct) is { } created
+                    ? Results.Created($"/api/bids/{created.Id}", created)
+                    : Results.NotFound());
+
         bids.MapPost("/{id:guid}/status",
             async (Guid id, ChangeBidStatusCommand command, IBidAppService service, CancellationToken ct) =>
                 await service.ChangeStatusAsync(id, command, ct) is { } updated

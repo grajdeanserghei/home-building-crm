@@ -8,11 +8,11 @@ namespace HomeProjectManagement.Application.Bids;
 
 /// <summary>
 /// Thin orchestration over the <see cref="Bid"/> aggregate: load via the repository port, invoke
-/// domain behaviour, commit through the unit of work. It enforces "one bid per work-package/
-/// contractor pair" (checked before opening). Selecting a bid is <b>not</b> done here — it is one
-/// inseparable part of the atomic award flow in the Contract app service, so requests to set a bid
-/// to <c>Selected</c> are rejected with a pointer there. Audit fields are stamped inside the unit
-/// of work.
+/// domain behaviour, commit through the unit of work. A contractor may hold several bids on one
+/// work package (variants), so opening is unconstrained. Selecting a bid is <b>not</b> done here —
+/// it is one inseparable part of the atomic award flow in the Contract app service, so requests to
+/// set a bid to <c>Selected</c> are rejected with a pointer there. Audit fields are stamped inside
+/// the unit of work.
 /// </summary>
 public sealed class BidAppService(
     IBidRepository repository,
@@ -62,24 +62,35 @@ public sealed class BidAppService(
             return null;
         }
 
-        // One bid per (work package, contractor) pair. The unique index is the backstop; this
-        // check turns the race-free common case into a clear conflict rather than a DB exception.
-        if (await repository.ExistsForPairAsync(workPackage.Id, contractor.Id, cancellationToken))
-        {
-            throw new DomainConflictException(
-                "A bid already exists for this contractor on this work package.");
-        }
-
         var bid = Bid.Open(
             workPackage.Id,
             contractor.Id,
             timeProvider.GetUtcNow(),
             command.FirstContactedOn,
-            command.Summary);
+            command.Summary,
+            command.Label);
 
         repository.Add(bid);
         await unitOfWork.CommitAsync(cancellationToken);
         return ToDto(bid);
+    }
+
+    public async Task<BidDto?> DuplicateAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var source = await repository.GetAsync(new BidId(id), cancellationToken);
+        if (source is null)
+        {
+            return null;
+        }
+
+        // Clone in place: same work package and contractor, a fresh discussion log. Mark the copy
+        // so the two variants are distinguishable at a glance.
+        var copy = Bid.DuplicateFrom(source, timeProvider.GetUtcNow());
+        copy.Relabel(source.Label is null ? null : $"{source.Label} (copie)");
+
+        repository.Add(copy);
+        await unitOfWork.CommitAsync(cancellationToken);
+        return ToDto(copy);
     }
 
     public async Task<BidDto?> UpdateAsync(
@@ -95,6 +106,7 @@ public sealed class BidAppService(
 
         bid.Summarize(command.Summary);
         bid.SetFirstContact(command.FirstContactedOn);
+        bid.Relabel(command.Label);
 
         await unitOfWork.CommitAsync(cancellationToken);
         return ToDto(bid);
@@ -185,6 +197,7 @@ public sealed class BidAppService(
         bid.FirstContactedOn,
         bid.ExpectedBoqDate,
         bid.Summary,
+        bid.Label,
         bid.Notes
             .OrderBy(n => n.OccurredOn)
             .Select(n => new DiscussionNoteDto(n.Id.Value, n.Type, n.OccurredOn, n.AuthorId.Value, n.Content))

@@ -433,6 +433,8 @@ export interface Bid {
   firstContactedOn?: string | null;
   expectedBoqDate?: string | null;
   summary?: string | null;
+  // Short variant label (e.g. "Premium", "Buget") telling apart a contractor's bids on one package.
+  label?: string | null;
   notes: DiscussionNote[]; // oldest first
   createdAt: string;
 }

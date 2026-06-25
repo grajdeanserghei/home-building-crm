@@ -16,7 +16,8 @@ namespace HomeProjectManagement.McpServer.Tools;
 public static class BidTools
 {
     [McpServerTool(Name = "open_bid"), Description(
-        "Open a bid linking a contractor to a work package (one bid per contractor per work package). " +
+        "Open a bid linking a contractor to a work package. A contractor may hold several bids on the " +
+        "same work package (variants such as \"Premium\" and \"Buget\") — pass a label to tell them apart. " +
         "A fresh bid starts InDiscussion. Optionally records an opening discussion note — use this for " +
         "the lead's provenance, e.g. \"Potential contractor, recommended by Luci\". Resolve the " +
         "workPackageId via list_work_packages and the contractorId via list_contractors/register_contractor " +
@@ -27,12 +28,13 @@ public static class BidTools
         [Description("The participating contractor.")] Guid contractorId,
         [Description("Date discussions began (absolute ISO timestamp), if known.")] DateTimeOffset? firstContactedOn = null,
         [Description("Short standing/summary of the bid, if any.")] string? summary = null,
+        [Description("Short variant label distinguishing this bid from the contractor's other bids on the package (e.g. \"Premium\").")] string? label = null,
         [Description("Optional opening note text (e.g. how the lead surfaced).")] string? openingNote = null,
         [Description("Type of the opening note: Meeting, Call, Email, or Note. Defaults to Note.")] NoteType openingNoteType = NoteType.Note,
         [Description("When the opening note's interaction occurred (absolute ISO timestamp). Defaults to now if a note is given.")] DateTimeOffset? openingNoteOccurredOn = null,
         CancellationToken ct = default)
     {
-        var opened = await service.OpenAsync(workPackageId, new OpenBidCommand(contractorId, firstContactedOn, summary), ct)
+        var opened = await service.OpenAsync(workPackageId, new OpenBidCommand(contractorId, firstContactedOn, summary, label), ct)
                      ?? throw new McpException(
                          $"Could not open the bid: work package {workPackageId} or contractor {contractorId} was not found.");
 

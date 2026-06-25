@@ -149,6 +149,7 @@ export default async function WorkPackageDetailPage({
                         {contractorName.get(b.contractorId) ??
                           t("workPackages.unknownContractor")}
                       </strong>
+                      {b.label ? <> · {b.label}</> : null}
                     </Link>
                     {contractorReference.get(b.contractorId) ? (
                       <div className={styles.muted}>

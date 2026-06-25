@@ -142,6 +142,9 @@ export default async function ProjectBidsPage({
                         <h3>
                           {contractor?.name ??
                             t("workPackages.unknownContractor")}
+                          {b.label ? (
+                            <span className={styles.muted}> · {b.label}</span>
+                          ) : null}
                         </h3>
                         <span
                           className={`${styles.badge} ${styles[`status${b.status}`]}`}
