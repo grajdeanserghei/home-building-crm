@@ -89,6 +89,7 @@ export const ro = {
   // — Common UI (verbs, shared labels, states) ————————————————————————————
   "common.actions": "Acțiuni",
   "common.edit": "Editează",
+  "common.duplicate": "Duplică",
   "common.delete": "Șterge",
   "common.save": "Salvează",
   "common.saveChanges": "Salvează modificările",

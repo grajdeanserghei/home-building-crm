@@ -235,6 +235,27 @@ public sealed class BillOfQuantitiesAppService(
         return ToDto(boq);
     }
 
+    public async Task<BillOfQuantitiesDto?> DuplicateLineItemAsync(
+        Guid id,
+        Guid lineItemId,
+        CancellationToken cancellationToken = default)
+    {
+        var boq = await repository.GetAsync(new BoqId(id), cancellationToken);
+        if (boq is null)
+        {
+            return null;
+        }
+
+        var copy = boq.DuplicateLineItem(new LineItemId(lineItemId));
+        if (copy is null)
+        {
+            return null;
+        }
+
+        await unitOfWork.CommitAsync(cancellationToken);
+        return ToDto(boq);
+    }
+
     public async Task<AddBoqLineItemsResult?> AddLineItemsAsync(
         Guid id,
         Guid sectionId,

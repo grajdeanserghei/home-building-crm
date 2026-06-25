@@ -47,6 +47,12 @@ public interface IBillOfQuantitiesAppService
     Task<BillOfQuantitiesDto?> AddLineItemAsync(Guid id, Guid sectionId, LineItemCommand command, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Duplicate a line item (anywhere in the BoQ) — an identical copy placed directly below the
+    /// source within its container. Returns null if the BoQ or line item is absent.
+    /// </summary>
+    Task<BillOfQuantitiesDto?> DuplicateLineItemAsync(Guid id, Guid lineItemId, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Bulk-add priced lines to a section, normalising each line's free-text unit token onto an
     /// active canonical unit of measure. Resolvable lines are persisted; lines whose unit could not
     /// be matched are returned flagged (the batch is not failed by a single bad unit). The result's

@@ -360,6 +360,40 @@ public sealed class BillOfQuantities : AggregateRoot<BoqId>
         Remove(_lineItems.FirstOrDefault(li => li.Id == lineItemId && li.SectionId == sectionId && li.SubsectionId == subsectionId));
 
     /// <summary>
+    /// Duplicate a line item: create an identical copy (new id, same priced data) and place it
+    /// directly below the source within the same container, renumbering that container dense 1..N.
+    /// Returns the new line, or null if no line with that id exists. Allowed only while editable.
+    /// </summary>
+    public LineItem? DuplicateLineItem(LineItemId lineItemId)
+    {
+        EnsureMutable();
+
+        var source = _lineItems.FirstOrDefault(li => li.Id == lineItemId);
+        if (source is null)
+        {
+            return null;
+        }
+
+        // Clone the owned value objects into fresh instances — an EF owned entity (UnitPrice, VatRate)
+        // cannot be shared between two owners, so the copy must not reuse the source's instances.
+        var copy = AddLine(
+            source.SectionId, source.SubsectionId, source.Description, source.Quantity,
+            source.UnitOfMeasureId,
+            new Money(source.UnitPrice.Amount, source.UnitPrice.Currency),
+            new VatRate(source.VatRate.Percentage),
+            source.Sequence, source.Notes);
+
+        var container = _lineItems
+            .Where(li => li.SectionId == source.SectionId && li.SubsectionId == source.SubsectionId && li.Id != copy.Id)
+            .OrderBy(li => li.Sequence)
+            .ToList();
+        var sourceIndex = container.FindIndex(li => li.Id == source.Id);
+        PlaceInContainer(copy, source.SectionId, source.SubsectionId, sourceIndex + 1);
+
+        return copy;
+    }
+
+    /// <summary>
     /// Move a line item to a target container — a section's direct list when
     /// <paramref name="targetSubsectionId"/> is null, otherwise the named subsection — and place it at
     /// <paramref name="targetIndex"/> (0-based, clamped to the container's size). The line keeps its id

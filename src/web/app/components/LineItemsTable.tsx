@@ -22,6 +22,9 @@ interface LineItemsTableProps {
   editHrefBase: string;
   // The server action that removes a line (removeLineItem / removeSubsectionLineItem).
   removeAction: (formData: FormData) => void | Promise<void>;
+  // The server action that duplicates a line in place (keyed only by line id, so one action
+  // serves both the section and subsection tables).
+  duplicateAction: (formData: FormData) => void | Promise<void>;
 }
 
 /**
@@ -38,6 +41,7 @@ export function LineItemsTable({
   subsectionId,
   editHrefBase,
   removeAction,
+  duplicateAction,
 }: LineItemsTableProps) {
   if (lineItems.length === 0) {
     return <p>{t("lineItems.empty")}</p>;
@@ -78,6 +82,13 @@ export function LineItemsTable({
                   <Link href={`${editHrefBase}/${li.id}/edit`} className={styles.edit}>
                     {t("common.edit")}
                   </Link>
+                  <form action={duplicateAction}>
+                    <input type="hidden" name="boqId" value={boqId} />
+                    <input type="hidden" name="lineItemId" value={li.id} />
+                    <button type="submit" className={styles.edit}>
+                      {t("common.duplicate")}
+                    </button>
+                  </form>
                   <ConfirmDeleteButton
                     action={removeAction}
                     fields={{

@@ -473,6 +473,26 @@ export async function removeLineItem(formData: FormData) {
   revalidatePath(`/bills-of-quantities/${boqId}`);
 }
 
+// Duplicate a line (section-direct or subsection): one click, no confirmation, no redirect. The
+// copy lands directly below the source with the container renumbered; revalidatePath refreshes the
+// read-only detail in place. Keyed only by line id — the duplicate route resolves its container.
+export async function duplicateLineItem(formData: FormData) {
+  const boqId = formData.get("boqId") as string;
+  const lineItemId = formData.get("lineItemId") as string;
+  if (!boqId || !lineItemId) return;
+
+  const res = await fetch(
+    `${apiBaseUrl()}/api/bills-of-quantities/${boqId}/line-items/${lineItemId}/duplicate`,
+    { method: "POST" },
+  );
+
+  if (!res.ok) {
+    throw new Error(await describeApiError(res, "common.actionError"));
+  }
+
+  revalidatePath(`/bills-of-quantities/${boqId}`);
+}
+
 // Modal line-item forms ---------------------------------------------------
 // The add/revise actions above are bound to full-page form routes and redirect() back to the
 // detail page on success — which lands at the top, losing the reader's place. The intercepting

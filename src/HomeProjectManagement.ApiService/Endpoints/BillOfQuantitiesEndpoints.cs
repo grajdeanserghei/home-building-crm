@@ -110,6 +110,13 @@ public static class BillOfQuantitiesEndpoints
                     ? Results.NoContent()
                     : Results.NotFound());
 
+        // Duplicate any line (section-direct or subsection) — keyed only by line id, which is unique within the BoQ.
+        boqs.MapPost("/{id:guid}/line-items/{lineItemId:guid}/duplicate",
+            async (Guid id, Guid lineItemId, IBillOfQuantitiesAppService service, CancellationToken ct) =>
+                await service.DuplicateLineItemAsync(id, lineItemId, ct) is { } updated
+                    ? Results.Ok(updated)
+                    : Results.NotFound());
+
         // Reorder a line, or move it between containers (a section's direct list or any subsection),
         // anywhere within the BoQ. One call per drop; returns the BoQ with its containers renumbered.
         boqs.MapPost("/{id:guid}/move-line-item",

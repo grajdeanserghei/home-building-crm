@@ -5,6 +5,7 @@ import { ConfirmDeleteButton } from "@/app/components/ConfirmDeleteButton";
 import { LineItemsTable } from "@/app/components/LineItemsTable";
 import {
   deleteBoq,
+  duplicateLineItem,
   removeLineItem,
   removeSection,
   removeSubsection,
@@ -298,6 +299,7 @@ export default async function BillOfQuantitiesDetailPage({
             sectionId={section.id}
             editHrefBase={`/bills-of-quantities/${boq.id}/sections/${section.id}/line-items`}
             removeAction={removeLineItem}
+            duplicateAction={duplicateLineItem}
           />
 
           {/* Subsections: an optional second level of grouping within the section. */}
@@ -323,6 +325,7 @@ export default async function BillOfQuantitiesDetailPage({
                 subsectionId={subsection.id}
                 editHrefBase={`/bills-of-quantities/${boq.id}/sections/${section.id}/subsections/${subsection.id}/line-items`}
                 removeAction={removeSubsectionLineItem}
+                duplicateAction={duplicateLineItem}
               />
 
               {editable ? (
