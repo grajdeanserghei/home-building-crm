@@ -202,6 +202,8 @@ Tool I/O reuses the existing Application DTOs/commands, so the MCP schema and th
 | Tool | Purpose |
 |---|---|
 | `create_boq` | Create a draft BoQ under a work package (title, pricing currency, optional pinned exchange rate, optional contractor, source-document ref + content hash). Returns `boqId`. |
+| `update_boq` | Edit a BoQ's header in place — budget scope (`budgetScopeKind` / "Tarifat pentru"), reference, pinned exchange rate, submitted/valid-until dates. Omitted fields are left unchanged; pricing currency is fixed. Editable only while Draft/Submitted. |
+| `set_boq_budget_scope` | Focused convenience: change only what the BoQ is priced against (`EntireBuilding` / `PerApartment`), leaving all other header fields untouched. |
 | `add_boq_sections` | Add sections (name, code, sequence). |
 | `add_boq_line_items` | **Bulk** add line items to a section: `{description, unit, quantity, unitPrice}[]`. Server normalises `unit` → `UnitOfMeasureId`, computes totals, returns per-line results flagging unresolved units. |
 | `revise_boq_line_item` | Correct a single line on a draft BoQ. |

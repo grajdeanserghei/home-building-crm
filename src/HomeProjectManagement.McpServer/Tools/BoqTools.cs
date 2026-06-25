@@ -113,6 +113,81 @@ public static class BoqTools
                ?? throw new McpException($"No bill of quantities exists with id {boqId}.");
     }
 
+    [McpServerTool(Name = "update_boq"), Description(
+        "Edit a BoQ's header details in place: what the quote is priced against (budgetScopeKind / " +
+        "'Tarifat pentru'), the contractor's deviz reference, the pinned EUR↔RON exchange rate, and the " +
+        "submitted/valid-until dates. Every argument is optional — omit a field to leave it unchanged " +
+        "(the current value is preserved). The pricing currency is fixed at draft time and cannot change " +
+        "here. Editable only while the BoQ is Draft or Submitted; a closed BoQ (Accepted/Rejected/" +
+        "Withdrawn) is rejected. Set budgetScopeKind to EntireBuilding or PerApartment to change " +
+        "'Tarifat pentru'. To pin a new rate, supply all four exchangeRate* fields together. Returns the " +
+        "updated BoQ.")]
+    public static async Task<BillOfQuantitiesDto> UpdateBoq(
+        IBillOfQuantitiesAppService service,
+        [Description("The BoQ id (from get_bid_boq / get_boq).")] Guid boqId,
+        [Description("The contractor's own deviz number/label. Omit to keep the current reference.")] string? reference = null,
+        [Description("What the deviz is priced against: EntireBuilding or PerApartment. Omit to keep the current scope.")] BudgetScopeKind? budgetScopeKind = null,
+        [Description("When the quote was received (absolute ISO timestamp). Omit to keep the current value.")] DateTimeOffset? submittedOn = null,
+        [Description("Offer expiry (absolute ISO timestamp). Omit to keep the current value.")] DateTimeOffset? validUntil = null,
+        [Description("Pinned exchange rate base currency (e.g. EUR). Supply all four exchangeRate* fields to pin a rate; omit all to keep the current rate.")] Currency? exchangeRateBaseCurrency = null,
+        [Description("Pinned exchange rate quote currency (e.g. RON).")] Currency? exchangeRateQuoteCurrency = null,
+        [Description("Pinned exchange rate value (units of quote per base).")] decimal? exchangeRate = null,
+        [Description("The date the pinned rate is as-of (yyyy-MM-dd).")] DateOnly? exchangeRateAsOf = null,
+        CancellationToken ct = default)
+    {
+        var boq = await service.GetAsync(boqId, ct)
+                  ?? throw new McpException($"No bill of quantities exists with id {boqId}.");
+
+        ExchangeRateDto? rate;
+        if (exchangeRateBaseCurrency is { } baseCurrency
+            && exchangeRateQuoteCurrency is { } quoteCurrency
+            && exchangeRate is { } value
+            && exchangeRateAsOf is { } asOf)
+        {
+            rate = new ExchangeRateDto(baseCurrency, quoteCurrency, value, asOf);
+        }
+        else
+        {
+            rate = boq.ExchangeRate;
+        }
+
+        var command = new UpdateBillOfQuantitiesCommand(
+            reference ?? boq.Reference,
+            rate,
+            submittedOn ?? boq.SubmittedOn,
+            validUntil ?? boq.ValidUntil,
+            budgetScopeKind ?? boq.BudgetScopeKind);
+
+        return await service.UpdateAsync(boqId, command, ct)
+               ?? throw new McpException($"No bill of quantities exists with id {boqId}.");
+    }
+
+    [McpServerTool(Name = "set_boq_budget_scope"), Description(
+        "Change what a BoQ is priced against ('Tarifat pentru'): EntireBuilding (the whole building) or " +
+        "PerApartment (the price for a single apartment, whose build-wide cost is that total times the " +
+        "project's apartment count). Leaves every other header field (reference, exchange rate, dates) " +
+        "untouched. Editable only while the BoQ is Draft or Submitted; a closed BoQ is rejected. Returns " +
+        "the updated BoQ.")]
+    public static async Task<BillOfQuantitiesDto> SetBoqBudgetScope(
+        IBillOfQuantitiesAppService service,
+        [Description("The BoQ id (from get_bid_boq / get_boq).")] Guid boqId,
+        [Description("What the deviz is priced against: EntireBuilding or PerApartment.")] BudgetScopeKind budgetScopeKind,
+        CancellationToken ct = default)
+    {
+        var boq = await service.GetAsync(boqId, ct)
+                  ?? throw new McpException($"No bill of quantities exists with id {boqId}.");
+
+        var command = new UpdateBillOfQuantitiesCommand(
+            boq.Reference,
+            boq.ExchangeRate,
+            boq.SubmittedOn,
+            boq.ValidUntil,
+            budgetScopeKind);
+
+        return await service.UpdateAsync(boqId, command, ct)
+               ?? throw new McpException($"No bill of quantities exists with id {boqId}.");
+    }
+
     [McpServerTool(Name = "add_boq_sections"), Description(
         "Add one or more sections to a draft BoQ (the deviz's chapters). Sequence is assigned automatically " +
         "when omitted. Returns the updated BoQ; read each section's id from it before adding line items.")]
