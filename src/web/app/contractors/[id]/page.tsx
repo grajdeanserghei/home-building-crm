@@ -121,6 +121,8 @@ export default async function ContractorDetailPage({
           selectPlaceholder={t("contractors.selectTrade")}
           allAssignedLabel={t("contractors.allTradesAssigned")}
           removeAriaLabel={(name) => t("contractors.removeTradeAria", { name })}
+          removeTitle={t("contractors.removeTradeTitle")}
+          removeBodyTemplate={t("contractors.removeTradeBody")}
         />
       </section>
 

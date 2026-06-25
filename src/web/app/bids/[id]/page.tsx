@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { deleteBid, removeBidNote } from "@/app/bids/actions";
+import { ConfirmDeleteButton } from "@/app/components/ConfirmDeleteButton";
 import {
   BID_STATUS_LABELS,
   BID_STATUSES,
@@ -120,17 +121,13 @@ export default async function BidDetailPage({
           <Link href={`/bids/${bid.id}/edit`} className={styles.edit}>
             {t("common.edit")}
           </Link>
-          <form action={deleteBid}>
-            <input type="hidden" name="id" value={bid.id} />
-            <input
-              type="hidden"
-              name="workPackageId"
-              value={bid.workPackageId}
-            />
-            <button type="submit" className={styles.delete}>
-              {t("common.delete")}
-            </button>
-          </form>
+          <ConfirmDeleteButton
+            action={deleteBid}
+            fields={{ id: bid.id, workPackageId: bid.workPackageId }}
+            title={t("bids.deleteTitle")}
+            bodyTemplate={t("bids.deleteBody")}
+            name={contractorName}
+          />
         </div>
       </section>
 
@@ -236,13 +233,15 @@ export default async function BidDetailPage({
                     <td className={styles.multilineCell}>{n.content}</td>
                     <td>
                       <div className={styles.actions}>
-                        <form action={removeBidNote}>
-                          <input type="hidden" name="bidId" value={bid.id} />
-                          <input type="hidden" name="noteId" value={n.id} />
-                          <button type="submit" className={styles.delete}>
-                            {t("common.remove")}
-                          </button>
-                        </form>
+                        <ConfirmDeleteButton
+                          action={removeBidNote}
+                          fields={{ bidId: bid.id, noteId: n.id }}
+                          title={t("notes.removeTitle")}
+                          bodyTemplate={t("notes.removeBody")}
+                          name={NOTE_TYPE_LABELS[n.type]}
+                          triggerLabel={t("common.remove")}
+                          confirmLabel={t("common.remove")}
+                        />
                       </div>
                     </td>
                   </tr>

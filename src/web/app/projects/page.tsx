@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { deleteProject } from "../actions";
-import { DeleteProjectButton } from "../components/DeleteProjectButton";
+import { ConfirmDeleteButton } from "../components/ConfirmDeleteButton";
 import {
   getProjects,
   PROJECT_STATUS_LABELS,
@@ -103,10 +103,12 @@ export default async function ProjectsPage() {
                       >
                         {t("common.edit")}
                       </Link>
-                      <DeleteProjectButton
+                      <ConfirmDeleteButton
                         action={deleteProject}
-                        projectId={p.id}
-                        projectName={p.name}
+                        fields={{ id: p.id }}
+                        title={t("projects.deleteTitle")}
+                        bodyTemplate={t("projects.deleteBody")}
+                        name={p.name}
                       />
                     </div>
                   </td>

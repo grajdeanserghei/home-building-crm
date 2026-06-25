@@ -174,8 +174,8 @@ export const ro = {
   "projects.edit": "Editează proiectul",
   "projects.editSubtitle": "Actualizează detaliile pentru „{name}”.",
   "projects.deleteTitle": "Ștergi proiectul?",
-  "projects.deleteBodyBefore": "Această acțiune va șterge definitiv",
-  "projects.deleteBodyAfter": ". Acțiunea nu poate fi anulată.",
+  "projects.deleteBody":
+    "Această acțiune va șterge definitiv {name}. Acțiunea nu poate fi anulată.",
 
   // — Work packages (detail page on the project, table columns) ————————————
   "workPackages.new": "Pachet de lucrări nou",
@@ -224,6 +224,12 @@ export const ro = {
   "workPackages.requiredTradesHint":
     "Meseriile pe care le necesită acest pachet de lucrări (Ctrl/Cmd + clic pentru a selecta mai multe).",
   "workPackages.requiredTradesEmpty": "Nicio meserie necesară specificată.",
+  "workPackages.deleteTitle": "Ștergi pachetul de lucrări?",
+  "workPackages.deleteBody":
+    "Această acțiune va șterge definitiv {name}. Acțiunea nu poate fi anulată.",
+  "workPackages.removeTradeTitle": "Elimini meseria necesară?",
+  "workPackages.removeTradeBody":
+    "Această acțiune va elimina meseria {name} dintre cele necesare. O poți adăuga din nou oricând.",
 
   // — Project budget (cost rollup per work package) ——————————————————————
   "budget.link": "Buget",
@@ -279,6 +285,9 @@ export const ro = {
     "Numele lucrării (ex. Încălzire pardoseală)",
   "scopeItems.orderPlaceholder": "Ordine",
   "scopeItems.notesPlaceholder": "Note (opțional)",
+  "scopeItems.removeTitle": "Elimini lucrarea?",
+  "scopeItems.removeBody":
+    "Această acțiune va elimina {name} din pachetul de lucrări. Acțiunea nu poate fi anulată.",
 
   // — Bids ————————————————————————————————————————————————————————————————
   "bids.unknownContractor": "Antreprenor necunoscut",
@@ -311,6 +320,9 @@ export const ro = {
   "bids.thisContractor": "acest antreprenor",
   "bids.selectContractor": "Selectează antreprenorul…",
   "bids.summaryPlaceholder": "Rezumat (ex. a ofertat 120k, răspunde greu)",
+  "bids.deleteTitle": "Ștergi oferta?",
+  "bids.deleteBody":
+    "Această acțiune va șterge definitiv oferta de la {name}, împreună cu notele ei de discuție. Acțiunea nu poate fi anulată.",
 
   // — Discussion notes (within a bid) ——————————————————————————————————————
   "notes.logHeading": "Înregistrează o notă",
@@ -325,6 +337,9 @@ export const ro = {
   "notes.occurredOn": "A avut loc pe",
   "notes.contentPlaceholder": "Ce s-a discutat",
   "notes.logNote": "Înregistrează nota",
+  "notes.removeTitle": "Elimini nota?",
+  "notes.removeBody":
+    "Această acțiune va elimina nota de tip {name} din jurnalul de discuții. Acțiunea nu poate fi anulată.",
 
   // — Bills of quantities (deviz) ——————————————————————————————————————————
   "boq.title": "Deviz",
@@ -388,6 +403,9 @@ export const ro = {
   "boq.awardTitle": "Atribuie contract",
   "boq.noSectionsYet":
     "Acest deviz nu are încă secțiuni. Adăugați prima secțiune pentru a începe.",
+  "boq.deleteTitle": "Ștergi devizul?",
+  "boq.deleteBody":
+    "Această acțiune va șterge definitiv {name}, împreună cu secțiunile și articolele lui. Acțiunea nu poate fi anulată.",
 
   // — Sections (within a BoQ) ——————————————————————————————————————————————
   "sections.add": "Adaugă secțiune",
@@ -397,6 +415,9 @@ export const ro = {
   "sections.editTitle": "Editează secțiunea",
   "sections.editSubtitle": "Modificați numele, ordinea sau descrierea secțiunii.",
   "sections.remove": "Elimină secțiunea",
+  "sections.removeTitle": "Elimini secțiunea?",
+  "sections.removeBody":
+    "Această acțiune va elimina secțiunea {name}, împreună cu articolele ei. Acțiunea nu poate fi anulată.",
   "sections.namePlaceholder": "Nume secțiune (ex. Fundație)",
   "sections.orderPlaceholder": "Ordine",
 
@@ -407,6 +428,9 @@ export const ro = {
   "subsections.editSubtitle":
     "Modificați numele, ordinea sau descrierea subcapitolului.",
   "subsections.remove": "Elimină subcapitolul",
+  "subsections.removeTitle": "Elimini subcapitolul?",
+  "subsections.removeBody":
+    "Această acțiune va elimina subcapitolul {name}, împreună cu articolele lui. Acțiunea nu poate fi anulată.",
   "subsections.namePlaceholder": "Nume subcapitol (ex. Săpături)",
   "subsections.heading": "Subcapitole",
   "subsections.addLine": "Adaugă articol în subcapitol",
@@ -421,6 +445,9 @@ export const ro = {
   "lineItems.editSubtitle": "Modificați descrierea, cantitatea, prețul sau cota TVA.",
   "lineItems.incomplete": "Completați toate câmpurile obligatorii.",
   "lineItems.empty": "Niciun articol încă.",
+  "lineItems.removeTitle": "Elimini articolul?",
+  "lineItems.removeBody":
+    "Această acțiune va elimina {name} din listă. Acțiunea nu poate fi anulată.",
   "lineItems.noActiveUnits":
     "Nicio unitate de măsură activă — adăugați una la Unități de măsură mai întâi.",
   "lineItems.descriptionPlaceholder": "Descriere articol (ex. beton C25/30)",
@@ -475,8 +502,11 @@ export const ro = {
     "Sursă / recomandare — cine a recomandat firma, cine ține legătura (opțional)",
   "contractors.notesPlaceholder": "Note detaliate despre firmă (opțional)",
   "contractors.deleteTitle": "Ștergi antreprenorul?",
-  "contractors.deleteBodyBefore": "Aceasta va șterge definitiv",
-  "contractors.deleteBodyAfter": ". Această acțiune nu poate fi anulată.",
+  "contractors.deleteBody":
+    "Aceasta va șterge definitiv {name}. Această acțiune nu poate fi anulată.",
+  "contractors.removeTradeTitle": "Elimini meseria?",
+  "contractors.removeTradeBody":
+    "Această acțiune va elimina meseria {name} de la acest antreprenor. O poți adăuga din nou oricând.",
 
   // — Contracts ————————————————————————————————————————————————————————————
   "contracts.title": "Contracte",
@@ -522,6 +552,9 @@ export const ro = {
   "contracts.currency": "Monedă",
   "contracts.valuePlaceholder": "ex. 125000",
   "contracts.notesPlaceholder": "Note (opțional)",
+  "contracts.deleteTitle": "Ștergi contractul?",
+  "contracts.deleteBody":
+    "Această acțiune va șterge definitiv {name}. Acțiunea nu poate fi anulată.",
 
   // — Units of measure —————————————————————————————————————————————————————
   "unitsOfMeasure.title": "Unități de măsură",

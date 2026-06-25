@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ConfirmDeleteButton } from "@/app/components/ConfirmDeleteButton";
 import type { LineItem } from "@/app/lib/api";
 import { formatMoney, formatNumber, formatPercent } from "@/app/lib/format";
 import { t } from "@/app/lib/i18n";
@@ -77,17 +78,20 @@ export function LineItemsTable({
                   <Link href={`${editHrefBase}/${li.id}/edit`} className={styles.edit}>
                     {t("common.edit")}
                   </Link>
-                  <form action={removeAction}>
-                    <input type="hidden" name="boqId" value={boqId} />
-                    <input type="hidden" name="sectionId" value={sectionId} />
-                    {subsectionId ? (
-                      <input type="hidden" name="subsectionId" value={subsectionId} />
-                    ) : null}
-                    <input type="hidden" name="lineItemId" value={li.id} />
-                    <button type="submit" className={styles.delete}>
-                      {t("common.remove")}
-                    </button>
-                  </form>
+                  <ConfirmDeleteButton
+                    action={removeAction}
+                    fields={{
+                      boqId,
+                      sectionId,
+                      ...(subsectionId ? { subsectionId } : {}),
+                      lineItemId: li.id,
+                    }}
+                    title={t("lineItems.removeTitle")}
+                    bodyTemplate={t("lineItems.removeBody")}
+                    name={li.description}
+                    triggerLabel={t("common.remove")}
+                    confirmLabel={t("common.remove")}
+                  />
                 </div>
               </td>
             ) : null}

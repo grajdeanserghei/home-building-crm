@@ -4,6 +4,7 @@ import {
   changeContractStatus,
   deleteContract,
 } from "@/app/contracts/actions";
+import { ConfirmDeleteButton } from "@/app/components/ConfirmDeleteButton";
 import {
   CONTRACT_STATUS_LABELS,
   CONTRACT_STATUSES,
@@ -147,12 +148,13 @@ export default async function ContractDetailPage({
           <Link href={`/contracts/${contract.id}/edit`} className={styles.edit}>
             {t("common.edit")}
           </Link>
-          <form action={deleteContract}>
-            <input type="hidden" name="id" value={contract.id} />
-            <button type="submit" className={styles.delete}>
-              {t("common.delete")}
-            </button>
-          </form>
+          <ConfirmDeleteButton
+            action={deleteContract}
+            fields={{ id: contract.id }}
+            title={t("contracts.deleteTitle")}
+            bodyTemplate={t("contracts.deleteBody")}
+            name={title}
+          />
         </div>
       </section>
 

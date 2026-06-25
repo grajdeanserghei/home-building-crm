@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BoqDndBoard } from "@/app/components/BoqDndBoard";
+import { ConfirmDeleteButton } from "@/app/components/ConfirmDeleteButton";
 import { LineItemsTable } from "@/app/components/LineItemsTable";
 import {
   deleteBoq,
@@ -234,13 +235,13 @@ export default async function BillOfQuantitiesDetailPage({
               {t("common.edit")}
             </Link>
           ) : null}
-          <form action={deleteBoq}>
-            <input type="hidden" name="id" value={boq.id} />
-            <input type="hidden" name="bidId" value={boq.bidId} />
-            <button type="submit" className={styles.delete}>
-              {t("common.delete")}
-            </button>
-          </form>
+          <ConfirmDeleteButton
+            action={deleteBoq}
+            fields={{ id: boq.id, bidId: boq.bidId }}
+            title={t("boq.deleteTitle")}
+            bodyTemplate={t("boq.deleteBody")}
+            name={boq.reference || t("boq.title")}
+          />
         </div>
       </section>
 
@@ -338,18 +339,19 @@ export default async function BillOfQuantitiesDetailPage({
                   >
                     {t("subsections.edit")}
                   </Link>
-                  <form action={removeSubsection}>
-                    <input type="hidden" name="boqId" value={boq.id} />
-                    <input type="hidden" name="sectionId" value={section.id} />
-                    <input
-                      type="hidden"
-                      name="subsectionId"
-                      value={subsection.id}
-                    />
-                    <button type="submit" className={styles.delete}>
-                      {t("subsections.remove")}
-                    </button>
-                  </form>
+                  <ConfirmDeleteButton
+                    action={removeSubsection}
+                    fields={{
+                      boqId: boq.id,
+                      sectionId: section.id,
+                      subsectionId: subsection.id,
+                    }}
+                    title={t("subsections.removeTitle")}
+                    bodyTemplate={t("subsections.removeBody")}
+                    name={subsection.name}
+                    triggerLabel={t("subsections.remove")}
+                    confirmLabel={t("subsections.remove")}
+                  />
                 </div>
               ) : null}
             </div>
@@ -375,13 +377,15 @@ export default async function BillOfQuantitiesDetailPage({
               >
                 {t("sections.edit")}
               </Link>
-              <form action={removeSection}>
-                <input type="hidden" name="boqId" value={boq.id} />
-                <input type="hidden" name="sectionId" value={section.id} />
-                <button type="submit" className={styles.delete}>
-                  {t("sections.remove")}
-                </button>
-              </form>
+              <ConfirmDeleteButton
+                action={removeSection}
+                fields={{ boqId: boq.id, sectionId: section.id }}
+                title={t("sections.removeTitle")}
+                bodyTemplate={t("sections.removeBody")}
+                name={section.name}
+                triggerLabel={t("sections.remove")}
+                confirmLabel={t("sections.remove")}
+              />
             </div>
           ) : null}
         </section>

@@ -1,3 +1,4 @@
+import { ConfirmDeleteButton } from "@/app/components/ConfirmDeleteButton";
 import styles from "@/app/page.module.css";
 
 // A trade resolved to its display name, plus the id used by the add/remove forms.
@@ -24,6 +25,10 @@ interface TradeChipsProps {
   selectPlaceholder: string;
   allAssignedLabel: string;
   removeAriaLabel: (name: string) => string;
+  // Confirmation strings for removing a chip (UI principle #10). `removeBodyTemplate`
+  // carries a {name} placeholder filled with the trade name.
+  removeTitle: string;
+  removeBodyTemplate: string;
 }
 
 /**
@@ -44,6 +49,8 @@ export function TradeChips({
   selectPlaceholder,
   allAssignedLabel,
   removeAriaLabel,
+  removeTitle,
+  removeBodyTemplate,
 }: TradeChipsProps) {
   return (
     <>
@@ -52,18 +59,19 @@ export function TradeChips({
       ) : (
         <div className={styles.chipList}>
           {assigned.map((tr) => (
-            <form key={tr.id} action={removeAction} className={styles.chip}>
-              <input type="hidden" name={ownerFieldName} value={ownerId} />
-              <input type="hidden" name="tradeId" value={tr.id} />
+            <div key={tr.id} className={styles.chip}>
               <span>{tr.name}</span>
-              <button
-                type="submit"
-                className={styles.chipRemove}
-                aria-label={removeAriaLabel(tr.name)}
-              >
-                ×
-              </button>
-            </form>
+              <ConfirmDeleteButton
+                action={removeAction}
+                fields={{ [ownerFieldName]: ownerId, tradeId: tr.id }}
+                title={removeTitle}
+                bodyTemplate={removeBodyTemplate}
+                name={tr.name}
+                triggerLabel="×"
+                triggerClassName={styles.chipRemove}
+                triggerAriaLabel={removeAriaLabel(tr.name)}
+              />
+            </div>
           ))}
         </div>
       )}

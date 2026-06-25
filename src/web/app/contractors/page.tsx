@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ContractorForm } from "../components/ContractorForm";
-import { DeleteContractorButton } from "../components/DeleteContractorButton";
+import { ConfirmDeleteButton } from "../components/ConfirmDeleteButton";
 import { getContractors, type Contractor } from "../lib/api";
 import { formatDate } from "../lib/format";
 import { t } from "../lib/i18n";
@@ -76,10 +76,12 @@ export default async function ContractorsPage() {
                       >
                         {t("common.edit")}
                       </Link>
-                      <DeleteContractorButton
+                      <ConfirmDeleteButton
                         action={deleteContractor}
-                        contractorId={c.id}
-                        contractorName={c.name}
+                        fields={{ id: c.id }}
+                        title={t("contractors.deleteTitle")}
+                        bodyTemplate={t("contractors.deleteBody")}
+                        name={c.name}
                       />
                     </div>
                   </td>

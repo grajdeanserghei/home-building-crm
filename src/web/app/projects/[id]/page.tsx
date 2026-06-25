@@ -7,6 +7,7 @@ import {
   type WorkPackage,
 } from "@/app/lib/api";
 import { deleteWorkPackage } from "@/app/work-packages/actions";
+import { ConfirmDeleteButton } from "@/app/components/ConfirmDeleteButton";
 import { formatDate } from "@/app/lib/format";
 import { t } from "@/app/lib/i18n";
 import styles from "@/app/page.module.css";
@@ -108,17 +109,13 @@ export default async function ProjectDetailPage({
                       >
                         {t("common.edit")}
                       </Link>
-                      <form action={deleteWorkPackage}>
-                        <input type="hidden" name="id" value={wp.id} />
-                        <input
-                          type="hidden"
-                          name="projectId"
-                          value={project.id}
-                        />
-                        <button type="submit" className={styles.delete}>
-                          {t("common.delete")}
-                        </button>
-                      </form>
+                      <ConfirmDeleteButton
+                        action={deleteWorkPackage}
+                        fields={{ id: wp.id, projectId: project.id }}
+                        title={t("workPackages.deleteTitle")}
+                        bodyTemplate={t("workPackages.deleteBody")}
+                        name={wp.name}
+                      />
                     </div>
                   </td>
                 </tr>

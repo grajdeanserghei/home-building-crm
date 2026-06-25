@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ConfirmDeleteButton } from "@/app/components/ConfirmDeleteButton";
 import { TradeChips } from "@/app/components/TradeChips";
 import {
   addRequiredTrade,
@@ -224,13 +225,13 @@ export default async function WorkPackageDetailPage({
           >
             {t("common.edit")}
           </Link>
-          <form action={deleteWorkPackage}>
-            <input type="hidden" name="id" value={workPackage.id} />
-            <input type="hidden" name="projectId" value={workPackage.projectId} />
-            <button type="submit" className={styles.delete}>
-              {t("common.delete")}
-            </button>
-          </form>
+          <ConfirmDeleteButton
+            action={deleteWorkPackage}
+            fields={{ id: workPackage.id, projectId: workPackage.projectId }}
+            title={t("workPackages.deleteTitle")}
+            bodyTemplate={t("workPackages.deleteBody")}
+            name={workPackage.name}
+          />
         </div>
         <p className={styles.muted}>{t("workPackages.awardingHint")}</p>
       </section>
@@ -249,6 +250,8 @@ export default async function WorkPackageDetailPage({
           selectPlaceholder={t("workPackages.selectTrade")}
           allAssignedLabel={t("workPackages.allTradesRequired")}
           removeAriaLabel={(name) => t("workPackages.removeTradeAria", { name })}
+          removeTitle={t("workPackages.removeTradeTitle")}
+          removeBodyTemplate={t("workPackages.removeTradeBody")}
         />
       </section>
 
@@ -296,17 +299,18 @@ export default async function WorkPackageDetailPage({
                   </td>
                   <td>
                     <div className={styles.actions}>
-                      <form action={removeScopeItem}>
-                        <input
-                          type="hidden"
-                          name="workPackageId"
-                          value={workPackage.id}
-                        />
-                        <input type="hidden" name="scopeItemId" value={si.id} />
-                        <button type="submit" className={styles.delete}>
-                          {t("common.remove")}
-                        </button>
-                      </form>
+                      <ConfirmDeleteButton
+                        action={removeScopeItem}
+                        fields={{
+                          workPackageId: workPackage.id,
+                          scopeItemId: si.id,
+                        }}
+                        title={t("scopeItems.removeTitle")}
+                        bodyTemplate={t("scopeItems.removeBody")}
+                        name={si.name}
+                        triggerLabel={t("common.remove")}
+                        confirmLabel={t("common.remove")}
+                      />
                     </div>
                   </td>
                 </tr>
