@@ -105,7 +105,9 @@ export default async function BillOfQuantitiesDetailPage({
         {t("boq.backToBid")}
       </Link>
 
-      <div className={styles.toolbar}>
+      <div
+        className={`${styles.toolbar}${arranging ? ` ${styles.stickyToolbar}` : ""}`}
+      >
         <div>
           <h1>{title}</h1>
           <p className={styles.subtitle}>

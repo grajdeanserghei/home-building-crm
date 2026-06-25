@@ -34,6 +34,19 @@
   margin: 4px 0 0;
 }
 
+/* Arrange mode only: pin the header (title + Done toggle) so it stays reachable while scrolling a
+   long bill. Applied only when arranging — in the read view the section/subsection headings are
+   themselves sticky at top:0, and pinning the toolbar there would collide with them. Sits above
+   the board rows but below the delete-confirm modal (z-index 50). */
+.stickyToolbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: var(--background);
+  padding: 8px 0;
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, currentColor 12%, transparent);
+}
+
 /* A link styled as the primary call-to-action button (e.g. "Adaugă proiect"). */
 .primaryButton {
   flex-shrink: 0;
@@ -186,7 +199,7 @@
 
 .dragRow {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 12px;
   padding: 8px 10px;
   border-radius: 6px;
@@ -196,6 +209,30 @@
 
 .dragRow:hover {
   border-color: color-mix(in srgb, currentColor 28%, transparent);
+}
+
+/* The only drag affordance on a row: keeps the rest of the row (and its Edit/Duplicate/Remove
+   controls) clickable. `touch-action: none` lets the pointer sensor own touch gestures here. */
+.dragHandle {
+  flex-shrink: 0;
+  padding: 4px 6px;
+  border: none;
+  background: none;
+  color: var(--muted, #999);
+  font: inherit;
+  line-height: 1;
+  cursor: grab;
+  touch-action: none;
+}
+
+.dragHandle:active {
+  cursor: grabbing;
+}
+
+/* Push the row's action cluster to the right, after the flexible description column. */
+.dragRow .actions {
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 .form {

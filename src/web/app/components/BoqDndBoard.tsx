@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import {
   closestCorners,
   DndContext,
@@ -21,7 +22,13 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { moveLineItem } from "@/app/bills-of-quantities/actions";
+import {
+  duplicateLineItem,
+  moveLineItem,
+  removeLineItem,
+  removeSubsectionLineItem,
+} from "@/app/bills-of-quantities/actions";
+import { ConfirmDeleteButton } from "@/app/components/ConfirmDeleteButton";
 import type { LineItem, Section } from "@/app/lib/api";
 import { formatMoney, formatNumber } from "@/app/lib/format";
 import { t } from "@/app/lib/i18n";
@@ -86,6 +93,22 @@ function buildBoard(sections: Section[]): Board {
   return { layout, items, lines };
 }
 
+// A compact fingerprint of the sections' structure and per-line display data. Used to detect when
+// a server revalidation (after a duplicate/remove/edit, which re-render this component with fresh
+// props) has actually changed the bill, so the board can rebuild instead of showing stale rows.
+function boardSignature(sections: Section[]): string {
+  const lineSig = (li: LineItem) =>
+    [li.id, li.sequence, li.description, li.quantity, li.unitOfMeasureId, li.lineTotalWithVat, li.notes];
+  return JSON.stringify(
+    sections.map((s) => [
+      s.id,
+      s.sequence,
+      s.lineItems.map(lineSig),
+      s.subsections.map((sub) => [sub.id, sub.sequence, sub.lineItems.map(lineSig)]),
+    ]),
+  );
+}
+
 /**
  * The Arrange-mode board: a single drag-and-drop surface spanning the whole BoQ so a line can be
  * reordered within its container or moved between a section's direct lines and any subsection
@@ -106,6 +129,17 @@ export function BoqDndBoard({
   const [activeId, setActiveId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Rebuild the board when the server sends genuinely different sections — i.e. after a row's
+  // Edit/Duplicate/Delete revalidates the page (those actions re-render us with new props but the
+  // board state was seeded only once). Comparing signatures (not references) avoids clobbering the
+  // optimistic drag state, since a drop re-renders with the *old* props until its move resolves.
+  const signature = boardSignature(sections);
+  const [lastSignature, setLastSignature] = useState(signature);
+  if (signature !== lastSignature) {
+    setLastSignature(signature);
+    setBoard(buildBoard(sections));
+  }
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -216,6 +250,7 @@ export function BoqDndBoard({
             <h3 style={{ marginTop: 16 }}>{container.label}</h3>
           )}
           <ContainerList
+            boqId={boqId}
             container={container}
             lineIds={board.items[container.key]}
             lines={board.lines}
@@ -239,11 +274,13 @@ export function BoqDndBoard({
 // One container's lines as a vertical sortable list. The whole body is a droppable (keyed by the
 // container key) so a line can be dropped into it even when empty.
 function ContainerList({
+  boqId,
   container,
   lineIds,
   lines,
   unitCode,
 }: {
+  boqId: string;
   container: Container;
   lineIds: string[];
   lines: Record<string, LineItem>;
@@ -266,6 +303,8 @@ function ContainerList({
           lineIds.map((id, index) => (
             <SortableLineRow
               key={id}
+              boqId={boqId}
+              container={container}
               line={lines[id]}
               position={index + 1}
               unitCode={unitCode}
@@ -277,19 +316,37 @@ function ContainerList({
   );
 }
 
-// A single draggable line row. The whole row is the drag handle (with a visible grip), kept compact
-// — just the columns that matter while arranging (position, description, unit, qty, total).
+// A single draggable line row, kept compact — just the columns that matter while arranging
+// (position, description, unit, qty, total) plus the same Edit/Duplicate/Remove actions as the
+// read view, so a line can be fixed without leaving Arrange mode. Only the grip is the drag handle
+// (the row body and its action controls stay clickable); which routes/actions a row edits and
+// removes through is derived from its container (section-direct vs subsection).
 function SortableLineRow({
+  boqId,
+  container,
   line,
   position,
   unitCode,
 }: {
+  boqId: string;
+  container: Container;
   line: LineItem;
   position: number;
   unitCode: Record<string, string>;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: line.id });
+
+  const editHrefBase = container.isSection
+    ? `/bills-of-quantities/${boqId}/sections/${container.sectionId}/line-items`
+    : `/bills-of-quantities/${boqId}/sections/${container.sectionId}/subsections/${container.subsectionId}/line-items`;
+  const removeAction = container.isSection ? removeLineItem : removeSubsectionLineItem;
+  const removeFields = {
+    boqId,
+    sectionId: container.sectionId,
+    ...(container.subsectionId ? { subsectionId: container.subsectionId } : {}),
+    lineItemId: line.id,
+  };
 
   return (
     <div
@@ -299,14 +356,17 @@ function SortableLineRow({
         transform: CSS.Transform.toString(transform),
         transition,
         opacity: isDragging ? 0.4 : 1,
-        cursor: "grab",
       }}
-      {...attributes}
-      {...listeners}
     >
-      <span aria-hidden style={{ color: "var(--muted, #999)" }}>
-        ⠿
-      </span>
+      <button
+        type="button"
+        className={styles.dragHandle}
+        aria-label={t("boq.arrangeDragHandle")}
+        {...attributes}
+        {...listeners}
+      >
+        <span aria-hidden>⠿</span>
+      </button>
       <span style={{ width: "2ch", textAlign: "right" }}>{position}</span>
       <span style={{ flex: 1, minWidth: 0 }}>
         <strong>{line.description}</strong>
@@ -315,6 +375,27 @@ function SortableLineRow({
       <span className={styles.muted}>{unitCode[line.unitOfMeasureId] ?? "—"}</span>
       <span className={styles.muted}>{formatNumber(line.quantity)}</span>
       <span>{formatMoney(line.lineTotalWithVat)}</span>
+      <span className={styles.actions}>
+        <Link href={`${editHrefBase}/${line.id}/edit`} className={styles.edit}>
+          {t("common.edit")}
+        </Link>
+        <form action={duplicateLineItem}>
+          <input type="hidden" name="boqId" value={boqId} />
+          <input type="hidden" name="lineItemId" value={line.id} />
+          <button type="submit" className={styles.edit}>
+            {t("common.duplicate")}
+          </button>
+        </form>
+        <ConfirmDeleteButton
+          action={removeAction}
+          fields={removeFields}
+          title={t("lineItems.removeTitle")}
+          bodyTemplate={t("lineItems.removeBody")}
+          name={line.description}
+          triggerLabel={t("common.remove")}
+          confirmLabel={t("common.remove")}
+        />
+      </span>
     </div>
   );
 }

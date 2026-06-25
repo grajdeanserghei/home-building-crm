@@ -397,6 +397,7 @@ export const ro = {
     "Trage articolele pentru a le reordona sau a le muta între secțiuni și subcapitole. Modificările se salvează automat.",
   "boq.arrangeSaving": "Se salvează…",
   "boq.arrangeError": "Mutarea nu a putut fi salvată.",
+  "boq.arrangeDragHandle": "Trage pentru a reordona",
   "boq.sectionDirectLines": "Articole direct în secțiune",
   "boq.arrangeEmpty": "Trage articole aici",
   "boq.subtitle": "Listă de cantități, tarifată în {currency}",
