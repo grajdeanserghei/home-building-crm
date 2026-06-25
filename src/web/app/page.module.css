@@ -236,6 +236,14 @@
   background: #1d4ed8;
 }
 
+/* Horizontal scroll container for wide tables. The body uses `overflow-x: clip`, so a
+   table wider than the viewport (e.g. the BoQ summary on a phone) would be clipped and
+   its rightmost columns made unreachable — wrapping it lets the table scroll inside its
+   card instead. A no-op when the table already fits. */
+.tableWrap {
+  overflow-x: auto;
+}
+
 .table {
   width: 100%;
   border-collapse: collapse;
@@ -710,4 +718,55 @@
 .chipRemove:hover {
   background: #ef4444;
   color: white;
+}
+
+/* Small phones --------------------------------------------------------- */
+/* Reclaim horizontal room and let rows that assume desktop width (toolbars,
+   the label/value definition list, two-up forms, the offer header) stack
+   instead of overflowing. Tables stay wide but scroll via `.tableWrap`. */
+@media (max-width: 640px) {
+  .main {
+    padding: 32px 16px 64px;
+  }
+
+  .main h1 {
+    font-size: 1.5rem;
+  }
+
+  /* Title block over its primary action, both left-aligned, instead of a
+     space-between row that squeezes the title against the button. */
+  .toolbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  /* A 180px label column starves the value on a ~360px screen; stack each
+     label above its value as a full-width pair. */
+  .detailList {
+    grid-template-columns: 1fr;
+    gap: 2px 0;
+  }
+
+  .detailList dt {
+    margin-top: 12px;
+  }
+
+  .detailList dt:first-of-type {
+    margin-top: 0;
+  }
+
+  /* Two-up form fields collapse to a single column so inputs are tappable. */
+  .form {
+    grid-template-columns: 1fr;
+  }
+
+  /* The offer header (name + status + drill-in link) wraps rather than
+     crushing its parts onto one line. */
+  .offerHead {
+    flex-wrap: wrap;
+  }
+
+  .card {
+    padding: 16px;
+  }
 }

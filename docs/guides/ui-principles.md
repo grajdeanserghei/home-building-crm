@@ -63,6 +63,13 @@ Owned/child collections (BoQ sections → subsections → line items, bid notes)
 summary first and reveal detail on navigation or expansion. Don't flatten a whole tree of
 write affordances onto one read surface.
 
+### 10. Every delete is confirmed before it happens
+Deletion is irreversible and must never fire on a single click. Every delete button
+opens a confirmation dialog that names what is about to be removed and requires an
+explicit confirm before the action runs. This applies to all destructive actions —
+per-row deletes, detail-page deletes, and any "remove" of nested/child data — not only
+top-level records.
+
 ## The one sanctioned inline mutation
 A single-field, low-risk toggle may mutate in place rather than routing to a form — e.g.
 `UnitOfMeasureActiveToggle` and `TradeActiveToggle`. This is the deliberate exception, not
@@ -81,6 +88,7 @@ validation, and the user stays in their reading flow.
 - [ ] First paint is data, not a form.
 - [ ] Exactly one primary action (Add → `/new`) in the toolbar.
 - [ ] Row name links to the detail/read view; edit & delete are quiet, right-aligned.
+- [ ] Every delete button opens a confirmation dialog before removing anything.
 - [ ] Editing routes to `/{id}/edit`, reusing the create form component.
 - [ ] Empty state carries the create CTA; populated state does not repeat it loudly.
 - [ ] Any summary strip is computed from already-loaded data (no extra fetch).

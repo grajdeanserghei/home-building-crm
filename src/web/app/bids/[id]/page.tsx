@@ -146,58 +146,60 @@ export default async function BidDetailPage({
             </div>
           </>
         ) : (
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th>{t("bids.boqCol.reference")}</th>
-                <th>{t("common.status")}</th>
-                <th>{t("boq.budgetScope")}</th>
-                <th>{t("bids.boqCol.totalWithVat")}</th>
-                <th aria-label={t("common.actions")} />
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>{boq.reference || "—"}</td>
-                <td>
-                  <span
-                    className={`${styles.badge} ${styles[`status${boq.status}`]}`}
-                  >
-                    {BOQ_STATUS_LABELS[boq.status]}
-                  </span>
-                </td>
-                <td>{BUDGET_SCOPE_KIND_LABELS[boq.budgetScopeKind]}</td>
-                <td>
-                  {formatMoney(
-                    effectiveMoney(
-                      boq.totalWithVat,
-                      boq.budgetScopeKind,
-                      apartmentUnits,
-                    ),
-                  )}
-                  {budgetMultiplier(boq.budgetScopeKind, apartmentUnits) > 1 ? (
-                    <span className={styles.muted}>
-                      {" "}
-                      {t("boq.perApartmentNote", {
-                        base: formatMoney(boq.totalWithVat),
-                        count: String(apartmentUnits),
-                      })}
-                    </span>
-                  ) : null}
-                </td>
-                <td>
-                  <div className={styles.actions}>
-                    <Link
-                      href={`/bills-of-quantities/${boq.id}`}
-                      className={styles.edit}
+          <div className={styles.tableWrap}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>{t("bids.boqCol.reference")}</th>
+                  <th>{t("common.status")}</th>
+                  <th>{t("boq.budgetScope")}</th>
+                  <th>{t("bids.boqCol.totalWithVat")}</th>
+                  <th aria-label={t("common.actions")} />
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>{boq.reference || "—"}</td>
+                  <td>
+                    <span
+                      className={`${styles.badge} ${styles[`status${boq.status}`]}`}
                     >
-                      {t("bids.view")}
-                    </Link>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                      {BOQ_STATUS_LABELS[boq.status]}
+                    </span>
+                  </td>
+                  <td>{BUDGET_SCOPE_KIND_LABELS[boq.budgetScopeKind]}</td>
+                  <td>
+                    {formatMoney(
+                      effectiveMoney(
+                        boq.totalWithVat,
+                        boq.budgetScopeKind,
+                        apartmentUnits,
+                      ),
+                    )}
+                    {budgetMultiplier(boq.budgetScopeKind, apartmentUnits) > 1 ? (
+                      <span className={styles.muted}>
+                        {" "}
+                        {t("boq.perApartmentNote", {
+                          base: formatMoney(boq.totalWithVat),
+                          count: String(apartmentUnits),
+                        })}
+                      </span>
+                    ) : null}
+                  </td>
+                  <td>
+                    <div className={styles.actions}>
+                      <Link
+                        href={`/bills-of-quantities/${boq.id}`}
+                        className={styles.edit}
+                      >
+                        {t("bids.view")}
+                      </Link>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
 
@@ -216,36 +218,38 @@ export default async function BidDetailPage({
             </div>
           </>
         ) : (
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th>{t("notes.col.when")}</th>
-                <th>{t("notes.col.type")}</th>
-                <th>{t("notes.col.note")}</th>
-                <th aria-label={t("common.actions")} />
-              </tr>
-            </thead>
-            <tbody>
-              {bid.notes.map((n) => (
-                <tr key={n.id}>
-                  <td>{formatDate(n.occurredOn)}</td>
-                  <td>{NOTE_TYPE_LABELS[n.type]}</td>
-                  <td>{n.content}</td>
-                  <td>
-                    <div className={styles.actions}>
-                      <form action={removeBidNote}>
-                        <input type="hidden" name="bidId" value={bid.id} />
-                        <input type="hidden" name="noteId" value={n.id} />
-                        <button type="submit" className={styles.delete}>
-                          {t("common.remove")}
-                        </button>
-                      </form>
-                    </div>
-                  </td>
+          <div className={styles.tableWrap}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>{t("notes.col.when")}</th>
+                  <th>{t("notes.col.type")}</th>
+                  <th>{t("notes.col.note")}</th>
+                  <th aria-label={t("common.actions")} />
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {bid.notes.map((n) => (
+                  <tr key={n.id}>
+                    <td>{formatDate(n.occurredOn)}</td>
+                    <td>{NOTE_TYPE_LABELS[n.type]}</td>
+                    <td>{n.content}</td>
+                    <td>
+                      <div className={styles.actions}>
+                        <form action={removeBidNote}>
+                          <input type="hidden" name="bidId" value={bid.id} />
+                          <input type="hidden" name="noteId" value={n.id} />
+                          <button type="submit" className={styles.delete}>
+                            {t("common.remove")}
+                          </button>
+                        </form>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
     </main>
