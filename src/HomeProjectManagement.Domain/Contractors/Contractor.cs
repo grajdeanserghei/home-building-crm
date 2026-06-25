@@ -37,8 +37,18 @@ public sealed class Contractor : AggregateRoot<ContractorId>
     /// <summary>The firm's address. Optional.</summary>
     public Address? Address { get; private set; }
 
-    /// <summary>Free-text notes. Optional.</summary>
+    /// <summary>
+    /// Long-form free-text notes about the firm — the detailed write-up shown only on the
+    /// contractor's own detail page. Optional.
+    /// </summary>
     public string? Notes { get; private set; }
+
+    /// <summary>
+    /// A short provenance highlight — how we know the firm, who recommended it, and which of us
+    /// keeps in touch. Kept brief because it is surfaced everywhere the contractor is referenced
+    /// (lists, bids, contracts), unlike the long-form <see cref="Notes"/>. Optional.
+    /// </summary>
+    public string? Reference { get; private set; }
 
     /// <summary>
     /// The trades this firm performs, as owned links to the shared <see cref="Trade"/> vocabulary
@@ -73,7 +83,8 @@ public sealed class Contractor : AggregateRoot<ContractorId>
         string? registrationNumber = null,
         ContactInfo? contact = null,
         Address? address = null,
-        string? notes = null)
+        string? notes = null,
+        string? reference = null)
     {
         var contractor = new Contractor(ContractorId.New(), NormalizeName(name))
         {
@@ -81,7 +92,8 @@ public sealed class Contractor : AggregateRoot<ContractorId>
             RegistrationNumber = Trim(registrationNumber),
             Contact = NormalizeContact(contact),
             Address = NormalizeAddress(address),
-            Notes = Trim(notes)
+            Notes = Trim(notes),
+            Reference = Trim(reference)
         };
 
         contractor.Raise(new ContractorRegistered(contractor.Id, contractor.Name, now));
@@ -104,8 +116,11 @@ public sealed class Contractor : AggregateRoot<ContractorId>
     /// <summary>Set or clear the firm's address.</summary>
     public void Relocate(Address? address) => Address = NormalizeAddress(address);
 
-    /// <summary>Update the free-text notes.</summary>
+    /// <summary>Update the long-form free-text notes.</summary>
     public void Annotate(string? notes) => Notes = Trim(notes);
+
+    /// <summary>Set or clear the short provenance highlight shown wherever the firm is referenced.</summary>
+    public void SetReference(string? reference) => Reference = Trim(reference);
 
     /// <summary>
     /// Tag the firm with a trade it performs (referenced by id). No-op if it already performs that

@@ -201,7 +201,8 @@ export interface Contractor {
   registrationNumber?: string | null;
   contact?: ContactInfo | null;
   address?: Address | null;
-  notes?: string | null;
+  notes?: string | null; // long-form write-up; shown only on the contractor detail page
+  reference?: string | null; // short provenance highlight; shown wherever the firm is referenced
   tradeIds: string[]; // the trades this firm performs (by id; the shared Trade vocabulary)
   createdAt: string;
 }

@@ -87,7 +87,13 @@ export function ContractorForm({
         defaultValue={address?.country ?? ""}
       />
       <input
+        name="reference"
+        placeholder={t("contractors.referencePlaceholder")}
+        defaultValue={contractor?.reference ?? ""}
+      />
+      <textarea
         name="notes"
+        rows={4}
         placeholder={t("contractors.notesPlaceholder")}
         defaultValue={contractor?.notes ?? ""}
       />

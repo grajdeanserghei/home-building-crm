@@ -36,7 +36,8 @@ public static class ContractorTools
         [Description("Primary contact person's name, if known.")] string? contactPerson = null,
         [Description("Romanian fiscal code (CUI), if known.")] string? fiscalCode = null,
         [Description("Registration number (Nr. Reg. Com. / J-number), if known.")] string? registrationNumber = null,
-        [Description("Reusable, work-package-independent notes about the firm.")] string? notes = null,
+        [Description("Reusable, work-package-independent long-form notes about the firm (shown only on the contractor's detail page).")] string? notes = null,
+        [Description("Short provenance highlight shown wherever the firm is referenced — how we know it, who recommended it, who keeps in touch (e.g. \"recomandat de Luci; Ana ține legătura\").")] string? reference = null,
         [Description("Ids of the trades this firm performs (from list_trades). Each must be an existing, active trade.")]
         IReadOnlyList<Guid>? tradeIds = null,
         CancellationToken ct = default)
@@ -45,7 +46,7 @@ public static class ContractorTools
             ? null
             : new ContactInfoDto(contactPerson, email, phone);
 
-        var command = new RegisterContractorCommand(name, fiscalCode, registrationNumber, contact, Address: null, notes, tradeIds);
+        var command = new RegisterContractorCommand(name, fiscalCode, registrationNumber, contact, Address: null, notes, reference, tradeIds);
         return await service.RegisterAsync(command, ct);
     }
 
@@ -61,7 +62,8 @@ public static class ContractorTools
         [Description("Primary contact person's name.")] string? contactPerson = null,
         [Description("Romanian fiscal code (CUI).")] string? fiscalCode = null,
         [Description("Registration number (Nr. Reg. Com.).")] string? registrationNumber = null,
-        [Description("Firm-level notes.")] string? notes = null,
+        [Description("Firm-level long-form notes (shown only on the contractor's detail page).")] string? notes = null,
+        [Description("Short provenance highlight shown wherever the firm is referenced — how we know it, who recommended it, who keeps in touch.")] string? reference = null,
         [Description("The full set of trade ids the firm performs (from list_trades); replaces the existing set. " +
             "Omit (null) to leave the existing trades unchanged; pass an empty list to clear them. To add or " +
             "remove a single trade, prefer add_contractor_trade / remove_contractor_trade. Each must be active.")]
@@ -72,7 +74,7 @@ public static class ContractorTools
             ? null
             : new ContactInfoDto(contactPerson, email, phone);
 
-        var command = new UpdateContractorCommand(name, fiscalCode, registrationNumber, contact, Address: null, notes, tradeIds);
+        var command = new UpdateContractorCommand(name, fiscalCode, registrationNumber, contact, Address: null, notes, reference, tradeIds);
         return await service.UpdateAsync(contractorId, command, ct)
                ?? throw new McpException($"No contractor exists with id {contractorId}.");
     }
@@ -114,7 +116,7 @@ public static class ContractorTools
 
         var command = new UpdateContractorCommand(
             existing.Name, existing.FiscalCode, existing.RegistrationNumber,
-            existing.Contact, existing.Address, notes, existing.TradeIds);
+            existing.Contact, existing.Address, notes, existing.Reference, existing.TradeIds);
 
         return await service.UpdateAsync(contractorId, command, ct)
                ?? throw new McpException($"No contractor exists with id {contractorId}.");

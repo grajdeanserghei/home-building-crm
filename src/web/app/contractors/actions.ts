@@ -27,6 +27,7 @@ function contractorPayload(formData: FormData) {
       country: str("country"),
     },
     notes: str("notes"),
+    reference: str("reference"),
     // Trades are managed incrementally on the detail page (addContractorTrade /
     // removeContractorTrade), so they are intentionally omitted here — a contractor update with
     // no tradeIds field leaves the firm's trades untouched.

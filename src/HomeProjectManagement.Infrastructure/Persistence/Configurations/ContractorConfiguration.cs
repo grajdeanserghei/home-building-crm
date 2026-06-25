@@ -19,6 +19,7 @@ public sealed class ContractorConfiguration : IEntityTypeConfiguration<Contracto
         builder.Property(c => c.FiscalCode).HasMaxLength(32);
         builder.Property(c => c.RegistrationNumber).HasMaxLength(32);
         builder.Property(c => c.Notes).HasMaxLength(2000);
+        builder.Property(c => c.Reference).HasMaxLength(500);
 
         // Master-data directory is browsed and searched by name.
         builder.HasIndex(c => c.Name);

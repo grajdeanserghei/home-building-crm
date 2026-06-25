@@ -61,8 +61,8 @@ export default async function ContractorsPage() {
                     <Link href={`/contractors/${c.id}`} className={styles.nameLink}>
                       <strong>{c.name}</strong>
                     </Link>
-                    {c.notes ? (
-                      <div className={styles.muted}>{c.notes}</div>
+                    {c.reference ? (
+                      <div className={styles.muted}>{c.reference}</div>
                     ) : null}
                   </td>
                   <td>{primaryContact(c)}</td>

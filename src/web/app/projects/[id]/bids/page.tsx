@@ -155,8 +155,8 @@ export default async function ProjectBidsPage({
 
                       <ContactRow contractor={contractor} />
 
-                      {contractor?.notes ? (
-                        <p className={styles.muted}>{contractor.notes}</p>
+                      {contractor?.reference ? (
+                        <p className={styles.muted}>{contractor.reference}</p>
                       ) : null}
 
                       {b.summary ? (

@@ -91,12 +91,17 @@ export default async function ContractDetailPage({
           <dt>{t("contracts.contractor")}</dt>
           <dd>
             {contractor ? (
-              <Link
-                href={`/contractors/${contractor.id}`}
-                className={styles.nameLink}
-              >
-                {contractor.name}
-              </Link>
+              <>
+                <Link
+                  href={`/contractors/${contractor.id}`}
+                  className={styles.nameLink}
+                >
+                  {contractor.name}
+                </Link>
+                {contractor.reference ? (
+                  <div className={styles.muted}>{contractor.reference}</div>
+                ) : null}
+              </>
             ) : (
               "—"
             )}

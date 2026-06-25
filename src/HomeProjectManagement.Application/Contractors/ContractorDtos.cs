@@ -12,6 +12,7 @@ public sealed record ContractorDto(
     ContactInfoDto? Contact,
     AddressDto? Address,
     string? Notes,
+    string? Reference,
     IReadOnlyCollection<Guid> TradeIds,
     DateTimeOffset CreatedAt);
 
@@ -38,6 +39,7 @@ public sealed record RegisterContractorCommand(
     ContactInfoDto? Contact,
     AddressDto? Address,
     string? Notes,
+    string? Reference,
     IReadOnlyCollection<Guid>? TradeIds);
 
 /// <summary>
@@ -52,4 +54,5 @@ public sealed record UpdateContractorCommand(
     ContactInfoDto? Contact,
     AddressDto? Address,
     string? Notes,
+    string? Reference,
     IReadOnlyCollection<Guid>? TradeIds);

@@ -96,6 +96,9 @@ export default async function ContractorDetailPage({
           <dt>{t("contractors.address")}</dt>
           <dd>{address || "—"}</dd>
 
+          <dt>{t("contractors.reference")}</dt>
+          <dd>{contractor.reference || "—"}</dd>
+
           <dt>{t("common.notes")}</dt>
           <dd>{contractor.notes || "—"}</dd>
 

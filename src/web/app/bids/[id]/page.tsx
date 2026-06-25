@@ -70,7 +70,21 @@ export default async function BidDetailPage({
 
       <div className={styles.toolbar}>
         <div>
-          <h1>{contractorName}</h1>
+          <h1>
+            {contractor ? (
+              <Link
+                href={`/contractors/${contractor.id}`}
+                className={styles.nameLink}
+              >
+                {contractorName}
+              </Link>
+            ) : (
+              contractorName
+            )}
+          </h1>
+          {contractor?.reference ? (
+            <p className={styles.muted}>{contractor.reference}</p>
+          ) : null}
           <p className={styles.subtitle}>
             {t("bids.bidOn", {
               name: workPackage?.name ?? t("bids.thisWorkPackage"),

@@ -205,13 +205,20 @@
 }
 
 .form input,
-.form select {
+.form select,
+.form textarea {
   padding: 9px 11px;
   border-radius: 8px;
   border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
   background: transparent;
   color: inherit;
   font: inherit;
+}
+
+/* The long-form notes textarea spans the full grid width and resizes vertically only. */
+.form textarea {
+  grid-column: 1 / -1;
+  resize: vertical;
 }
 
 .form button {

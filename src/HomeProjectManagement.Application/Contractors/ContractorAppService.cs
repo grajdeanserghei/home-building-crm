@@ -44,7 +44,8 @@ public sealed class ContractorAppService(
             command.RegistrationNumber,
             ToContact(command.Contact),
             ToAddress(command.Address),
-            command.Notes);
+            command.Notes,
+            command.Reference);
 
         contractor.SetTrades(tradeIds);
 
@@ -69,6 +70,7 @@ public sealed class ContractorAppService(
         contractor.ChangeContact(ToContact(command.Contact));
         contractor.Relocate(ToAddress(command.Address));
         contractor.Annotate(command.Notes);
+        contractor.SetReference(command.Reference);
 
         // Trades are a set-replace, but only when supplied: a null TradeIds leaves the existing set
         // untouched (so the edit form, which manages trades incrementally elsewhere, doesn't clobber
@@ -156,6 +158,7 @@ public sealed class ContractorAppService(
                 contractor.Address.PostalCode,
                 contractor.Address.Country),
         contractor.Notes,
+        contractor.Reference,
         contractor.TradeIds.Select(t => t.Value).ToArray(),
         contractor.CreatedOn);
 }

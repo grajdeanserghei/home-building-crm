@@ -449,6 +449,8 @@ export const ro = {
   "contractors.email": "Email",
   "contractors.phone": "Telefon",
   "contractors.address": "Adresă",
+  "contractors.reference": "Sursă / recomandare",
+  "contractors.notes": "Note",
   "contractors.trades": "Meserii",
   "contractors.tradesHint":
     "Meseriile pe care firma le execută (Ctrl/Cmd + clic pentru a selecta mai multe).",
@@ -469,7 +471,9 @@ export const ro = {
   "contractors.countyPlaceholder": "Județ (opțional)",
   "contractors.postalCodePlaceholder": "Cod poștal (opțional)",
   "contractors.countryPlaceholder": "Țară (opțional)",
-  "contractors.notesPlaceholder": "Note (opțional)",
+  "contractors.referencePlaceholder":
+    "Sursă / recomandare — cine a recomandat firma, cine ține legătura (opțional)",
+  "contractors.notesPlaceholder": "Note detaliate despre firmă (opțional)",
   "contractors.deleteTitle": "Ștergi antreprenorul?",
   "contractors.deleteBodyBefore": "Aceasta va șterge definitiv",
   "contractors.deleteBodyAfter": ". Această acțiune nu poate fi anulată.",

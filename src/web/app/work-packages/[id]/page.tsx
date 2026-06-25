@@ -79,8 +79,11 @@ export default async function WorkPackageDetailPage({
     .filter((tr) => tr.isActive && !requiredIds.has(tr.id))
     .map((tr) => ({ id: tr.id, name: tr.name }));
 
-  // Map contractor id → name for the bids table.
+  // Map contractor id → name (and short reference highlight) for the bids table.
   const contractorName = new Map(contractors.map((c) => [c.id, c.name]));
+  const contractorReference = new Map(
+    contractors.map((c) => [c.id, c.reference]),
+  );
 
   const scopeItems = workPackage.scopeItems;
 
@@ -146,6 +149,11 @@ export default async function WorkPackageDetailPage({
                           t("workPackages.unknownContractor")}
                       </strong>
                     </Link>
+                    {contractorReference.get(b.contractorId) ? (
+                      <div className={styles.muted}>
+                        {contractorReference.get(b.contractorId)}
+                      </div>
+                    ) : null}
                     {b.summary ? (
                       <div className={styles.muted}>{b.summary}</div>
                     ) : null}
