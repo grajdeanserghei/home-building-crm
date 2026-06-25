@@ -323,6 +323,7 @@ applied here:
 | **Contract** | — | Work Package, accepted BoQ | Its own lifecycle (status, signed date, value, documents) that evolves after the award; future payments/invoices will reference it directly. |
 | **Unit of Measure** | — | — | Shared, managed reference vocabulary referenced by line items. |
 | **Trade** | — | — | Shared, managed reference vocabulary referenced (by id) from Contractor and Work Package. Project-independent classification of construction work. |
+| **Cost Scenario** | Scenario selection | Project, (per selection) Work Package + Bid | A saved "what-if" cost combination — for each work package a chosen bid whose BoQ supplies the cost. Its own lifecycle (named, edited, deleted) independent of the bids it references; loaded and edited as a whole. Holds only ids — the cost is computed at read time from the chosen bids' BoQs. |
 
 **Section**, **Subsection**, and **Line item** are **local entities inside the Bill
 of Quantities aggregate** — they have identity *within* the BoQ but are never
@@ -352,6 +353,16 @@ allocate its cost to that sub-scope.
 > later need to query or manage scope items independently, ScopeItem can be
 > promoted to its own root referencing the work package by id (mirroring
 > `UnitOfMeasure`) — a cheap refactor. Flag this if preferred.
+
+**Scenario selection** is a **local entity inside the Cost Scenario aggregate** —
+one "this work package uses this bid" choice, holding a `workPackageId` and a `bidId`
+**by id**, with at most one selection per work package. It has no lifecycle outside its
+scenario. The scenario stores only these ids; the per-currency totals and EUR-equivalent
+are **derived at read time** by an application query that resolves each chosen bid's
+current priced BoQ (the same read-only, cross-aggregate composition the project budget
+uses). Cross-aggregate validity (the work package belongs to the scenario's project, the
+bid belongs to that work package) is checked by the **application service**, mirroring how
+other cross-aggregate parents are validated.
 
 **Trade** is a **standalone reference aggregate**, modelled exactly like
 `UnitOfMeasure`: a small controlled vocabulary (seeded, admin-extendable, retired

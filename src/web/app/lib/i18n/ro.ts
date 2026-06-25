@@ -258,6 +258,46 @@ export const ro = {
   "budget.unpricedNoteOne":
     "Un pachet de lucrări nu are încă un preț și nu este inclus în estimare.",
 
+  // — Cost scenarios (the cost simulator) ————————————————————————————————————
+  "costScenario.link": "Simulator de costuri",
+  "costScenario.backToProject": "← Înapoi la proiect",
+  "costScenario.backToList": "← Înapoi la scenarii",
+  "costScenario.listTitle": "Simulator de costuri — {name}",
+  "costScenario.subtitle":
+    "Combinații salvate de oferte: alege câte o ofertă pentru fiecare pachet de lucrări și vezi costul total.",
+  "costScenario.empty": "Niciun scenariu de cost încă.",
+  "costScenario.add": "Scenariu nou",
+  "costScenario.new": "Scenariu de cost nou",
+  "costScenario.createSubtitle":
+    "Dă-i un nume scenariului; vei alege ofertele pe pagina lui.",
+  "costScenario.editTitle": "Editează scenariul — {name}",
+  "costScenario.namePlaceholder": "Numele scenariului (ex. „Cel mai ieftin pe pachet”)",
+  "costScenario.descriptionPlaceholder": "Descriere (opțional)",
+  "costScenario.col.workPackages": "Pachete incluse",
+  "costScenario.col.created": "Creat",
+  "costScenario.col.chosenBid": "Ofertă aleasă",
+  "costScenario.col.contractor": "Antreprenor",
+  "costScenario.col.net": "Fără TVA",
+  "costScenario.col.gross": "Cu TVA",
+  "costScenario.col.eur": "EUR (cu TVA)",
+  "costScenario.deleteTitle": "Ștergi scenariul?",
+  "costScenario.deleteBody": "Scenariul „{name}” va fi șters definitiv.",
+  "costScenario.editorTitle": "Alege ofertele",
+  "costScenario.editorHint":
+    "Pentru fiecare pachet de lucrări, alege oferta de inclus (sau „neinclus”). Totalul se actualizează automat.",
+  "costScenario.noWorkPackages": "Niciun pachet de lucrări în acest proiect.",
+  "costScenario.noCandidates": "Nicio ofertă cu preț pentru acest pachet.",
+  "costScenario.notIncluded": "— neinclus —",
+  "costScenario.choosebid": "Alege oferta",
+  "costScenario.breakdownTitle": "Detaliere",
+  "costScenario.breakdownEmpty": "Nicio ofertă aleasă încă.",
+  "costScenario.notPriced": "Oferta aleasă nu mai are un preț valabil.",
+  "costScenario.perApartment": "× {count} (per apartament)",
+  "costScenario.totalsTitle": "Total, pe monedă",
+  "costScenario.totals.currency": "Monedă",
+  "costScenario.eurEquivalent": "Echivalent în EUR (aprox.)",
+  "costScenario.eurRate": "1 EUR = {rate} RON",
+
   // — Project bids (all offers, grouped by work package) ————————————————————
   "projectBids.link": "Oferte",
   "projectBids.backToProject": "← Înapoi la proiect",
