@@ -1,4 +1,5 @@
 using HomeProjectManagement.Application.Abstractions;
+using HomeProjectManagement.Domain.BillsOfQuantities;
 using HomeProjectManagement.Domain.Bids;
 using HomeProjectManagement.Domain.Common;
 using HomeProjectManagement.Domain.Contractors;
@@ -18,6 +19,7 @@ public sealed class BidAppService(
     IBidRepository repository,
     IWorkPackageRepository workPackages,
     IContractorRepository contractors,
+    IBillOfQuantitiesRepository billsOfQuantities,
     ICurrentUser currentUser,
     IUnitOfWork unitOfWork,
     TimeProvider timeProvider) : IBidAppService
@@ -85,10 +87,20 @@ public sealed class BidAppService(
 
         // Clone in place: same work package and contractor, a fresh discussion log. Mark the copy
         // so the two variants are distinguishable at a glance.
-        var copy = Bid.DuplicateFrom(source, timeProvider.GetUtcNow());
+        var now = timeProvider.GetUtcNow();
+        var copy = Bid.DuplicateFrom(source, now);
         copy.Relabel(source.Label is null ? null : $"{source.Label} (copie)");
 
         repository.Add(copy);
+
+        // Carry the offer's priced BoQ over too (sections, subsections, line items), if it has one, so
+        // the duplicate is a usable variant rather than an empty shell. Persisted in the same commit.
+        var sourceBoq = await billsOfQuantities.GetByBidAsync(source.Id, cancellationToken);
+        if (sourceBoq is not null)
+        {
+            billsOfQuantities.Add(BillOfQuantities.CopyFor(sourceBoq, copy.Id, now));
+        }
+
         await unitOfWork.CommitAsync(cancellationToken);
         return ToDto(copy);
     }

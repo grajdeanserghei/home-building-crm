@@ -158,6 +158,72 @@ public sealed class BillOfQuantities : AggregateRoot<BoqId>
         return boq;
     }
 
+    /// <summary>
+    /// Factory: build an independent copy of <paramref name="source"/> bound to a different bid
+    /// (<paramref name="targetBidId"/>) — used when an offer is duplicated so the copy carries its own
+    /// priced <c>deviz</c>. The whole structure is deep-copied: header, every section, subsection and
+    /// line item, with fresh ids and freshly-constructed owned value objects (an EF owned entity cannot
+    /// be shared between two owners — same reason <see cref="DuplicateLineItem"/> rebuilds them). The
+    /// copy starts in <see cref="BoqStatus.Draft"/> (editable) whatever the source's status, since a
+    /// variant exists to be re-priced.
+    /// </summary>
+    public static BillOfQuantities CopyFor(BillOfQuantities source, BidId targetBidId, DateTimeOffset now)
+    {
+        var copy = Draft(
+            targetBidId,
+            source.PricingCurrency,
+            now,
+            source.Reference,
+            source.ExchangeRate is { } rate
+                ? new ExchangeRate(rate.BaseCurrency, rate.QuoteCurrency, rate.Rate, rate.AsOf)
+                : null,
+            source.SubmittedOn,
+            source.ValidUntil,
+            source.SourceDocument is { } doc
+                ? new DocumentReference(doc.FileName, doc.Url, doc.UploadedOn, doc.UploadedBy)
+                : null,
+            source.SourceContentHash,
+            source.Scope);
+
+        // Recreate the heading structure first, mapping old ids to the freshly-minted ones so the flat
+        // line items can be re-tagged with the copy's section/subsection ids.
+        var sectionMap = new Dictionary<SectionId, SectionId>();
+        var subsectionMap = new Dictionary<SubsectionId, SubsectionId>();
+
+        foreach (var section in source.Sections.OrderBy(s => s.Sequence))
+        {
+            var newSection = copy.AddSection(section.Name, section.Sequence, section.Description);
+            sectionMap[section.Id] = newSection.Id;
+
+            foreach (var subsection in section.Subsections.OrderBy(s => s.Sequence))
+            {
+                var newSubsection = copy.AddSubsection(newSection.Id, subsection.Name, subsection.Sequence, subsection.Description)!;
+                subsectionMap[subsection.Id] = newSubsection.Id;
+            }
+        }
+
+        foreach (var line in source.LineItems)
+        {
+            var price = new Money(line.UnitPrice.Amount, line.UnitPrice.Currency);
+            var vat = new VatRate(line.VatRate.Percentage);
+
+            if (line.SubsectionId is { } subsectionId)
+            {
+                copy.AddSubsectionLineItem(
+                    sectionMap[line.SectionId], subsectionMap[subsectionId], line.Description, line.Quantity,
+                    line.UnitOfMeasureId, price, vat, line.Sequence, line.Notes);
+            }
+            else
+            {
+                copy.AddLineItem(
+                    sectionMap[line.SectionId], line.Description, line.Quantity,
+                    line.UnitOfMeasureId, price, vat, line.Sequence, line.Notes);
+            }
+        }
+
+        return copy;
+    }
+
     /// <summary>Update the BoQ's header details (reference, pinned rate, dates). The pricing currency is fixed.</summary>
     public void UpdateDetails(
         string? reference,
