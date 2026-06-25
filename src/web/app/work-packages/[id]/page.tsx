@@ -1,13 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { BidForm } from "@/app/components/BidForm";
-import { ScopeItemForm } from "@/app/components/ScopeItemForm";
 import { TradeChips } from "@/app/components/TradeChips";
-import { openBid } from "@/app/bids/actions";
 import {
   addRequiredTrade,
-  addScopeItem,
-  changeWorkPackageStatus,
+  deleteWorkPackage,
   removeRequiredTrade,
   removeScopeItem,
 } from "@/app/work-packages/actions";
@@ -28,24 +24,22 @@ import { formatDate } from "@/app/lib/format";
 import { t } from "@/app/lib/i18n";
 import styles from "@/app/page.module.css";
 
-// The statuses a package may move to from its current one, given the lifecycle. Awarded is
-// excluded — it is reached only through the award flow (selecting a bid, creating a
-// contract), not this control. Completed and Cancelled are terminal.
-function allowedTargets(current: WorkPackageStatus): WorkPackageStatus[] {
-  switch (current) {
-    case "Defined":
-      return ["OpenForBids", "Cancelled"];
-    case "OpenForBids":
-      return ["Defined", "Cancelled"];
-    case "Awarded":
-      return ["InProgress", "Cancelled"];
-    case "InProgress":
-      return ["Completed", "Cancelled"];
-    default:
-      return [];
-  }
+// Whether the package has any onward lifecycle transitions. Awarded is reached only through
+// the award flow (selecting a bid, creating a contract); Completed and Cancelled are terminal.
+// The targets themselves are computed on the dedicated status route.
+function canChangeStatus(current: WorkPackageStatus): boolean {
+  return (
+    current === "Defined" ||
+    current === "OpenForBids" ||
+    current === "Awarded" ||
+    current === "InProgress"
+  );
 }
 
+// Read-first detail page: it shows the package, its required trades, scope items and bids,
+// with no inline create/edit forms. Every mutation (defining scope, opening a bid, changing
+// status, editing) is a deliberate step away on its own route — the one exception is the
+// incremental required-trades control, mirroring the contractor detail page.
 export default async function WorkPackageDetailPage({
   params,
 }: {
@@ -85,13 +79,9 @@ export default async function WorkPackageDetailPage({
     .filter((tr) => tr.isActive && !requiredIds.has(tr.id))
     .map((tr) => ({ id: tr.id, name: tr.name }));
 
-  // Map contractor id → name for the bids table, and offer only contractors that don't
-  // already have a bid here (the backend rejects a duplicate pair with a 409).
+  // Map contractor id → name for the bids table.
   const contractorName = new Map(contractors.map((c) => [c.id, c.name]));
-  const taken = new Set(bids.map((b) => b.contractorId));
-  const available = contractors.filter((c) => !taken.has(c.id));
 
-  const targets = allowedTargets(workPackage.status);
   const scopeItems = workPackage.scopeItems;
 
   return (
@@ -99,16 +89,89 @@ export default async function WorkPackageDetailPage({
       <Link href={`/projects/${workPackage.projectId}`} className={styles.backLink}>
         {t("workPackages.backToProject")}
       </Link>
-      <h1>{workPackage.name}</h1>
-      <p className={styles.subtitle}>
-        {workPackage.description || t("workPackages.detailSubtitle")}
-        {" · "}
-        <span
-          className={`${styles.badge} ${styles[`status${workPackage.status}`]}`}
+
+      <div className={styles.toolbar}>
+        <div>
+          <h1>{workPackage.name}</h1>
+          <p className={styles.subtitle}>
+            {workPackage.description || t("workPackages.detailSubtitle")}
+            {" · "}
+            <span
+              className={`${styles.badge} ${styles[`status${workPackage.status}`]}`}
+            >
+              {WORK_PACKAGE_STATUS_LABELS[workPackage.status]}
+            </span>
+          </p>
+        </div>
+        <Link
+          href={`/work-packages/${workPackage.id}/bids/new`}
+          className={styles.primaryButton}
         >
-          {WORK_PACKAGE_STATUS_LABELS[workPackage.status]}
-        </span>
-      </p>
+          {t("workPackages.openBid")}
+        </Link>
+      </div>
+
+      <section className={styles.card}>
+        <div className={styles.cardHeader}>
+          <h2>{t("workPackages.bidsTitle")}</h2>
+          <Link
+            href={`/work-packages/${workPackage.id}/bids/new`}
+            className={styles.edit}
+          >
+            {t("workPackages.openBid")}
+          </Link>
+        </div>
+        {error ? (
+          <p className={styles.error}>{t("common.apiError", { error })}</p>
+        ) : bids.length === 0 ? (
+          <p>{t("workPackages.bidsEmpty")}</p>
+        ) : (
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>{t("workPackages.bidContractor")}</th>
+                <th>{t("common.status")}</th>
+                <th>{t("workPackages.bidFirstContact")}</th>
+                <th>{t("common.notes")}</th>
+                <th aria-label={t("common.actions")} />
+              </tr>
+            </thead>
+            <tbody>
+              {bids.map((b) => (
+                <tr key={b.id}>
+                  <td>
+                    <Link href={`/bids/${b.id}`} className={styles.nameLink}>
+                      <strong>
+                        {contractorName.get(b.contractorId) ??
+                          t("workPackages.unknownContractor")}
+                      </strong>
+                    </Link>
+                    {b.summary ? (
+                      <div className={styles.muted}>{b.summary}</div>
+                    ) : null}
+                  </td>
+                  <td>
+                    <span
+                      className={`${styles.badge} ${styles[`status${b.status}`]}`}
+                    >
+                      {BID_STATUS_LABELS[b.status]}
+                    </span>
+                  </td>
+                  <td>{formatDate(b.firstContactedOn)}</td>
+                  <td>{b.notes.length}</td>
+                  <td>
+                    <div className={styles.actions}>
+                      <Link href={`/bids/${b.id}`} className={styles.edit}>
+                        {t("workPackages.bidView")}
+                      </Link>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
 
       {workPackage.awardedContractId ? (
         <section className={styles.card}>
@@ -124,6 +187,45 @@ export default async function WorkPackageDetailPage({
           </p>
         </section>
       ) : null}
+
+      <section className={styles.card}>
+        <dl className={styles.detailList}>
+          <dt>{t("common.status")}</dt>
+          <dd>{WORK_PACKAGE_STATUS_LABELS[workPackage.status]}</dd>
+          <dt>{t("workPackages.orderPlaceholder")}</dt>
+          <dd>{workPackage.sequence}</dd>
+          <dt>{t("workPackages.plannedStart")}</dt>
+          <dd>{formatDate(workPackage.plannedStartDate)}</dd>
+          <dt>{t("workPackages.plannedEnd")}</dt>
+          <dd>{formatDate(workPackage.plannedEndDate)}</dd>
+          <dt>{t("common.created")}</dt>
+          <dd>{formatDate(workPackage.createdAt)}</dd>
+        </dl>
+        <div className={styles.actions}>
+          {canChangeStatus(workPackage.status) ? (
+            <Link
+              href={`/work-packages/${workPackage.id}/status`}
+              className={styles.edit}
+            >
+              {t("workPackages.changeStatusTitle")}
+            </Link>
+          ) : null}
+          <Link
+            href={`/work-packages/${workPackage.id}/edit`}
+            className={styles.edit}
+          >
+            {t("common.edit")}
+          </Link>
+          <form action={deleteWorkPackage}>
+            <input type="hidden" name="id" value={workPackage.id} />
+            <input type="hidden" name="projectId" value={workPackage.projectId} />
+            <button type="submit" className={styles.delete}>
+              {t("common.delete")}
+            </button>
+          </form>
+        </div>
+        <p className={styles.muted}>{t("workPackages.awardingHint")}</p>
+      </section>
 
       <section className={styles.card}>
         <h2>{t("workPackages.requiredTrades")}</h2>
@@ -143,32 +245,15 @@ export default async function WorkPackageDetailPage({
       </section>
 
       <section className={styles.card}>
-        <h2>{t("workPackages.changeStatusTitle")}</h2>
-        {targets.length === 0 ? (
-          <p className={styles.muted}>
-            {t("workPackages.statusFinal", {
-              status: WORK_PACKAGE_STATUS_LABELS[workPackage.status].toLowerCase(),
-            })}
-          </p>
-        ) : (
-          <form action={changeWorkPackageStatus} className={styles.form}>
-            <input type="hidden" name="id" value={workPackage.id} />
-            <input type="hidden" name="projectId" value={workPackage.projectId} />
-            <select name="status" defaultValue={targets[0]}>
-              {targets.map((s) => (
-                <option key={s} value={s}>
-                  {WORK_PACKAGE_STATUS_LABELS[s]}
-                </option>
-              ))}
-            </select>
-            <button type="submit">{t("workPackages.updateStatus")}</button>
-          </form>
-        )}
-        <p className={styles.muted}>{t("workPackages.awardingHint")}</p>
-      </section>
-
-      <section className={styles.card}>
-        <h2>{t("scopeItems.title")}</h2>
+        <div className={styles.cardHeader}>
+          <h2>{t("scopeItems.title")}</h2>
+          <Link
+            href={`/work-packages/${workPackage.id}/scope-items/new`}
+            className={styles.edit}
+          >
+            {t("scopeItems.add")}
+          </Link>
+        </div>
         <p className={styles.muted}>{t("scopeItems.subtitle")}</p>
         {scopeItems.length === 0 ? (
           <p>{t("scopeItems.empty")}</p>
@@ -214,85 +299,6 @@ export default async function WorkPackageDetailPage({
                           {t("common.remove")}
                         </button>
                       </form>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-
-        <h2 style={{ marginTop: 20 }}>{t("scopeItems.add")}</h2>
-        <ScopeItemForm
-          action={addScopeItem}
-          workPackageId={workPackage.id}
-          defaultSequence={scopeItems.length + 1}
-        />
-      </section>
-
-      <section className={styles.card}>
-        <h2>{t("workPackages.newBidTitle")}</h2>
-        {available.length === 0 ? (
-          <p className={styles.muted}>
-            {contractors.length === 0
-              ? t("workPackages.noContractors")
-              : t("workPackages.allContractorsBid")}
-          </p>
-        ) : (
-          <BidForm
-            action={openBid}
-            workPackageId={workPackage.id}
-            contractors={available}
-            submitLabel={t("workPackages.openBid")}
-          />
-        )}
-      </section>
-
-      <section className={styles.card}>
-        <h2>{t("workPackages.bidsTitle")}</h2>
-        {error ? (
-          <p className={styles.error}>{t("common.apiError", { error })}</p>
-        ) : bids.length === 0 ? (
-          <p>{t("workPackages.bidsEmpty")}</p>
-        ) : (
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th>{t("workPackages.bidContractor")}</th>
-                <th>{t("common.status")}</th>
-                <th>{t("workPackages.bidFirstContact")}</th>
-                <th>{t("common.notes")}</th>
-                <th aria-label={t("common.actions")} />
-              </tr>
-            </thead>
-            <tbody>
-              {bids.map((b) => (
-                <tr key={b.id}>
-                  <td>
-                    <Link href={`/bids/${b.id}`} className={styles.nameLink}>
-                      <strong>
-                        {contractorName.get(b.contractorId) ??
-                          t("workPackages.unknownContractor")}
-                      </strong>
-                    </Link>
-                    {b.summary ? (
-                      <div className={styles.muted}>{b.summary}</div>
-                    ) : null}
-                  </td>
-                  <td>
-                    <span
-                      className={`${styles.badge} ${styles[`status${b.status}`]}`}
-                    >
-                      {BID_STATUS_LABELS[b.status]}
-                    </span>
-                  </td>
-                  <td>{formatDate(b.firstContactedOn)}</td>
-                  <td>{b.notes.length}</td>
-                  <td>
-                    <div className={styles.actions}>
-                      <Link href={`/bids/${b.id}`} className={styles.edit}>
-                        {t("workPackages.bidView")}
-                      </Link>
                     </div>
                   </td>
                 </tr>

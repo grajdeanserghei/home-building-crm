@@ -262,6 +262,16 @@
   justify-content: flex-end;
 }
 
+/* A left-aligned row of low-emphasis navigation links (e.g. a project's sub-pages).
+   Uses a flex gap so the bordered .edit links keep clear of each other and of the
+   text above them, instead of overlapping when laid out inline in a paragraph. */
+.linkRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0 28px;
+}
+
 .edit {
   padding: 6px 12px;
   border-radius: 6px;

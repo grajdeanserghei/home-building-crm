@@ -32,7 +32,9 @@ export async function openBid(formData: FormData) {
     throw new Error(await describeApiError(res, "common.actionError"));
   }
 
+  // Opening a bid is a step away on its own route; revalidate and return to the work package.
   revalidatePath(`/work-packages/${workPackageId}`);
+  redirect(`/work-packages/${workPackageId}`);
 }
 
 // Update a bid's free-text standing. Status is intentionally absent: the backend

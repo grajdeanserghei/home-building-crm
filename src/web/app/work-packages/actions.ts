@@ -44,7 +44,9 @@ export async function defineWorkPackage(formData: FormData) {
     throw new Error(await describeApiError(res, "common.actionError"));
   }
 
+  // Defining a package is a step away on its own route; revalidate and return to the project.
   revalidatePath(`/projects/${projectId}`);
+  redirect(`/projects/${projectId}`);
 }
 
 export async function updateWorkPackage(formData: FormData) {
@@ -81,7 +83,10 @@ export async function deleteWorkPackage(formData: FormData) {
     throw new Error(await describeApiError(res, "common.actionError"));
   }
 
+  // Deleting can be driven from the package's own read view; revalidate the project's
+  // list and return to it (the gone package's detail page no longer exists).
   revalidatePath(`/projects/${projectId}`);
+  redirect(`/projects/${projectId}`);
 }
 
 // Lifecycle ---------------------------------------------------------------
@@ -110,6 +115,8 @@ export async function changeWorkPackageStatus(formData: FormData) {
   if (projectId) {
     revalidatePath(`/projects/${projectId}`);
   }
+  // The change is driven from the dedicated status route; return to the package's read view.
+  redirect(`/work-packages/${id}`);
 }
 
 // Scope items -------------------------------------------------------------
@@ -143,7 +150,9 @@ export async function addScopeItem(formData: FormData) {
     throw new Error(await describeApiError(res, "common.actionError"));
   }
 
+  // Adding a scope item is a step away on its own route; revalidate and return to the package.
   revalidatePath(`/work-packages/${workPackageId}`);
+  redirect(`/work-packages/${workPackageId}`);
 }
 
 export async function removeScopeItem(formData: FormData) {

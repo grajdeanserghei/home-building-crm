@@ -1,16 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { WorkPackageForm } from "@/app/components/WorkPackageForm";
 import {
   getProject,
   getWorkPackages,
   WORK_PACKAGE_STATUS_LABELS,
   type WorkPackage,
 } from "@/app/lib/api";
-import {
-  defineWorkPackage,
-  deleteWorkPackage,
-} from "@/app/work-packages/actions";
+import { deleteWorkPackage } from "@/app/work-packages/actions";
 import { formatDate } from "@/app/lib/format";
 import { t } from "@/app/lib/i18n";
 import styles from "@/app/page.module.css";
@@ -41,35 +37,26 @@ export default async function ProjectDetailPage({
       <Link href="/projects" className={styles.backLink}>
         {t("projects.backToAll")}
       </Link>
+
       <h1>{project.name}</h1>
       <p className={styles.subtitle}>
         {project.description || t("projects.workPackagesSubtitle")}
       </p>
+
       <p className={styles.muted}>
         {t("projects.apartmentUnitsSummary", {
           count: String(project.apartmentUnits),
         })}
       </p>
 
-      <p>
+      <div className={styles.linkRow}>
         <Link href={`/projects/${project.id}/budget`} className={styles.edit}>
           {t("budget.link")} →
         </Link>
-        {" · "}
         <Link href={`/projects/${project.id}/bids`} className={styles.edit}>
           {t("projectBids.link")} →
         </Link>
-      </p>
-
-      <section className={styles.card}>
-        <h2>{t("workPackages.new")}</h2>
-        <WorkPackageForm
-          action={defineWorkPackage}
-          projectId={project.id}
-          defaultSequence={workPackages.length + 1}
-          submitLabel={t("workPackages.add")}
-        />
-      </section>
+      </div>
 
       <section className={styles.card}>
         <h2>{t("projects.workPackages")}</h2>
@@ -140,6 +127,15 @@ export default async function ProjectDetailPage({
           </table>
         )}
       </section>
+
+      <p>
+        <Link
+          href={`/projects/${project.id}/work-packages/new`}
+          className={styles.primaryButton}
+        >
+          {t("workPackages.add")}
+        </Link>
+      </p>
     </main>
   );
 }

@@ -180,29 +180,35 @@ export const ro = {
   // — Work packages (detail page on the project, table columns) ————————————
   "workPackages.new": "Pachet de lucrări nou",
   "workPackages.add": "Adaugă pachet de lucrări",
-  "workPackages.empty": "Niciun pachet de lucrări încă. Definește primul mai sus.",
+  "workPackages.createSubtitle":
+    "Definește un pachet de lucrări nou pentru acest proiect.",
+  "workPackages.empty": "Niciun pachet de lucrări încă.",
   "workPackages.col.plannedStart": "Început planificat",
   "workPackages.col.plannedEnd": "Sfârșit planificat",
   "workPackages.backToProject": "← Înapoi la proiect",
+  "workPackages.backToWorkPackage": "← Înapoi la pachetul de lucrări",
   "workPackages.detailSubtitle": "Ofertele pentru acest pachet de lucrări.",
   "workPackages.contractTitle": "Contract",
   "workPackages.awardedNotice": "Acest pachet de lucrări a fost atribuit.",
   "workPackages.viewContract": "Vezi contractul →",
   "workPackages.changeStatusTitle": "Schimbă starea",
+  "workPackages.changeStatusSubtitle":
+    "Mută pachetul de lucrări în următoarea etapă din ciclul său de viață.",
   "workPackages.statusFinal":
     "Acest pachet de lucrări este {status} — starea sa este finală.",
   "workPackages.updateStatus": "Actualizează starea",
   "workPackages.awardingHint":
     "Atribuirea se face automat când o ofertă este selectată și contractul ei este creat — nu se stabilește aici.",
   "workPackages.newBidTitle": "Ofertă nouă",
+  "workPackages.openBidSubtitle":
+    "Deschide o ofertă cu un antreprenor pentru acest pachet de lucrări.",
   "workPackages.noContractors":
     "Niciun antreprenor înregistrat încă — adaugă unul mai întâi în secțiunea Antreprenori.",
   "workPackages.allContractorsBid":
     "Fiecare antreprenor înregistrat are deja o ofertă pentru acest pachet de lucrări.",
   "workPackages.openBid": "Deschide ofertă",
   "workPackages.bidsTitle": "Oferte",
-  "workPackages.bidsEmpty":
-    "Nicio ofertă încă. Deschide una cu un antreprenor mai sus.",
+  "workPackages.bidsEmpty": "Nicio ofertă încă.",
   "workPackages.bidContractor": "Antreprenor",
   "workPackages.bidFirstContact": "Primul contact",
   "workPackages.bidView": "Vezi",
@@ -266,7 +272,7 @@ export const ro = {
   "scopeItems.title": "Cerințe de execuție",
   "scopeItems.subtitle":
     "Sub-domeniile definite de proprietar pentru acest pachet de lucrări — ce trebuie făcut și ce ar putea fi eliminat sau amânat dacă bugetul este limitat.",
-  "scopeItems.empty": "Nicio lucrare încă. Adaug-o pe prima mai jos.",
+  "scopeItems.empty": "Nicio lucrare încă.",
   "scopeItems.requirement": "Cerință",
   "scopeItems.add": "Adaugă lucrare",
   "scopeItems.namePlaceholder":
