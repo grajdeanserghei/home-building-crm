@@ -827,3 +827,135 @@ export async function getProjectBudget(
   }
   return res.json();
 }
+
+// Cost scenarios ---------------------------------------------------------
+//
+// A cost scenario is a saved "what-if": for each work package, a chosen bid (its bill of
+// quantities) supplies the cost, and the combined total is computed on the fly. It answers
+// "what will the build cost if we award this bid for the foundation, that bid for the roof…?"
+// — a single named combination, in contrast to the rule-driven range the project budget shows.
+// Money is reported per currency (RON/EUR are never summed), with both net (VAT-exclusive) and
+// gross (VAT-inclusive) figures and an approximate EUR-equivalent. Figures are scaled to the
+// whole build (a per-apartment quote × the project's apartmentUnits). See
+// docs/specifications/cost-scenarios.md.
+
+// One row of a project's scenario list.
+export interface CostScenarioSummary {
+  id: string;
+  projectId: string;
+  name: string;
+  workPackageCount: number;
+  createdAt: string;
+}
+
+// One included work package's computed cost line. `priced` is false when the chosen bid's BoQ
+// is missing, rejected/withdrawn, or has a zero total — such a line is shown but contributes
+// nothing to the totals.
+export interface ScenarioLine {
+  workPackageId: string;
+  workPackageName: string;
+  sequence: number;
+  bidId: string;
+  contractorId: string;
+  contractorName: string;
+  boqId?: string | null;
+  scope: BudgetScopeKind;
+  multiplier: number; // the per-apartment "× N" factor (1 for an entire-building quote)
+  net: Money;
+  gross: Money;
+  eurEquivalentGross: Money;
+  priced: boolean;
+}
+
+// The scenario's net and gross totals for one currency (single values — the selection is deterministic).
+export interface ScenarioCurrencyTotal {
+  currency: Currency;
+  net: Money;
+  gross: Money;
+}
+
+// The per-currency totals converted to EUR and summed into one comparable figure, using a single
+// app-wide display rate (`ronPerEur`, "1 EUR = N RON"). Approximate. Null when nothing to convert.
+export interface ScenarioEurEquivalent {
+  ronPerEur: number;
+  net: Money;
+  gross: Money;
+}
+
+// A scenario's computed cost picture: a line per included BoQ plus per-currency totals.
+export interface CostScenario {
+  id: string;
+  projectId: string;
+  name: string;
+  description?: string | null;
+  lines: ScenarioLine[];
+  totalsByCurrency: ScenarioCurrencyTotal[];
+  eurEquivalent?: ScenarioEurEquivalent | null;
+  createdAt: string;
+}
+
+// One selectable bid for a work package: a contractor whose current BoQ carries a price. Net/gross
+// are effective (whole-build) totals so per-apartment and entire-building quotes compare equally.
+export interface ScenarioCandidateBid {
+  bidId: string;
+  contractorId: string;
+  contractorName: string;
+  boqId: string;
+  scope: BudgetScopeKind;
+  net: Money;
+  gross: Money;
+}
+
+// The priced bids available to choose from for one work package (possibly none).
+export interface ScenarioCandidateWorkPackage {
+  workPackageId: string;
+  name: string;
+  sequence: number;
+  bids: ScenarioCandidateBid[];
+}
+
+export async function getCostScenarios(
+  projectId: string,
+): Promise<CostScenarioSummary[]> {
+  const res = await fetch(
+    `${apiBaseUrl()}/api/projects/${projectId}/cost-scenarios`,
+    { cache: "no-store" },
+  );
+  if (!res.ok) {
+    throw new Error(`${res.status} ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function getCostScenario(
+  scenarioId: string,
+): Promise<CostScenario | null> {
+  const res = await fetch(`${apiBaseUrl()}/api/cost-scenarios/${scenarioId}`, {
+    cache: "no-store",
+  });
+  if (res.status === 404) {
+    return null;
+  }
+  if (!res.ok) {
+    throw new Error(`${res.status} ${res.statusText}`);
+  }
+  return res.json();
+}
+
+// The per-work-package candidate bids for a project's scenario editor, or null if the project
+// does not exist.
+export async function getScenarioCandidates(
+  projectId: string,
+): Promise<ScenarioCandidateWorkPackage[] | null> {
+  const res = await fetch(
+    `${apiBaseUrl()}/api/projects/${projectId}/cost-scenarios/candidates`,
+    { cache: "no-store" },
+  );
+  if (res.status === 404) {
+    return null;
+  }
+  if (!res.ok) {
+    throw new Error(`${res.status} ${res.statusText}`);
+  }
+  return res.json();
+}

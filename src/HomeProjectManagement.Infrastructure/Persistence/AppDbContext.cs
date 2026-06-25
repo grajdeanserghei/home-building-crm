@@ -2,6 +2,7 @@ using HomeProjectManagement.Domain.BillsOfQuantities;
 using HomeProjectManagement.Domain.Bids;
 using HomeProjectManagement.Domain.Contractors;
 using HomeProjectManagement.Domain.Contracts;
+using HomeProjectManagement.Domain.CostScenarios;
 using HomeProjectManagement.Domain.Projects;
 using HomeProjectManagement.Domain.Trades;
 using HomeProjectManagement.Domain.UnitsOfMeasure;
@@ -33,6 +34,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<UnitOfMeasure> UnitsOfMeasure => Set<UnitOfMeasure>();
 
     public DbSet<Trade> Trades => Set<Trade>();
+
+    public DbSet<CostScenario> CostScenarios => Set<CostScenario>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

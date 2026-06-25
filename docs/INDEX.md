@@ -34,6 +34,7 @@ A complete map of the documentation under `docs/`. Start with the
 | [Specifications overview](./specifications/README.md) | — | Landing page for feature specs; points to the spec template. |
 | [`_template.md`](./specifications/_template.md) | — | Starting template for new specifications. |
 | [Project Budget View](./specifications/project-budget-view.md) | Implemented | Read-only `/projects/{id}/budget` page rolling up committed (contract) and candidate (BoQ) costs per currency. |
+| [Cost Scenarios (Cost Simulator)](./specifications/cost-scenarios.md) | Implemented | Saved "what-if" cost combinations — one chosen bid (its BoQ) per work package — with a computed per-currency total and EUR-equivalent; HTTP + MCP + `/projects/{id}/cost-scenarios` UI. |
 | [Romanian Localization](./specifications/romanian-localization.md) | Implemented | Romanian-only presentation layer plus the reviewed glossary that fixes the Romanian ubiquitous language. |
 | [Remote MCP Server](./specifications/remote-mcp-server.md) | Implemented | A remote MCP server letting an AI agent drive conversational and document-based data entry; covers the prerequisite `Bid` and `BillOfQuantities` aggregates. |
 | [BoQ Excel Export](./specifications/boq-excel-export.md) | Implemented | Export a *deviz* to `.xlsx` — one worksheet per Section, Subsections as visually separated bands, summary sheet, live `SUM()` totals; ClosedXML behind a driven port. |

@@ -3,6 +3,7 @@ using HomeProjectManagement.Application.BillsOfQuantities;
 using HomeProjectManagement.Application.Budgeting;
 using HomeProjectManagement.Application.Contractors;
 using HomeProjectManagement.Application.Contracts;
+using HomeProjectManagement.Application.CostScenarios;
 using HomeProjectManagement.Application.Projects;
 using HomeProjectManagement.Application.Trades;
 using HomeProjectManagement.Application.UnitsOfMeasure;
@@ -25,6 +26,8 @@ public static class DependencyInjection
         services.AddScoped<IUnitOfMeasureAppService, UnitOfMeasureAppService>();
         services.AddScoped<ITradeAppService, TradeAppService>();
         services.AddScoped<IProjectBudgetQuery, ProjectBudgetQuery>();
+        services.AddScoped<ICostScenarioAppService, CostScenarioAppService>();
+        services.AddScoped<ICostScenarioQuery, CostScenarioQuery>();
         return services;
     }
 }
