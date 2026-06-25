@@ -1,16 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BoqDndBoard } from "@/app/components/BoqDndBoard";
+import { BoqSections } from "@/app/components/BoqSections";
 import { ConfirmDeleteButton } from "@/app/components/ConfirmDeleteButton";
-import { LineItemsTable } from "@/app/components/LineItemsTable";
-import {
-  deleteBoq,
-  duplicateLineItem,
-  removeLineItem,
-  removeSection,
-  removeSubsection,
-  removeSubsectionLineItem,
-} from "@/app/bills-of-quantities/actions";
+import { deleteBoq } from "@/app/bills-of-quantities/actions";
 import {
   BOQ_STATUS_LABELS,
   BUDGET_SCOPE_KIND_LABELS,
@@ -279,122 +272,14 @@ export default async function BillOfQuantitiesDetailPage({
         </section>
       ) : null}
 
-      {!arranging &&
-        boq.sections.map((section) => (
-        <section className={`${styles.card} ${styles.boqSection}`} key={section.id}>
-          <h2>
-            {section.sequence}. {section.name}{" "}
-            <span className={styles.muted}>
-              · {formatMoney(section.subtotalWithVat)} {t("boq.inclVat")} (
-              {formatMoney(section.subtotal)} {t("boq.exclShort")})
-            </span>
-          </h2>
-          {section.description ? (
-            <p className={styles.muted}>{section.description}</p>
-          ) : null}
-
-          <LineItemsTable
-            lineItems={section.lineItems}
-            unitCode={unitCode}
-            editable={editable}
-            boqId={boq.id}
-            sectionId={section.id}
-            editHrefBase={`/bills-of-quantities/${boq.id}/sections/${section.id}/line-items`}
-            removeAction={removeLineItem}
-            duplicateAction={duplicateLineItem}
-          />
-
-          {/* Subsections: an optional second level of grouping within the section. */}
-          {section.subsections.map((subsection) => (
-            <div className={styles.subsection} key={subsection.id}>
-              <h3>
-                {section.sequence}.{subsection.sequence} {subsection.name}{" "}
-                <span className={styles.muted}>
-                  · {formatMoney(subsection.subtotalWithVat)} {t("boq.inclVat")} (
-                  {formatMoney(subsection.subtotal)} {t("boq.exclShort")})
-                </span>
-              </h3>
-              {subsection.description ? (
-                <p className={styles.muted}>{subsection.description}</p>
-              ) : null}
-
-              <LineItemsTable
-                lineItems={subsection.lineItems}
-                unitCode={unitCode}
-                editable={editable}
-                boqId={boq.id}
-                sectionId={section.id}
-                subsectionId={subsection.id}
-                editHrefBase={`/bills-of-quantities/${boq.id}/sections/${section.id}/subsections/${subsection.id}/line-items`}
-                removeAction={removeSubsectionLineItem}
-                duplicateAction={duplicateLineItem}
-              />
-
-              {editable ? (
-                <div className={styles.actions}>
-                  <Link
-                    href={`/bills-of-quantities/${boq.id}/sections/${section.id}/subsections/${subsection.id}/line-items/new`}
-                    className={styles.edit}
-                  >
-                    {t("subsections.addLine")}
-                  </Link>
-                  <Link
-                    href={`/bills-of-quantities/${boq.id}/sections/${section.id}/subsections/${subsection.id}/edit`}
-                    className={styles.edit}
-                  >
-                    {t("subsections.edit")}
-                  </Link>
-                  <ConfirmDeleteButton
-                    action={removeSubsection}
-                    fields={{
-                      boqId: boq.id,
-                      sectionId: section.id,
-                      subsectionId: subsection.id,
-                    }}
-                    title={t("subsections.removeTitle")}
-                    bodyTemplate={t("subsections.removeBody")}
-                    name={subsection.name}
-                    triggerLabel={t("subsections.remove")}
-                    confirmLabel={t("subsections.remove")}
-                  />
-                </div>
-              ) : null}
-            </div>
-          ))}
-
-          {editable ? (
-            <div className={styles.actions} style={{ marginTop: 16 }}>
-              <Link
-                href={`/bills-of-quantities/${boq.id}/sections/${section.id}/line-items/new`}
-                className={styles.edit}
-              >
-                {t("lineItems.add")}
-              </Link>
-              <Link
-                href={`/bills-of-quantities/${boq.id}/sections/${section.id}/subsections/new`}
-                className={styles.edit}
-              >
-                {t("subsections.add")}
-              </Link>
-              <Link
-                href={`/bills-of-quantities/${boq.id}/sections/${section.id}/edit`}
-                className={styles.edit}
-              >
-                {t("sections.edit")}
-              </Link>
-              <ConfirmDeleteButton
-                action={removeSection}
-                fields={{ boqId: boq.id, sectionId: section.id }}
-                title={t("sections.removeTitle")}
-                bodyTemplate={t("sections.removeBody")}
-                name={section.name}
-                triggerLabel={t("sections.remove")}
-                confirmLabel={t("sections.remove")}
-              />
-            </div>
-          ) : null}
-        </section>
-      ))}
+      {!arranging && boq.sections.length > 0 ? (
+        <BoqSections
+          boqId={boq.id}
+          sections={boq.sections}
+          unitCode={Object.fromEntries(unitCode)}
+          editable={editable}
+        />
+      ) : null}
 
       {boq.sections.length === 0 ? (
         <section className={styles.card}>

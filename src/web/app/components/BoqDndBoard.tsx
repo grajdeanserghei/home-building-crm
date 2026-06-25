@@ -28,10 +28,12 @@ import {
   removeLineItem,
   removeSubsectionLineItem,
 } from "@/app/bills-of-quantities/actions";
+import { BoqChevron } from "@/app/components/BoqChevron";
 import { ConfirmDeleteButton } from "@/app/components/ConfirmDeleteButton";
 import type { LineItem, Section } from "@/app/lib/api";
 import { formatMoney, formatNumber } from "@/app/lib/format";
 import { t } from "@/app/lib/i18n";
+import { useBoqAccordion } from "@/app/lib/useBoqAccordion";
 import styles from "@/app/page.module.css";
 
 // A line-item container the board can drag between: a section's directly-held lines (subsectionId
@@ -146,6 +148,21 @@ export function BoqDndBoard({
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
+  // Collapse/expand state, shared with the read view and persisted per BoQ (same ids: section.id /
+  // subsection.id). A collapsed container is simply not rendered — its drag droppable unmounts, so
+  // it stops being a drop target until expanded again; board.items keeps all line data regardless.
+  const allIds = sections.flatMap((s) => [s.id, ...s.subsections.map((ss) => ss.id)]);
+  const { isOpen, toggle, setMany, allOpen, toggleAll } = useBoqAccordion(boqId, allIds);
+
+  // Group the flat layout (section-direct lines, then each subsection) back into sections for the
+  // accordion. Order is preserved: an isSection container opens a group; the non-section containers
+  // that follow it are its subsections.
+  const groups: { sectionId: string; section: Container; subs: Container[] }[] = [];
+  for (const c of board.layout) {
+    if (c.isSection) groups.push({ sectionId: c.sectionId, section: c, subs: [] });
+    else groups[groups.length - 1]?.subs.push(c);
+  }
+
   // Which container holds an id — or the container itself when `id` is a droppable container key
   // (e.g. dropping onto an empty subsection).
   function findContainer(id: string): string | null {
@@ -242,22 +259,97 @@ export function BoqDndBoard({
         </p>
       ) : null}
 
-      {board.layout.map((container) => (
-        <div key={container.key}>
-          {container.isSection ? (
-            <h2 style={{ marginTop: 24 }}>{container.label}</h2>
-          ) : (
-            <h3 style={{ marginTop: 16 }}>{container.label}</h3>
-          )}
-          <ContainerList
-            boqId={boqId}
-            container={container}
-            lineIds={board.items[container.key]}
-            lines={board.lines}
-            unitCode={unitCode}
-          />
+      {allIds.length > 0 ? (
+        <div className={styles.boqAccordionBar}>
+          <button type="button" className={styles.edit} onClick={toggleAll}>
+            {allOpen ? t("boq.collapseAll") : t("boq.expandAll")}
+          </button>
         </div>
-      ))}
+      ) : null}
+
+      {groups.map((group) => {
+        const sectionOpen = isOpen(group.sectionId);
+        const subIds = group.subs
+          .map((c) => c.subsectionId)
+          .filter((id): id is string => id !== null);
+        const allSubsOpen = subIds.length > 0 && subIds.every(isOpen);
+        const sectionPanelId = `arrange-section-${group.sectionId}`;
+        return (
+          <div key={group.section.key}>
+            <h2 style={{ marginTop: 24, display: "flex", alignItems: "center" }}>
+              <button
+                type="button"
+                className={styles.boqDisclosure}
+                aria-expanded={sectionOpen}
+                aria-controls={sectionPanelId}
+                onClick={() => toggle(group.sectionId)}
+              >
+                <BoqChevron open={sectionOpen} />
+                <span>{group.section.label}</span>
+              </button>
+              {subIds.length > 0 ? (
+                <button
+                  type="button"
+                  className={styles.boqToggleChildren}
+                  onClick={() =>
+                    allSubsOpen
+                      ? setMany(subIds, false)
+                      : setMany([group.sectionId, ...subIds], true)
+                  }
+                >
+                  {allSubsOpen
+                    ? t("boq.collapseSubsections")
+                    : t("boq.expandSubsections")}
+                </button>
+              ) : null}
+            </h2>
+
+            <div id={sectionPanelId} hidden={!sectionOpen}>
+              <ContainerList
+                boqId={boqId}
+                container={group.section}
+                lineIds={board.items[group.section.key]}
+                lines={board.lines}
+                unitCode={unitCode}
+              />
+
+              {group.subs.map((container) => {
+                const subOpen = container.subsectionId
+                  ? isOpen(container.subsectionId)
+                  : true;
+                const subPanelId = `arrange-subsection-${container.subsectionId}`;
+                return (
+                  <div key={container.key}>
+                    <h3 style={{ marginTop: 16, display: "flex", alignItems: "center" }}>
+                      <button
+                        type="button"
+                        className={styles.boqDisclosure}
+                        aria-expanded={subOpen}
+                        aria-controls={subPanelId}
+                        onClick={() =>
+                          container.subsectionId && toggle(container.subsectionId)
+                        }
+                      >
+                        <BoqChevron open={subOpen} />
+                        <span>{container.label}</span>
+                      </button>
+                    </h3>
+                    <div id={subPanelId} hidden={!subOpen}>
+                      <ContainerList
+                        boqId={boqId}
+                        container={container}
+                        lineIds={board.items[container.key]}
+                        lines={board.lines}
+                        unitCode={unitCode}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
 
       <DragOverlay>
         {activeLine ? (

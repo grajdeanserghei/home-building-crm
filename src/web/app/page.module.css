@@ -186,6 +186,65 @@
   top: calc(var(--boq-section-h) + var(--boq-subsection-h));
 }
 
+/*
+ * Accordion (collapse/expand) controls, shared by the read view (BoqSections) and Arrange mode
+ * (BoqDndBoard). The disclosure button lives *inside* the existing `.boqSection > h2` /
+ * `.subsection > h3` heading so the sticky-header rules above are untouched.
+ */
+
+/* The BoQ-level "expand all / collapse all" toggle row, above the first section. */
+.boqAccordionBar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 16px;
+}
+
+/* Turns a heading into a clickable disclosure without changing its look: fills the heading row,
+   keeps the heading's own typography (font: inherit), left-aligned. */
+.boqDisclosure {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* Chevron points right when collapsed, rotates down when open. */
+.boqChevron {
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+
+.boqChevronOpen {
+  transform: rotate(90deg);
+}
+
+/* The section-level "expand/collapse all subsections" toggle, sitting after the disclosure. */
+.boqToggleChildren {
+  flex-shrink: 0;
+  margin-left: 0.5rem;
+  padding: 2px 8px;
+  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted, #6b7280);
+  font-size: 0.8rem;
+  font-weight: 400;
+  cursor: pointer;
+}
+
+.boqToggleChildren:hover {
+  border-color: #2563eb;
+  color: #2563eb;
+}
+
 /* Arrange mode: a container's droppable line list and its draggable rows. */
 .dropList {
   display: flex;
