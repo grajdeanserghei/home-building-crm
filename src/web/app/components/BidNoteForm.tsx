@@ -37,8 +37,9 @@ export function BidNoteForm({ action, bidId, today, projectId }: BidNoteFormProp
         {t("notes.occurredOn")}
         <input name="occurredOn" type="date" defaultValue={today} required />
       </label>
-      <input
+      <textarea
         name="content"
+        rows={4}
         placeholder={t("notes.contentPlaceholder")}
         required
       />

@@ -233,7 +233,7 @@ export default async function BidDetailPage({
                   <tr key={n.id}>
                     <td>{formatDate(n.occurredOn)}</td>
                     <td>{NOTE_TYPE_LABELS[n.type]}</td>
-                    <td>{n.content}</td>
+                    <td className={styles.multilineCell}>{n.content}</td>
                     <td>
                       <div className={styles.actions}>
                         <form action={removeBidNote}>

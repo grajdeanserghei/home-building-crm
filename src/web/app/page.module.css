@@ -561,6 +561,11 @@
   white-space: pre-wrap;
 }
 
+/* A table cell holding multi-line free text (e.g. a discussion note) keeps its line breaks. */
+.multilineCell {
+  white-space: pre-wrap;
+}
+
 /* The clickable project name in the projects table. */
 .nameLink {
   color: inherit;
