@@ -4,6 +4,7 @@ import { resolveCurrentProject } from "../lib/current-project";
 import { t } from "../lib/i18n";
 import type { Project } from "../lib/api";
 import { ProjectSwitcher } from "./ProjectSwitcher";
+import { NavMenu } from "./NavMenu";
 import styles from "./Nav.module.css";
 
 // Persistent top navigation rendered by the root layout, so the main sections are
@@ -34,23 +35,7 @@ export async function Nav() {
             action={setCurrentProject}
           />
         </div>
-        <div className={styles.links}>
-          <Link href="/projects" className={styles.link}>
-            {t("nav.projects")}
-          </Link>
-          <Link href="/contractors" className={styles.link}>
-            {t("nav.contractors")}
-          </Link>
-          <Link href="/contracts" className={styles.link}>
-            {t("nav.contracts")}
-          </Link>
-          <Link href="/units-of-measure" className={styles.link}>
-            {t("nav.unitsOfMeasure")}
-          </Link>
-          <Link href="/trades" className={styles.link}>
-            {t("nav.trades")}
-          </Link>
-        </div>
+        <NavMenu />
       </div>
     </nav>
   );

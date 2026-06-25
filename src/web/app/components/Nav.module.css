@@ -50,6 +50,10 @@
 
 .switcherSelect {
   max-width: 220px;
+  /* Keep a readable floor: low enough that the select yields space (links wrap
+     before it overflows) but high enough that the project name never shrinks to
+     an unreadable sliver when the header row is tight. */
+  min-width: 150px;
   padding: 6px 10px;
   border-radius: 8px;
   border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
@@ -64,8 +68,27 @@
   border-color: #2563eb;
 }
 
+/* Hamburger toggle: hidden on desktop, revealed at the small-screen breakpoint. */
+.menuToggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.menuToggle:hover {
+  color: #2563eb;
+  border-color: #2563eb;
+}
+
 .links {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
@@ -79,4 +102,57 @@
 .link:hover {
   color: #2563eb;
   background: color-mix(in srgb, #2563eb 10%, transparent);
+}
+
+/* Small / medium screens (phones, tablets, narrow laptops) -------------- */
+/* The long brand text, the project switcher and the five Romanian link labels
+   only fit on one row near the container's full width (~1200px). Below that the
+   row gets cramped and the switcher is squeezed, so collapse the links behind a
+   hamburger toggle. Top row: brand + the project switcher (full width below the
+   brand) + the toggle; the links panel opens below only when toggled. */
+@media (max-width: 1100px) {
+  .inner {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    row-gap: 12px;
+    padding: 14px 16px;
+  }
+
+  /* Take the row's width (minus the toggle) and let the switcher wrap onto its
+     own line beneath the brand instead of fighting it for horizontal space. */
+  .brandGroup {
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+    row-gap: 12px;
+  }
+
+  .switcher {
+    flex-basis: 100%;
+  }
+
+  .switcherSelect {
+    flex: 1;
+    max-width: none;
+  }
+
+  .menuToggle {
+    display: inline-flex;
+  }
+
+  /* Collapsed by default; the toggle adds `.linksOpen` to reveal the panel as a
+     full-width vertical list below the bar. */
+  .links {
+    display: none;
+    flex-basis: 100%;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .linksOpen {
+    display: flex;
+  }
+
+  .link {
+    padding: 10px 12px;
+  }
 }

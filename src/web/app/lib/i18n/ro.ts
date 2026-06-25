@@ -118,6 +118,7 @@ export const ro = {
   "meta.title": "Gestionarea Proiectului Casei",
   "meta.description": "Urmărește lucrările la construcția casei",
   "nav.brand": "Gestionarea Proiectului Casei",
+  "nav.menu": "Meniu",
   "nav.project": "Proiect",
   "nav.projects": "Proiecte",
   "nav.contractors": "Antreprenori",
