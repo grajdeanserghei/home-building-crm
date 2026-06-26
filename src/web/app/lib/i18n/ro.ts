@@ -156,6 +156,17 @@ export const ro = {
   "dashboard.workPackagesTitle": "Pachete de lucrări",
   "dashboard.workPackagesManage": "Gestionează pachetele →",
 
+  // — Activity feed (home dashboard) ————————————————————————————————————
+  "feed.title": "Activitate recentă",
+  "feed.empty": "Nicio activitate încă.",
+  // Author fallback until real users are wired (everything is the single stub user for now).
+  "feed.teamMember": "Un membru al echipei",
+  "feed.noteLogged": "{author} a adăugat o notiță",
+  "feed.bidOpened": "Ofertă nouă — {contractor}",
+  "feed.bidOpenedNoName": "Ofertă nouă",
+  "feed.workPackageAdded": "Pachet de lucrări nou — {name}",
+  "feed.projectCreated": "Proiectul a fost creat",
+
   // — Projects (management list, detail, form) ————————————————————————————
   "projects.new": "Proiect nou",
   "projects.add": "Adaugă proiect",

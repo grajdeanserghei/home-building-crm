@@ -487,6 +487,59 @@
   letter-spacing: 0.04em;
 }
 
+/* Activity feed (home dashboard) --------------------------------------- */
+.feedList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* One entry: a colored dot in a left gutter, the body to its right. */
+.feedItem {
+  display: flex;
+  gap: 12px;
+  padding: 14px 0;
+  border-top: 1px solid color-mix(in srgb, currentColor 8%, transparent);
+}
+
+.feedItem:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.feedDot {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  margin-top: 7px;
+  border-radius: 50%;
+  background: #2563eb;
+}
+
+.feedBody {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.feedTitle {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.feedMeta {
+  margin: 2px 0 0;
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+/* The note text, shown for discussion-note entries. */
+.feedContent {
+  margin: 6px 0 0;
+  font-size: 0.9rem;
+  white-space: pre-wrap;
+}
+
 /* Status badges -------------------------------------------------------- */
 .badge {
   display: inline-block;

@@ -2,16 +2,19 @@ import Link from "next/link";
 import { resolveCurrentProject } from "./lib/current-project";
 import {
   formatMoney,
+  getProjectActivity,
   getProjectBudget,
   getWorkPackages,
   PROJECT_STATUS_LABELS,
   WORK_PACKAGE_STATUS_LABELS,
+  type ActivityItem,
   type CurrencyTotals,
   type Money,
   type Project,
   type ProjectBudget,
   type WorkPackage,
 } from "./lib/api";
+import { ActivityFeed } from "./components/ActivityFeed";
 import { formatDate } from "./lib/format";
 import { t } from "./lib/i18n";
 import styles from "./page.module.css";
@@ -78,14 +81,16 @@ export default async function Home() {
     );
   }
 
-  // Load the selected project's work packages and budget for the dashboard.
+  // Load the selected project's work packages, budget and recent activity for the dashboard.
   let workPackages: WorkPackage[] = [];
   let budget: ProjectBudget | null = null;
+  let activity: ActivityItem[] = [];
   let dataError: string | null = null;
   try {
-    [workPackages, budget] = await Promise.all([
+    [workPackages, budget, activity] = await Promise.all([
       getWorkPackages(current.id),
       getProjectBudget(current.id),
+      getProjectActivity(current.id),
     ]);
   } catch (e) {
     dataError = e instanceof Error ? e.message : t("common.unknownError");
@@ -112,6 +117,9 @@ export default async function Home() {
         <div className={styles.actions}>
           <Link href={`/projects/${current.id}/edit`} className={styles.edit}>
             {t("projects.edit")}
+          </Link>
+          <Link href={`/projects/${current.id}`} className={styles.edit}>
+            {t("dashboard.workPackagesManage")}
           </Link>
           <Link
             href={`/projects/${current.id}/budget`}
@@ -148,12 +156,16 @@ export default async function Home() {
       </section>
 
       <section className={styles.card}>
-        <div className={styles.cardHeader}>
-          <h2>{t("dashboard.workPackagesTitle")}</h2>
-          <Link href={`/projects/${current.id}`} className={styles.edit}>
-            {t("dashboard.workPackagesManage")}
-          </Link>
-        </div>
+        <h2>{t("feed.title")}</h2>
+        {dataError ? (
+          <p className={styles.error}>{t("common.apiError", { error: dataError })}</p>
+        ) : (
+          <ActivityFeed items={activity} />
+        )}
+      </section>
+
+      <section className={styles.card}>
+        <h2>{t("dashboard.workPackagesTitle")}</h2>
         {dataError ? (
           <p className={styles.error}>{t("common.apiError", { error: dataError })}</p>
         ) : workPackages.length === 0 ? (

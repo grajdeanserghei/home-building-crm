@@ -830,6 +830,48 @@ export async function getProjectBudget(
   return res.json();
 }
 
+// Activity feed ----------------------------------------------------------
+//
+// The home dashboard's recent-activity feed for one project: discussion notes (comments) plus
+// structural additions (a bid opened, a work package defined, the project created), assembled
+// server-side across aggregates and ordered newest-first. Each item carries structured fields; the
+// UI composes the human sentence via i18n (see ActivityFeed). `authorId` is the stakeholder's user
+// id — name resolution does not exist server-side yet, so the UI maps it with a fallback.
+
+export type ActivityKind =
+  | "NoteLogged"
+  | "BidOpened"
+  | "WorkPackageAdded"
+  | "ProjectCreated";
+
+export interface ActivityItem {
+  kind: ActivityKind;
+  timestamp: string; // ISO timestamp (note's occurredOn, or the entity's creation time)
+  authorId?: string | null;
+  workPackageId?: string | null;
+  workPackageName?: string | null;
+  bidId?: string | null;
+  contractorName?: string | null;
+  noteType?: NoteType | null; // set when kind === "NoteLogged"
+  content?: string | null; // the note text
+}
+
+export async function getProjectActivity(
+  projectId: string,
+): Promise<ActivityItem[]> {
+  const res = await fetch(
+    `${apiBaseUrl()}/api/projects/${projectId}/activity`,
+    { cache: "no-store" },
+  );
+  if (res.status === 404) {
+    return [];
+  }
+  if (!res.ok) {
+    throw new Error(`${res.status} ${res.statusText}`);
+  }
+  return res.json();
+}
+
 // Cost scenarios ---------------------------------------------------------
 //
 // A cost scenario is a saved "what-if": for each work package, a chosen bid (its bill of

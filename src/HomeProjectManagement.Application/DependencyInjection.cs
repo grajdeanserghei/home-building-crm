@@ -1,3 +1,4 @@
+using HomeProjectManagement.Application.Activity;
 using HomeProjectManagement.Application.Bids;
 using HomeProjectManagement.Application.BillsOfQuantities;
 using HomeProjectManagement.Application.Budgeting;
@@ -26,6 +27,7 @@ public static class DependencyInjection
         services.AddScoped<IUnitOfMeasureAppService, UnitOfMeasureAppService>();
         services.AddScoped<ITradeAppService, TradeAppService>();
         services.AddScoped<IProjectBudgetQuery, ProjectBudgetQuery>();
+        services.AddScoped<IProjectActivityQuery, ProjectActivityQuery>();
         services.AddScoped<ICostScenarioAppService, CostScenarioAppService>();
         services.AddScoped<ICostScenarioQuery, CostScenarioQuery>();
         return services;
