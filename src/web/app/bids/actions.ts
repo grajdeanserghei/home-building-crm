@@ -5,6 +5,15 @@ import { redirect } from "next/navigation";
 import { apiBaseUrl, type BidStatus, type NoteType } from "../lib/api";
 import { describeApiError } from "@/app/lib/errors";
 
+// An <input type="date"> yields a bare `yyyy-MM-dd`. A bid's first-contact date and a
+// note's occurred-on are DateTimeOffset on the backend, whose System.Text.Json converter
+// wants a full ISO timestamp (and Npgsql rejects a non-UTC offset) — so pin the date to
+// midnight UTC. Empty → null.
+function toDateTime(value: FormDataEntryValue | null): string | null {
+  const raw = (value as string)?.trim();
+  return raw ? `${raw}T00:00:00Z` : null;
+}
+
 // Open a new bid for a contractor on a work package. The collection is nested under
 // the work package, so the contractor (and optional first contact / summary) is the
 // body and the work-package id is carried as a hidden field for routing.
@@ -15,7 +24,7 @@ export async function openBid(formData: FormData) {
 
   const payload = {
     contractorId,
-    firstContactedOn: (formData.get("firstContactedOn") as string) || null,
+    firstContactedOn: toDateTime(formData.get("firstContactedOn")),
     summary: (formData.get("summary") as string) || null,
     label: (formData.get("label") as string) || null,
   };
@@ -46,7 +55,7 @@ export async function updateBid(formData: FormData) {
 
   const payload = {
     summary: (formData.get("summary") as string) || null,
-    firstContactedOn: (formData.get("firstContactedOn") as string) || null,
+    firstContactedOn: toDateTime(formData.get("firstContactedOn")),
     label: (formData.get("label") as string) || null,
   };
 
@@ -141,7 +150,7 @@ export async function logBidNote(formData: FormData) {
 
   const payload = {
     type: (formData.get("type") as NoteType) || "Note",
-    occurredOn,
+    occurredOn: toDateTime(occurredOn),
     content,
   };
 
@@ -172,7 +181,7 @@ export async function logBidNoteOnProject(formData: FormData) {
 
   const payload = {
     type: (formData.get("type") as NoteType) || "Note",
-    occurredOn,
+    occurredOn: toDateTime(occurredOn),
     content,
   };
 
