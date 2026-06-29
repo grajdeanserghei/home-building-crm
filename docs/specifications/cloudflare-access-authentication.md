@@ -41,12 +41,21 @@ Goals:
 Internet ──HTTPS──> Cloudflare edge (Access policies · Google IdP · email allow-list)
                           │
                      Cloudflare Tunnel (cloudflared)
-                       ├── Access app "web"  ──> web container :3000   (browser login)
-                       └── Access app "mcp"  ──> mcp container :8080   (Managed OAuth)
+   hpm.crozy.eu     ───── Access app "hpm-web"  ──> web container :3000   (browser login)
+   mcp.hpm.crozy.eu ───── Access app "hpm-mcp"  ──> mcp container :8080   (Managed OAuth)
                                                     │
                           (private, no ingress) ────┼──> api container :8080
                                                     └──> postgres
 ```
+
+**Public hostnames (created):**
+
+| Hostname | Access application | Origin (k3s service) | Auth model |
+|---|---|---|---|
+| `hpm.crozy.eu` | the web UI | `web` `:3000` | Browser Google login |
+| `mcp.hpm.crozy.eu` | the MCP server | `mcp` `:8080` | Managed OAuth (OAuth 2.1 + PKCE) |
+
+The **API** and **Postgres** have no public hostname and no Tunnel ingress — they are reached only in-cluster (`web` → `api:8080`).
 
 - Both Access applications forward a signed **`Cf-Access-Jwt-Assertion`** (also a `CF_Authorization` cookie) carrying the verified email to their origin.
 - Token validation contract: **issuer** (`iss`) = the team domain `https://<team>.cloudflareaccess.com`; **signing keys** (JWKS) at `https://<team>.cloudflareaccess.com/cdn-cgi/access/certs` (raw JWKS; Cloudflare keeps the current + previous key live); **audience** (`aud`) = each application's unique **AUD tag**.
@@ -72,21 +81,61 @@ All of this is gated by `CloudflareAccess:Enabled` and ships **off** so local de
 
 Supplied via user-secrets / environment, never committed (section `CloudflareAccess`):
 
-| Key | Meaning |
-|---|---|
-| `Enabled` | Turns on origin-side validation + the allow-list re-check. `false` in local dev. |
-| `TeamDomain` | `https://<team>.cloudflareaccess.com` — the issuer and JWKS base. |
-| `Audience` | The Access application's AUD tag. |
-| `AllowedEmails__0,1,…` | Defense-in-depth allow-list (the edge Access policy is the primary gate). |
+| Key | Meaning | Example |
+|---|---|---|
+| `Enabled` | Turns on origin-side validation + the allow-list re-check. `false` in local dev. | `true` |
+| `TeamDomain` | The Zero Trust team domain — the issuer and JWKS base. | `https://<team>.cloudflareaccess.com` |
+| `Audience` | The `hpm-mcp` (`mcp.hpm.crozy.eu`) application's AUD tag. | `a1b2c3…` |
+| `AllowedEmails__0,1,…` | Defense-in-depth allow-list (the edge Access policy is the primary gate). | `someone@gmail.com` |
 
 Container env keys use the `CloudflareAccess__*` form — see [`container-images.md`](../guides/container-images.md).
 
-### Infrastructure (executed in `home-lab-infra` / Cloudflare dashboard)
+### Cloudflare setup procedure (for `home-lab-infra`)
 
-1. Create a Cloudflare Tunnel + `cloudflared` ingress mapping the public hostnames to the `web` (`:3000`) and `mcp` (`:8080`) k3s services. No ingress for the API or Postgres.
-2. In Cloudflare Zero Trust: add **Google** as a login method; create two **self-hosted Access applications** (`web`, `mcp`); attach an **Allow** policy whose selector is the four stakeholders' `Emails`. Enable **Managed OAuth** on `mcp` (set allowed redirect URIs; allow localhost/loopback clients for desktop MCP clients).
-3. Note each app's **AUD tag** + the team domain — these become the backend config above.
-4. Update the deploy runbook in `home-lab-infra`.
+Executed in the Cloudflare Zero Trust dashboard + the `home-lab-infra` repo. Concrete hostnames: **`hpm.crozy.eu`** (web) and **`mcp.hpm.crozy.eu`** (MCP). `<team>` below is the Cloudflare Zero Trust team name (Zero Trust → Settings → Custom Pages → team domain, i.e. `https://<team>.cloudflareaccess.com`).
+
+**1. Google as the identity provider (one-time, account-wide).**
+- Google Cloud Console → **APIs & Services → Credentials**. Configure the **OAuth consent screen** with audience type **External** (lets personal Gmail accounts sign in; no Workspace required), and either publish it or add the four stakeholders as test users.
+- Create an **OAuth client ID**, type **Web application**, with:
+  - Authorized JavaScript origin: `https://<team>.cloudflareaccess.com`
+  - Authorized redirect URI: `https://<team>.cloudflareaccess.com/cdn-cgi/access/callback`
+- In Zero Trust → **Settings → Authentication → Login methods → Add new → Google**: paste the **Client ID** (Cloudflare's "App ID") and **Client Secret**; enable PKCE. Use **Test** to confirm a Gmail round-trip.
+
+**2. Tunnel + DNS (`home-lab-infra`).** A Cloudflare Tunnel (`cloudflared`) with ingress mapping the two public hostnames to the in-cluster services; proxied DNS (CNAME) records for `hpm.crozy.eu` and `mcp.hpm.crozy.eu` pointing at the tunnel. No ingress for the API or Postgres. Ingress rules (service names match the cluster's k8s Services — see [`container-images.md`](../guides/container-images.md)):
+
+```yaml
+ingress:
+  - hostname: hpm.crozy.eu
+    service: http://web:3000
+  - hostname: mcp.hpm.crozy.eu
+    service: http://mcp:8080
+  - service: http_status:404      # everything else is rejected
+```
+
+**3. Reusable allow-list group.** Zero Trust → **Access → Access Groups** → create one group (e.g. `hpm-stakeholders`) whose **Emails** are the four stakeholders' Gmail addresses. Both apps reference this group, so the allow-list has a single source of truth.
+
+**4. Access application `hpm-web`** (already created → `hpm.crozy.eu`).
+- Type: **Self-hosted**, application domain `hpm.crozy.eu`.
+- Identity providers: **Google** (optionally disable One-Time PIN to make Google the only method).
+- Policy: **Allow**, selector = the `hpm-stakeholders` group.
+
+**5. Access application `hpm-mcp`** (already created → `mcp.hpm.crozy.eu`).
+- Type: **Self-hosted**, application domain `mcp.hpm.crozy.eu`.
+- Enable **Managed OAuth** (turns Access into the OAuth 2.0 authorization server for MCP clients): allow **localhost** and **loopback** redirect clients, and add the redirect URIs the Claude/ChatGPT desktop clients use.
+- Identity providers: **Google**.
+- Policy: **Allow**, selector = the same `hpm-stakeholders` group.
+
+**6. Hand the backend its config.** From each application's settings copy the **AUD tag**, and note the team domain. These populate the deployed `CloudflareAccess__*` env (per [Configuration](#configuration) / [`container-images.md`](../guides/container-images.md)) and flip `CloudflareAccess__Enabled=true` on the `mcp` Deployment:
+
+| Value | Source | Backend key (mcp Deployment) |
+|---|---|---|
+| `https://<team>.cloudflareaccess.com` | team domain | `CloudflareAccess__TeamDomain` |
+| `hpm-mcp` app **AUD tag** | the `mcp.hpm.crozy.eu` application | `CloudflareAccess__Audience` |
+| the four Gmail addresses | the `hpm-stakeholders` group | `CloudflareAccess__AllowedEmails__0..3` |
+
+(The `hpm-web` AUD tag is only needed once the **web UI** validates the assertion itself — the deferred per-user-audit [follow-up](#follow-up); web gating needs no app config today.)
+
+**7. Update the deploy runbook** in `home-lab-infra` (`docs/runbooks/deploy-home-project-management.md`) to reflect the two hostnames, the tunnel ingress, and the `mcp` auth env.
 
 ### Shared-code note
 

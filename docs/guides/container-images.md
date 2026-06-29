@@ -96,19 +96,19 @@ Two things differ from the API and the cluster side must honor them:
   Order the rollout so the API has migrated before (or alongside) the MCP
   Deployment, and never run two migrators.
 - **It is exposed — behind Cloudflare Access.** Remote agent clients connect to it
-  directly, so `mcp` is reachable from the internet (the API is not). That public
+  directly at **`mcp.hpm.crozy.eu`** (the API is not exposed). That public
   reachability is provided by a **Cloudflare Tunnel**, and the OAuth flow + Google
-  login + stakeholder allow-list are enforced at the edge by **Cloudflare Access
-  (Managed OAuth)**. The origin only **validates the forwarded assertion**, turned
-  on in-cluster via the `CloudflareAccess` section — supplied as environment
-  variables, never committed:
+  login + stakeholder allow-list are enforced at the edge by the `hpm-mcp` **Cloudflare
+  Access (Managed OAuth)** application. The origin only **validates the forwarded
+  assertion**, turned on in-cluster via the `CloudflareAccess` section — supplied as
+  environment variables, never committed:
 
   | Env var | Purpose | Example |
   |---|---|---|
   | `CloudflareAccess__Enabled` | `true` in-cluster — turns on origin-side validation of the Access assertion + the stakeholder allow-list re-check. Defaults to `false` (the network-restricted local-dev posture). | `true` |
-  | `CloudflareAccess__TeamDomain` | The Access team domain — the token issuer (`iss`) and the base for the signing keys at `{TeamDomain}/cdn-cgi/access/certs`. | `https://crozy.cloudflareaccess.com` |
-  | `CloudflareAccess__Audience` | The Access application's Audience (AUD) tag — the `aud` claim the assertion carries. | `a1b2c3…` (the app's AUD tag) |
-  | `CloudflareAccess__AllowedEmails__0`, `__1`, … | Defense-in-depth allow-list re-check (the Access policy at the edge is the primary gate). Empty trusts the edge policy alone. | `someone@example.com` |
+  | `CloudflareAccess__TeamDomain` | The Zero Trust team domain — the token issuer (`iss`) and the base for the signing keys at `{TeamDomain}/cdn-cgi/access/certs`. | `https://<team>.cloudflareaccess.com` |
+  | `CloudflareAccess__Audience` | The `hpm-mcp` application's Audience (AUD) tag — the `aud` claim the assertion carries. | `a1b2c3…` (the app's AUD tag) |
+  | `CloudflareAccess__AllowedEmails__0`, `__1`, … | Defense-in-depth allow-list re-check (the Access policy at the edge is the primary gate). Empty trusts the edge policy alone. | `someone@gmail.com` |
 
   Startup throws if `CloudflareAccess__Enabled=true` but `TeamDomain`/`Audience` are
   unset, so a misconfigured exposed server fails fast rather than running open. The
@@ -128,10 +128,10 @@ All frontend data access is **server-side** (Server Components + Server Actions 
 `API_BASE_URL` points at the **in-cluster** API service (`http://api:8080`), and
 **the API needs no ingress** — only `web` is exposed.
 
-`web` is exposed through the **Cloudflare Tunnel** and gated by a **Cloudflare Access**
-application (browser Google login + the stakeholder email allow-list), so unauthenticated
-requests never reach the Next.js server. No auth code runs in `web` for gating — see
-[`cloudflare-access-authentication.md`](../specifications/cloudflare-access-authentication.md).
+`web` is exposed at **`hpm.crozy.eu`** through the **Cloudflare Tunnel** and gated by the
+`hpm-web` **Cloudflare Access** application (browser Google login + the stakeholder email
+allow-list), so unauthenticated requests never reach the Next.js server. No auth code runs
+in `web` for gating — see [`cloudflare-access-authentication.md`](../specifications/cloudflare-access-authentication.md).
 
 ## Dockerfiles
 
