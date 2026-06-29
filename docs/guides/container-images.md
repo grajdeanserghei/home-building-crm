@@ -95,22 +95,25 @@ Two things differ from the API and the cluster side must honor them:
   `db.Database.Migrate()`; the MCP host only reads/writes the same database.
   Order the rollout so the API has migrated before (or alongside) the MCP
   Deployment, and never run two migrators.
-- **It is exposed.** Remote agent clients connect to it directly, so `mcp` needs
-  an ingress (the API does not). Because it is reachable from the public internet,
-  the OAuth resource-server role must be turned on in-cluster via the `McpAuth`
-  section — supplied as environment variables, never committed:
+- **It is exposed — behind Cloudflare Access.** Remote agent clients connect to it
+  directly, so `mcp` is reachable from the internet (the API is not). That public
+  reachability is provided by a **Cloudflare Tunnel**, and the OAuth flow + Google
+  login + stakeholder allow-list are enforced at the edge by **Cloudflare Access
+  (Managed OAuth)**. The origin only **validates the forwarded assertion**, turned
+  on in-cluster via the `CloudflareAccess` section — supplied as environment
+  variables, never committed:
 
   | Env var | Purpose | Example |
   |---|---|---|
-  | `McpAuth__Enabled` | `true` in-cluster — turns on token validation + the stakeholder allow-list. Defaults to `false` (the network-restricted local-dev posture). | `true` |
-  | `McpAuth__Authority` | Entra External ID tenant authority/issuer (the OAuth authorization server). | `https://<tenant>.ciamlogin.com/<tenant-id>/v2.0` |
-  | `McpAuth__Audience` | This server's resource id; the `aud` claim resource-bound tokens must carry (RFC 8707). | `api://hpm-mcp` |
-  | `McpAuth__ResourceUri` | Canonical public URL advertised in protected-resource metadata (RFC 9728). Defaults to `Audience`. | `https://mcp.crozy.eu` |
-  | `McpAuth__RequiredScope` | The single scope sufficient for the stakeholders. | `project:write` |
-  | `McpAuth__AllowedEmails__0`, `__1`, … | Stakeholder allow-list (verified emails). Empty relies on tenant membership alone. | `someone@example.com` |
+  | `CloudflareAccess__Enabled` | `true` in-cluster — turns on origin-side validation of the Access assertion + the stakeholder allow-list re-check. Defaults to `false` (the network-restricted local-dev posture). | `true` |
+  | `CloudflareAccess__TeamDomain` | The Access team domain — the token issuer (`iss`) and the base for the signing keys at `{TeamDomain}/cdn-cgi/access/certs`. | `https://crozy.cloudflareaccess.com` |
+  | `CloudflareAccess__Audience` | The Access application's Audience (AUD) tag — the `aud` claim the assertion carries. | `a1b2c3…` (the app's AUD tag) |
+  | `CloudflareAccess__AllowedEmails__0`, `__1`, … | Defense-in-depth allow-list re-check (the Access policy at the edge is the primary gate). Empty trusts the edge policy alone. | `someone@example.com` |
 
-  Startup throws if `McpAuth__Enabled=true` but `Authority`/`Audience` are unset,
-  so a misconfigured exposed server fails fast rather than running open.
+  Startup throws if `CloudflareAccess__Enabled=true` but `TeamDomain`/`Audience` are
+  unset, so a misconfigured exposed server fails fast rather than running open. The
+  Tunnel + Access application + policy live in the `home-lab-infra` repo / Cloudflare
+  Zero Trust dashboard — see [`cloudflare-access-authentication.md`](../specifications/cloudflare-access-authentication.md).
 
 ### Web container
 
@@ -124,6 +127,11 @@ All frontend data access is **server-side** (Server Components + Server Actions 
 `app/actions.ts`), so the browser never calls `API_BASE_URL` directly. That means
 `API_BASE_URL` points at the **in-cluster** API service (`http://api:8080`), and
 **the API needs no ingress** — only `web` is exposed.
+
+`web` is exposed through the **Cloudflare Tunnel** and gated by a **Cloudflare Access**
+application (browser Google login + the stakeholder email allow-list), so unauthenticated
+requests never reach the Next.js server. No auth code runs in `web` for gating — see
+[`cloudflare-access-authentication.md`](../specifications/cloudflare-access-authentication.md).
 
 ## Dockerfiles
 

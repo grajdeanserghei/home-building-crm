@@ -3,8 +3,9 @@
   <ItemGroup>
     <!-- Aspire-wired Npgsql EF Core DbContext registration (same projectsdb the ApiService uses). -->
     <PackageReference Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" />
-    <!-- Official MCP C# SDK: Streamable HTTP transport + OAuth resource-server (RFC 9728) helpers. -->
+    <!-- Official MCP C# SDK: Streamable HTTP transport (AddMcpServer / MapMcp). -->
     <PackageReference Include="ModelContextProtocol.AspNetCore" />
+    <!-- Validates the Cloudflare Access assertion forwarded to the origin (Cf-Access-Jwt-Assertion). -->
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
   </ItemGroup>
 

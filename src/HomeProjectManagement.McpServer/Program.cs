@@ -34,10 +34,12 @@ builder.Services
     .WithHttpTransport()                                  // Streamable HTTP — what remote clients use.
     .WithToolsFromAssembly(serializerOptions: toolSerializerOptions); // discovers [McpServerTool] methods.
 
-// OAuth 2.1 resource-server role (gated by McpAuth:Enabled). When disabled, the host runs
-// network-restricted with the StubCurrentUser; when enabled, it validates Entra tokens, restricts
-// access to the four stakeholders, and attributes writes to the authenticated principal.
-var authEnabled = builder.AddMcpResourceServerAuthentication();
+// Cloudflare Access token validation (gated by CloudflareAccess:Enabled). When disabled, the host
+// runs network-restricted with the StubCurrentUser; when enabled, it validates the Cloudflare Access
+// assertion forwarded by the tunnel, re-checks the stakeholder allow-list, and attributes writes to
+// the authenticated principal. The OAuth flow + Google login + edge allow-list live in Cloudflare
+// Access (Managed OAuth) — see docs/specifications/cloudflare-access-authentication.md.
+var authEnabled = builder.AddCloudflareAccessAuthentication();
 
 var app = builder.Build();
 
@@ -52,7 +54,7 @@ if (authEnabled)
 var mcp = app.MapMcp();
 if (authEnabled)
 {
-    mcp.RequireAuthorization(McpAuthExtensions.StakeholderPolicy);
+    mcp.RequireAuthorization(CloudflareAccessAuthExtensions.StakeholderPolicy);
 }
 
 app.Run();

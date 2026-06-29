@@ -264,27 +264,25 @@ Design notes:
 
 A *remote* MCP server sits in front of an API that currently has **no auth** (`StubCurrentUser` returns a hard-coded `UserId`). Shipping it open would expose write access to the build data on the internet. This spec wires the OAuth 2.1 authorization the project mandate already requires.
 
-**IdP (resolved): Microsoft Entra External ID with Google federation.** The four stakeholders use Gmail accounts, so the tenant is configured as an **Entra External ID** (customer-facing) tenant with **Google** as a federated social identity provider — each stakeholder signs in with their existing Gmail account, and Entra mints the OIDC tokens this server validates. Entra is the authorization server; the stakeholder allow-list is enforced both by the tenant's limited membership and by an authorization-policy check on the resource server.
+**IdP (resolved): Cloudflare Access (Zero Trust) with Google login.** The same Cloudflare Tunnel + Access layer that fronts the human web UI also fronts the MCP server. With **Managed OAuth for Access**, Cloudflare turns Access into a standard OAuth 2.0 authorization server *for this application*: it federates login to **Google** (the four stakeholders use their existing Gmail accounts), enforces the **email allow-list** at the edge, and runs the MCP client's Authorization Code + PKCE flow — including Dynamic Client Registration and OAuth/protected-resource discovery metadata (RFC 8414 / 9728 / 8707). Cloudflare is the authorization server; **Google is the underlying IdP**. This unifies authentication across the web UI and the MCP server under one mechanism and retires the previously-planned Microsoft Entra External ID tenant. See [`cloudflare-access-authentication.md`](cloudflare-access-authentication.md) for the full topology.
 
-**Model:** the MCP server is an OAuth 2.1 **resource server**. It does not issue tokens; it validates bearer access tokens minted by Entra External ID for the four stakeholders. Per the MCP authorization spec it publishes **protected-resource metadata** (RFC 9728) at `/.well-known/oauth-protected-resource`, so a client can discover the authorization server and run the standard OAuth flow (Authorization Code + PKCE `S256`). Claude and ChatGPT desktop clients implement this discovery + flow natively when adding a remote MCP server URL.
-
-> **Client registration caveat (Entra).** Entra External ID has **limited Dynamic Client Registration** support, so the desktop clients cannot self-register against it the way they can with Auth0/Keycloak. Plan for a **pre-registered public client** (an Entra app registration for the MCP clients, surfaced via Client ID Metadata Documents / a shared public `client_id` with PKCE) rather than relying on DCR. Confirm against the installed Entra External ID capabilities at implementation time.
+**Model:** Cloudflare Access does the OAuth 2.1 **resource-server / authorization-server** work *at the edge*. The origin (this MCP host) does **not** issue tokens, publish discovery metadata, or run the challenge flow — Cloudflare does. After the edge authenticates the client, it forwards the request to the origin with a signed **`Cf-Access-Jwt-Assertion`** header (also a `CF_Authorization` cookie) carrying the verified identity. The origin's job reduces to **validating that assertion** as defense-in-depth and mapping it to a `UserId`.
 
 ```
-client ──(1) GET /.well-known/oauth-protected-resource──▶ McpServer (advertises IdP)
-client ──(2) OAuth 2.1 + PKCE authorization code flow ──▶ IdP  (stakeholder signs in)
-client ──(3) MCP calls with Authorization: Bearer <JWT> ─▶ McpServer
-McpServer ── validate JWT (issuer, audience, signature, scope)
-          ── map sub/email → UserId via ICurrentUser → audit stamps
+MCP client ──(1) connect; 401 + WWW-Authenticate ──▶ Cloudflare Access (edge)
+MCP client ──(2) OAuth 2.1 + PKCE (DCR, discovery) ─▶ Cloudflare Access → Google login (stakeholder)
+MCP client ──(3) MCP calls with the Access token ──▶ Cloudflare Access (validates, enforces allow-list)
+Cloudflare ──(4) forwards request + Cf-Access-Jwt-Assertion ─▶ McpServer origin
+McpServer  ── validate assertion (issuer = team domain, aud = AUD tag, signature via JWKS)
+           ── map sub/email → UserId via ICurrentUser → audit stamps
 ```
 
-- `AddAuthentication().AddJwtBearer(...)` validates issuer, audience (this server's resource id), signature (Entra JWKS), and expiry; the MCP endpoint is `.RequireAuthorization()`.
-- **Resource-bound tokens (RFC 8707).** ChatGPT (and Claude) append `resource=<this server's URL>` to the authorization and token requests and expect it echoed into the token's `aud` claim; the JWT-bearer **audience** validation above is exactly what enforces this — configure the audience to the server's resource id.
-- A **real `ICurrentUser` adapter** replaces `StubCurrentUser` for this host, mapping the token subject/email to the stakeholder's `UserId`. Because `ICurrentUser` is the existing seam, this is an Infrastructure adapter swap — Application and Domain are untouched.
-- **Restricted to the four stakeholders** — no open sign-up — via the Entra External ID tenant's limited membership plus an authorization-policy allow-list check (e.g. on verified email).
-- Scope: a single `project:write` (and implicit read) scope suffices for four trusted users; finer scopes are a future refinement.
+- `AddAuthentication().AddJwtBearer(...)` validates the assertion's **issuer** (the Cloudflare team domain, `https://<team>.cloudflareaccess.com`), **audience** (the Access application's AUD tag), **signature** (the team's JWKS at `/cdn-cgi/access/certs`), and **expiry**. A `JwtBearerEvents.OnMessageReceived` hook reads the token from the `Cf-Access-Jwt-Assertion` header / `CF_Authorization` cookie (Cloudflare does not use `Authorization: Bearer`). The MCP endpoint is `.RequireAuthorization()`.
+- A **real `ICurrentUser` adapter** (`PrincipalCurrentUser`) replaces `StubCurrentUser` for this host, mapping the assertion's `sub`/`email` to the stakeholder's `UserId`. Because `ICurrentUser` is the existing seam, this is an Infrastructure adapter swap — Application and Domain are untouched.
+- **Restricted to the four stakeholders** — no open sign-up — by the **Cloudflare Access policy** (an `Emails` allow-list at the edge, the single source of truth). The origin additionally re-checks the verified email as defense-in-depth (`CloudflareAccess:AllowedEmails`).
+- No scope is required: Cloudflare's assertion carries no delegated-scope (`scp`) claim, and the four trusted stakeholders need none. Authorization is "authenticated **and** on the allow-list".
 
-Once proven here, this adapter is the same mechanism the REST `ApiService` and the web frontend will adopt — this spec delivers the project's first real authentication.
+Once proven here, this same Cloudflare Access mechanism is what the REST `ApiService` adopts when it later needs real per-user audit identity — this spec delivers the project's first real authentication.
 
 ### Part 4 — Aspire orchestration
 
@@ -295,7 +293,7 @@ var mcp = builder.AddProject<Projects.HomeProjectManagement_McpServer>("mcpserve
     .WithExternalHttpEndpoints();        // remote clients connect from outside the Aspire network
 ```
 
-`projectsdb` is the contractual resource name already consumed via `AddNpgsqlDbContext<AppDbContext>("projectsdb")`. `.WithExternalHttpEndpoints()` is required because this endpoint must be reachable by remote agent clients (unlike the internal API). IdP configuration (authority, audience, JWKS) comes from configuration/user-secrets, not committed.
+`projectsdb` is the contractual resource name already consumed via `AddNpgsqlDbContext<AppDbContext>("projectsdb")`. `.WithExternalHttpEndpoints()` is required because this endpoint must be reachable by remote agent clients (unlike the internal API); in production that reachability is provided by the **Cloudflare Tunnel** fronting the `mcp` container. Cloudflare Access config (team domain, AUD tag, allow-list) comes from configuration/user-secrets, not committed.
 
 ### Implementation order
 
@@ -311,22 +309,22 @@ Resolved with the maintainer:
 
 - **PDF parsing — local agent extracts; server validates/persists.** Keeps the server thin and free of OCR.
 - **Integration — separate project, in-process app services.** `HomeProjectManagement.McpServer` references `Application` + `Infrastructure` and calls app-service ports directly.
-- **Auth — OAuth 2.1 / OIDC (the MCP standard).** Resource-server token validation against an external IdP, restricted to the four stakeholders; doubles as the project's first real authentication and wires `ICurrentUser`.
+- **Auth — Cloudflare Access (Zero Trust) + Google, the OAuth front door (resolved — supersedes Entra).** Cloudflare Access fronts both the MCP server and the web UI; with Managed OAuth it runs the MCP client's OAuth 2.1 / PKCE flow at the edge, federates login to Google, and enforces the stakeholder allow-list. The origin validates the forwarded `Cf-Access-Jwt-Assertion` and wires the real `ICurrentUser`. One mechanism for both surfaces; the earlier Entra External ID plan is retired.
 - **The bid is the engagement.** Discussion notes, status, and expected dates live on `Bid`, not on `Contractor` (master data) or `WorkPackage`; the BoQ links back to its bid by id.
 - **`BidStatus` values & transitions (resolved — extend the built model).** The implemented `Bid` is extended with `BoqExpected` and `BoqReceived`; `BoqReceived` supersedes `Quoted`. Final enum: `InDiscussion | BoqExpected | BoqReceived | Shortlisted | Selected | Rejected | Withdrawn`, with the legal transitions listed in [Part 1b](#1b-bid--new-prerequisite). `domain-model.md` is updated to match.
 - **`NoteType` values (resolved).** Use the implemented `Meeting | Call | Email | Note` (the draft's `Commitment`/`General` map onto `Note`). No `Commitment` type is added.
 - **Where "recommended by Luci"-style notes live (resolved).** Both are supported; the recommendation is the opening **bid `DiscussionNote`** when the lead surfaces "for this work package", and contractor-level `Notes` for reusable, work-package-independent provenance.
 - **Relative-date resolution (resolved — strictly absolute).** The agent resolves "Monday next week" → absolute ISO date before calling; commands accept absolute dates only. This keeps the "no clock in the domain" rule intact — no relative-string fallback.
 - **Bid ↔ BoQ coordination (resolved — synchronous).** When a BoQ is accepted, the **app service** synchronously moves the owning bid to `Selected` and awards the work package. The `IDomainEventHandler` seam is left for later eventual-consistency needs.
-- **IdP (resolved — Entra External ID + Google federation).** Stakeholders sign in with their Gmail accounts via Google federation into an Entra External ID tenant. Caveat: limited DCR → use a pre-registered public client (CIMD / shared `client_id` + PKCE) for the desktop clients.
-- **ChatGPT connector parity (resolved — full parity).** ChatGPT's remote-MCP connector implements the same OAuth 2.1 flow as Claude: RFC 9728 protected-resource-metadata discovery, Authorization Code + PKCE (`S256`), and DCR/CIMD. No manual token step. It additionally sends `resource=` (RFC 8707), enforced by the server's JWT audience validation.
+- **IdP (resolved — Cloudflare Access + Google; supersedes Entra External ID).** Cloudflare Access (Managed OAuth) is the OAuth authorization server at the edge and federates login to Google; stakeholders sign in with their Gmail accounts. Cloudflare provides DCR + discovery, so the desktop clients self-register — no pre-registered public client to maintain. The origin validates the forwarded Cloudflare assertion. The earlier Entra External ID + Google-federation plan (and its limited-DCR caveat) is retired in favour of unifying with the web UI's auth.
+- **ChatGPT connector parity (resolved — full parity).** ChatGPT's remote-MCP connector implements the same OAuth 2.1 flow as Claude: RFC 9728 protected-resource-metadata discovery, Authorization Code + PKCE (`S256`), and DCR. With Cloudflare Managed OAuth these are served by Cloudflare Access at the edge, so both clients work with no manual token step.
 - **Unit handling (resolved — block & flag).** When a line-item unit token has no active `UnitOfMeasure`, resolvable lines still persist and unresolved lines come back flagged with the offending token for an admin to add; the agent does not auto-create units (protects the controlled vocabulary, per `domain-model.md`).
 
 ## Open Questions
 
 _All design questions are resolved (see Design Decisions). Remaining items are downstream of those decisions and tracked at implementation time:_
 
-- **Entra External ID specifics.** Confirm, against the actual tenant, the public-client registration approach (CIMD vs shared `client_id`) the Claude/ChatGPT desktop clients accept, and the exact protected-resource-metadata `authorization_servers` entry for an External ID tenant.
+- **Cloudflare Managed OAuth specifics.** Confirm, against the live Cloudflare Access tenant, that the Claude/ChatGPT desktop clients complete the Managed-OAuth flow against the `mcp` Access application end-to-end (DCR + discovery + allow-list), and the exact `Cf-Access-Jwt-Assertion` claim set (`sub`, `email`) so `PrincipalCurrentUser`'s mapping holds. Service-token (non-interactive) MCP access carries no `email`; if needed later, the allow-list check must be relaxed for service tokens.
 
 ## Implementation notes
 
@@ -347,9 +345,14 @@ deliberate deviations from the design above, recorded for the record:
 - **`UnitOfMeasure` was already fully wired** (app service, endpoint, migration, seed), so the
   "finish wiring" item was a no-op beyond consuming it for `list_units_of_measure` and unit
   normalisation.
-- **Auth is config-gated (`McpAuth:Enabled`).** It ships off so the host runs network-restricted with
-  the existing `StubCurrentUser` (matching implementation-order steps 1–4); setting it on activates
-  the JWT-bearer resource server, the RFC 9728 protected-resource metadata, the stakeholder allow-list
-  policy, and the real principal-based `ICurrentUser` adapter (step 5). Entra authority/audience/
-  allow-list come from user-secrets, never committed. `.WithExternalHttpEndpoints()` is wired in the
-  AppHost.
+- **Auth is config-gated (`CloudflareAccess:Enabled`).** It ships off so the host runs
+  network-restricted with the existing `StubCurrentUser` (matching implementation-order steps 1–4);
+  setting it on activates origin-side validation of the Cloudflare Access assertion
+  (`Cf-Access-Jwt-Assertion`), the stakeholder allow-list re-check, and the real principal-based
+  `ICurrentUser` adapter (step 5). Cloudflare team domain / AUD tag / allow-list come from
+  user-secrets, never committed. `.WithExternalHttpEndpoints()` is wired in the AppHost; in
+  production the Cloudflare Tunnel + Access provide the public reachability and the OAuth flow.
+  (The earlier Entra External ID design — the host as a self-publishing OAuth resource server with
+  RFC 9728 metadata — was superseded: with Cloudflare Managed OAuth the edge does the OAuth work and
+  the origin only validates the forwarded assertion. See
+  [`cloudflare-access-authentication.md`](cloudflare-access-authentication.md).)

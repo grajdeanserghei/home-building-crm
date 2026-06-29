@@ -32,7 +32,7 @@ The backend is split into four projects, one per hexagonal ring. Dependencies po
 Other backend facts:
 - **EF Core migrations are the source of truth for schema.** `Program.cs` runs `db.Database.Migrate()` on startup. Add a migration after any model/configuration change (see Commands) — do **not** use `EnsureCreated`.
 - Enums are persisted as their string names (`HasConversion<string>`) and serialized as strings over JSON (a `JsonStringEnumConverter` in `Program.cs`) so they match the frontend's TypeScript types.
-- CORS is wide open (`AllowAnyOrigin`) to permit the browser-side Next.js dev server to call the API. Real authentication for the four stakeholders is mandated but not yet wired (tracked in `docs/specifications/`).
+- CORS is wide open (`AllowAnyOrigin`) to permit the browser-side Next.js dev server to call the API. Real authentication for the four stakeholders runs at the edge via **Cloudflare Access** (Zero Trust + Google login, behind a Cloudflare Tunnel), gating both the web UI and the MCP server from one email allow-list; the API and Postgres stay private (no ingress). The MCP host validates the forwarded `Cf-Access-Jwt-Assertion` (config-gated by `CloudflareAccess:Enabled`, ships off for local dev). See [`docs/specifications/cloudflare-access-authentication.md`](docs/specifications/cloudflare-access-authentication.md). Per-user audit identity for the web UI is a tracked follow-up.
 
 ### Frontend (`src/web`)
 - Next.js App Router. Data fetching lives in `app/lib/api.ts`; mutations are React Server Actions in `app/actions.ts` (which `revalidatePath("/")` after writes).
