@@ -58,7 +58,7 @@ Internet ──HTTPS──> Cloudflare edge (Access policies · Google IdP · em
 The **API** and **Postgres** have no public hostname and no Tunnel ingress — they are reached only in-cluster (`web` → `api:8080`).
 
 - Both Access applications forward a signed **`Cf-Access-Jwt-Assertion`** (also a `CF_Authorization` cookie) carrying the verified email to their origin.
-- Token validation contract: **issuer** (`iss`) = the team domain `https://<team>.cloudflareaccess.com`; **signing keys** (JWKS) at `https://<team>.cloudflareaccess.com/cdn-cgi/access/certs` (raw JWKS; Cloudflare keeps the current + previous key live); **audience** (`aud`) = each application's unique **AUD tag**.
+- Token validation contract: **issuer** (`iss`) = the team domain `https://ozius.cloudflareaccess.com`; **signing keys** (JWKS) at `https://ozius.cloudflareaccess.com/cdn-cgi/access/certs` (raw JWKS; Cloudflare keeps the current + previous key live); **audience** (`aud`) = each application's unique **AUD tag**.
 - The four stakeholders' Gmail addresses live in **one Access policy `Emails` allow-list** — the single source of truth.
 
 ### web — browser login, no app code
@@ -84,7 +84,7 @@ Supplied via user-secrets / environment, never committed (section `CloudflareAcc
 | Key | Meaning | Example |
 |---|---|---|
 | `Enabled` | Turns on origin-side validation + the allow-list re-check. `false` in local dev. | `true` |
-| `TeamDomain` | The Zero Trust team domain — the issuer and JWKS base. | `https://<team>.cloudflareaccess.com` |
+| `TeamDomain` | The Zero Trust team domain — the issuer and JWKS base. | `https://ozius.cloudflareaccess.com` |
 | `Audience` | The `hpm-mcp` (`mcp.hpm.crozy.eu`) application's AUD tag. | `a1b2c3…` |
 | `AllowedEmails__0,1,…` | Defense-in-depth allow-list (the edge Access policy is the primary gate). | `someone@gmail.com` |
 
@@ -92,13 +92,13 @@ Container env keys use the `CloudflareAccess__*` form — see [`container-images
 
 ### Cloudflare setup procedure (for `home-lab-infra`)
 
-Executed in the Cloudflare Zero Trust dashboard + the `home-lab-infra` repo. Concrete hostnames: **`hpm.crozy.eu`** (web) and **`mcp.hpm.crozy.eu`** (MCP). `<team>` below is the Cloudflare Zero Trust team name (Zero Trust → Settings → Custom Pages → team domain, i.e. `https://<team>.cloudflareaccess.com`).
+Executed in the Cloudflare Zero Trust dashboard + the `home-lab-infra` repo. Concrete hostnames: **`hpm.crozy.eu`** (web) and **`mcp.hpm.crozy.eu`** (MCP). The Cloudflare Zero Trust team is **`ozius`**, so the team domain is **`https://ozius.cloudflareaccess.com`**.
 
 **1. Google as the identity provider (one-time, account-wide).**
 - Google Cloud Console → **APIs & Services → Credentials**. Configure the **OAuth consent screen** with audience type **External** (lets personal Gmail accounts sign in; no Workspace required), and either publish it or add the four stakeholders as test users.
 - Create an **OAuth client ID**, type **Web application**, with:
-  - Authorized JavaScript origin: `https://<team>.cloudflareaccess.com`
-  - Authorized redirect URI: `https://<team>.cloudflareaccess.com/cdn-cgi/access/callback`
+  - Authorized JavaScript origin: `https://ozius.cloudflareaccess.com`
+  - Authorized redirect URI: `https://ozius.cloudflareaccess.com/cdn-cgi/access/callback`
 - In Zero Trust → **Settings → Authentication → Login methods → Add new → Google**: paste the **Client ID** (Cloudflare's "App ID") and **Client Secret**; enable PKCE. Use **Test** to confirm a Gmail round-trip.
 
 **2. Tunnel + DNS (`home-lab-infra`).** A Cloudflare Tunnel (`cloudflared`) with ingress mapping the two public hostnames to the in-cluster services; proxied DNS (CNAME) records for `hpm.crozy.eu` and `mcp.hpm.crozy.eu` pointing at the tunnel. No ingress for the API or Postgres. Ingress rules (service names match the cluster's k8s Services — see [`container-images.md`](../guides/container-images.md)):
@@ -129,7 +129,7 @@ ingress:
 
 | Value | Source | Backend key (mcp Deployment) |
 |---|---|---|
-| `https://<team>.cloudflareaccess.com` | team domain | `CloudflareAccess__TeamDomain` |
+| `https://ozius.cloudflareaccess.com` | team domain | `CloudflareAccess__TeamDomain` |
 | `hpm-mcp` app **AUD tag** | the `mcp.hpm.crozy.eu` application | `CloudflareAccess__Audience` |
 | the four Gmail addresses | the `hpm-stakeholders` group | `CloudflareAccess__AllowedEmails__0..3` |
 

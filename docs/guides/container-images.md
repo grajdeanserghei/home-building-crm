@@ -106,7 +106,7 @@ Two things differ from the API and the cluster side must honor them:
   | Env var | Purpose | Example |
   |---|---|---|
   | `CloudflareAccess__Enabled` | `true` in-cluster — turns on origin-side validation of the Access assertion + the stakeholder allow-list re-check. Defaults to `false` (the network-restricted local-dev posture). | `true` |
-  | `CloudflareAccess__TeamDomain` | The Zero Trust team domain — the token issuer (`iss`) and the base for the signing keys at `{TeamDomain}/cdn-cgi/access/certs`. | `https://<team>.cloudflareaccess.com` |
+  | `CloudflareAccess__TeamDomain` | The Zero Trust team domain — the token issuer (`iss`) and the base for the signing keys at `{TeamDomain}/cdn-cgi/access/certs`. | `https://ozius.cloudflareaccess.com` |
   | `CloudflareAccess__Audience` | The `hpm-mcp` application's Audience (AUD) tag — the `aud` claim the assertion carries. | `a1b2c3…` (the app's AUD tag) |
   | `CloudflareAccess__AllowedEmails__0`, `__1`, … | Defense-in-depth allow-list re-check (the Access policy at the edge is the primary gate). Empty trusts the edge policy alone. | `someone@gmail.com` |
 
