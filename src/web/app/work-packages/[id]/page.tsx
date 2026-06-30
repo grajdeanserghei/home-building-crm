@@ -10,18 +10,23 @@ import {
 } from "@/app/work-packages/actions";
 import {
   BID_STATUS_LABELS,
+  budgetMultiplier,
+  effectiveMoney,
+  getBidBoq,
   getBids,
   getContractors,
+  getProject,
   getTrades,
   getWorkPackage,
   SCOPE_ITEM_REQUIREMENT_LABELS,
   WORK_PACKAGE_STATUS_LABELS,
   type Bid,
+  type BillOfQuantities,
   type Contractor,
   type Trade,
   type WorkPackageStatus,
 } from "@/app/lib/api";
-import { formatDate } from "@/app/lib/format";
+import { formatDate, formatMoney } from "@/app/lib/format";
 import { t } from "@/app/lib/i18n";
 import styles from "@/app/page.module.css";
 
@@ -56,6 +61,10 @@ export default async function WorkPackageDetailPage({
   let bids: Bid[] = [];
   let contractors: Contractor[] = [];
   let trades: Trade[] = [];
+  let boqByBid = new Map<string, BillOfQuantities | null>();
+  // The per-apartment cost multiplier for any "PerApartment" BoQ in the table; 1 unless a
+  // per-apartment quote is present, in which case it's the owning project's apartment count.
+  let apartmentUnits = 1;
   let error: string | null = null;
 
   try {
@@ -64,6 +73,18 @@ export default async function WorkPackageDetailPage({
       getContractors(),
       getTrades(),
     ]);
+
+    // Each bid has at most one BoQ; fetch them concurrently so the table can show the priced
+    // total (with VAT). getBidBoq returns null when no deviz has been drafted yet.
+    const boqs = await Promise.all(bids.map((b) => getBidBoq(b.id)));
+    boqByBid = new Map(bids.map((b, i) => [b.id, boqs[i]]));
+
+    // A per-apartment BoQ's whole-build cost needs the project's apartment count (mirrors the
+    // bid detail page). Only fetch the project when at least one BoQ is priced per apartment.
+    if (boqs.some((boq) => boq?.budgetScopeKind === "PerApartment")) {
+      const project = await getProject(workPackage.projectId);
+      apartmentUnits = project?.apartmentUnits ?? 1;
+    }
   } catch (e) {
     error = e instanceof Error ? e.message : t("common.unknownError");
   }
@@ -135,13 +156,14 @@ export default async function WorkPackageDetailPage({
               <tr>
                 <th>{t("workPackages.bidContractor")}</th>
                 <th>{t("common.status")}</th>
-                <th>{t("workPackages.bidFirstContact")}</th>
-                <th>{t("common.notes")}</th>
+                <th>{t("bids.boqCol.totalWithVat")}</th>
                 <th aria-label={t("common.actions")} />
               </tr>
             </thead>
             <tbody>
-              {bids.map((b) => (
+              {bids.map((b) => {
+                const boq = boqByBid.get(b.id) ?? null;
+                return (
                 <tr key={b.id}>
                   <td>
                     <Link href={`/bids/${b.id}`} className={styles.nameLink}>
@@ -167,8 +189,26 @@ export default async function WorkPackageDetailPage({
                       {BID_STATUS_LABELS[b.status]}
                     </span>
                   </td>
-                  <td>{formatDate(b.firstContactedOn)}</td>
-                  <td>{b.notes.length}</td>
+                  <td>
+                    {boq
+                      ? formatMoney(
+                          effectiveMoney(
+                            boq.totalWithVat,
+                            boq.budgetScopeKind,
+                            apartmentUnits,
+                          ),
+                        )
+                      : formatMoney(null)}
+                    {boq &&
+                    budgetMultiplier(boq.budgetScopeKind, apartmentUnits) > 1 ? (
+                      <div className={styles.muted}>
+                        {t("boq.perApartmentNote", {
+                          base: formatMoney(boq.totalWithVat),
+                          count: String(apartmentUnits),
+                        })}
+                      </div>
+                    ) : null}
+                  </td>
                   <td>
                     <div className={styles.actions}>
                       <Link href={`/bids/${b.id}`} className={styles.edit}>
@@ -177,7 +217,8 @@ export default async function WorkPackageDetailPage({
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         )}
