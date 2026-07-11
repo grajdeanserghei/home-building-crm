@@ -46,6 +46,10 @@ public sealed class CostScenarioQuery(
         // total use the same rate.
         var asOf = DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime);
 
+        // The app-wide display rate, surfaced unconditionally so the frontend's RON/EUR toggle works
+        // even before any bid is chosen (the editor's candidate prices still need it to convert).
+        var ronPerEur = exchangeRates.GetRate(Currency.EUR, Currency.RON, asOf).Rate;
+
         var net = new Dictionary<Currency, decimal>();
         var gross = new Dictionary<Currency, decimal>();
         var contractorNames = new Dictionary<ContractorId, string>();
@@ -90,11 +94,11 @@ public sealed class CostScenarioQuery(
 
         var orderedLines = lines.OrderBy(l => l.Sequence).ToList();
         var totals = BuildTotals(net, gross);
-        var eurEquivalent = BuildEurEquivalent(totals, asOf);
+        var eurEquivalent = BuildEurEquivalent(totals, ronPerEur, asOf);
 
         return new CostScenarioResultDto(
             scenario.Id.Value, scenario.ProjectId.Value, scenario.Name, scenario.Description,
-            orderedLines, totals, eurEquivalent, scenario.CreatedOn);
+            orderedLines, totals, eurEquivalent, ronPerEur, scenario.CreatedOn);
     }
 
     public async Task<IReadOnlyList<ScenarioCandidateWorkPackageDto>?> GetCandidatesAsync(
@@ -191,14 +195,12 @@ public sealed class CostScenarioQuery(
     /// one comparable figure. Null when there is nothing to convert. Approximate by design — the
     /// per-BoQ pinned rate remains the source of truth for a specific quote.
     /// </summary>
-    private ScenarioEurEquivalentDto? BuildEurEquivalent(IReadOnlyList<ScenarioCurrencyTotalDto> totals, DateOnly asOf)
+    private ScenarioEurEquivalentDto? BuildEurEquivalent(IReadOnlyList<ScenarioCurrencyTotalDto> totals, decimal ronPerEur, DateOnly asOf)
     {
         if (totals.Count == 0)
         {
             return null;
         }
-
-        var ronPerEur = exchangeRates.GetRate(Currency.EUR, Currency.RON, asOf).Rate;
 
         var net = totals.Sum(t => ToEur(t.Net, asOf).Amount);
         var gross = totals.Sum(t => ToEur(t.Gross, asOf).Amount);

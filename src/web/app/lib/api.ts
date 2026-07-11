@@ -935,6 +935,8 @@ export interface CostScenario {
   lines: ScenarioLine[];
   totalsByCurrency: ScenarioCurrencyTotal[];
   eurEquivalent?: ScenarioEurEquivalent | null;
+  // App-wide display rate ("1 EUR = N RON"), always present, used by the RON/EUR display toggle.
+  ronPerEur: number;
   createdAt: string;
 }
 

@@ -45,6 +45,7 @@ public sealed record CostScenarioResultDto(
     IReadOnlyList<ScenarioLineDto> Lines,
     IReadOnlyList<ScenarioCurrencyTotalDto> TotalsByCurrency,
     ScenarioEurEquivalentDto? EurEquivalent,
+    decimal RonPerEur,
     DateTimeOffset CreatedAt);
 
 /// <summary>

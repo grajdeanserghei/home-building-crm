@@ -304,8 +304,10 @@ export const ro = {
   "costScenario.breakdownEmpty": "Nicio ofertă aleasă încă.",
   "costScenario.notPriced": "Oferta aleasă nu mai are un preț valabil.",
   "costScenario.perApartment": "× {count} (per apartament)",
-  "costScenario.totalsTitle": "Total, pe monedă",
+  "costScenario.totalsTitle": "Total",
   "costScenario.totals.currency": "Monedă",
+  "costScenario.total": "Total",
+  "costScenario.displayCurrency": "Monedă afișată",
   "costScenario.eurEquivalent": "Echivalent în EUR (aprox.)",
   "costScenario.eurRate": "1 EUR = {rate} RON",
 

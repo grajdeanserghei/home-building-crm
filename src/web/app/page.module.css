@@ -394,6 +394,46 @@
   line-height: 1;
 }
 
+/* Segmented RON/EUR toggle used by the cost-scenario simulator. A small inline group of
+   two buttons; the active currency is filled, the other is a plain bordered button. */
+.currencyToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 20px;
+}
+
+.currencyToggle .label {
+  color: #6b7280;
+  font-size: 0.85rem;
+}
+
+.currencyToggle .options {
+  display: inline-flex;
+  border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.currencyToggle button {
+  padding: 6px 14px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  line-height: 1;
+}
+
+.currencyToggle button + button {
+  border-left: 1px solid color-mix(in srgb, currentColor 30%, transparent);
+}
+
+.currencyToggle button.active {
+  background: #2563eb;
+  color: #fff;
+}
+
 .edit:hover {
   border-color: #2563eb;
   color: #2563eb;

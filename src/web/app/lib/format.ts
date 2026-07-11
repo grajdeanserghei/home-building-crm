@@ -3,7 +3,7 @@
 // place — replacing the ~11 duplicated `formatDate` copies and the locale-less
 // `formatMoney`. The backend keeps persisted/wire values invariant (dot decimal); ro-RO
 // is applied only at render time. See docs/specifications/romanian-localization.md.
-import type { Money } from "./api";
+import type { Currency, Money } from "./api";
 
 const LOCALE = "ro-RO";
 
@@ -61,6 +61,39 @@ export function formatMoney(money?: Money | null): string {
     currency: money.currency,
     currencyDisplay: "code",
   }).format(money.amount);
+}
+
+/**
+ * Convert a Money amount to `target` using the app-wide display rate (`ronPerEur`, "1 EUR = N RON").
+ * Same-currency is a no-op; RON→EUR divides by the rate, EUR→RON multiplies. A non-positive rate
+ * falls back to the original amount (can't convert safely). Null in → null out. Approximate by design
+ * — mirrors the backend's "EUR equivalent". Used by the simulator's RON/EUR display toggle.
+ */
+export function convertMoney(
+  money: Money | null | undefined,
+  target: Currency,
+  ronPerEur: number,
+): Money | null {
+  if (!money) return null;
+  if (money.currency === target || ronPerEur <= 0) {
+    return money.currency === target ? money : { ...money };
+  }
+  if (money.currency === "RON" && target === "EUR") {
+    return { amount: money.amount / ronPerEur, currency: "EUR" };
+  }
+  if (money.currency === "EUR" && target === "RON") {
+    return { amount: money.amount * ronPerEur, currency: "RON" };
+  }
+  return money;
+}
+
+/** Convert a Money to `target` (via {@link convertMoney}) and format it. Null → em dash. */
+export function formatMoneyIn(
+  money: Money | null | undefined,
+  target: Currency,
+  ronPerEur: number,
+): string {
+  return formatMoney(convertMoney(money, target, ronPerEur));
 }
 
 /** Format a whole-number VAT rate as a percentage (21 → "21%"). Null → em dash. */
