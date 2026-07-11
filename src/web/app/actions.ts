@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { apiBaseUrl, type ProjectStatus } from "./lib/api";
 import { CURRENT_PROJECT_COOKIE } from "./lib/current-project";
+import { DISPLAY_CURRENCY_COOKIE } from "./lib/display-currency";
 import { describeApiError } from "./lib/errors";
 
 // Scope the whole UI to a project chosen from the header switcher: persist the
@@ -25,6 +26,25 @@ export async function setCurrentProject(formData: FormData) {
   }
   revalidatePath("/", "layout");
   redirect("/");
+}
+
+// Set the global display-currency preference (the header toggle): persist the choice in a cookie and
+// revalidate the whole tree so every server-rendered price re-formats in place. Unlike
+// setCurrentProject there is no redirect — the user stays on the page they toggled from. "Original"
+// is the default, so it clears the cookie rather than storing a value.
+export async function setDisplayCurrency(formData: FormData) {
+  const value = (formData.get("displayCurrency") as string) || "";
+  const cookieStore = await cookies();
+  if (value === "RON" || value === "EUR") {
+    cookieStore.set(DISPLAY_CURRENCY_COOKIE, value, {
+      path: "/",
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24 * 365,
+    });
+  } else {
+    cookieStore.delete(DISPLAY_CURRENCY_COOKIE);
+  }
+  revalidatePath("/", "layout");
 }
 
 export async function createProject(formData: FormData) {

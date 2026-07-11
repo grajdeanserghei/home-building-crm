@@ -6,13 +6,21 @@ import {
   type Contract,
   type WorkPackage,
 } from "@/app/lib/api";
-import { formatDate, formatMoney } from "@/app/lib/format";
+import { getDisplayCurrency, getDisplayRate } from "@/app/lib/display-currency";
+import { displayMoney, formatDate } from "@/app/lib/format";
 import { t } from "@/app/lib/i18n";
 import styles from "@/app/page.module.css";
 
 export default async function ContractsPage() {
   let contracts: Contract[] = [];
   let error: string | null = null;
+
+  // The global display currency (the header toggle) and the app-wide rate — contracts carry no
+  // rate of their own, so cross-currency values convert with the single display rate.
+  const [displayCurrency, rate] = await Promise.all([
+    getDisplayCurrency(),
+    getDisplayRate(),
+  ]);
 
   try {
     contracts = await getContracts();
@@ -75,7 +83,7 @@ export default async function ContractsPage() {
                       {CONTRACT_STATUS_LABELS[c.status]}
                     </span>
                   </td>
-                  <td>{formatMoney(c.value)}</td>
+                  <td>{displayMoney(c.value, displayCurrency, rate)}</td>
                   <td>{formatDate(c.signedOn)}</td>
                   <td>
                     <div className={styles.actions}>

@@ -3,19 +3,32 @@ import { notFound } from "next/navigation";
 import {
   getProjectBudget,
   WORK_PACKAGE_STATUS_LABELS,
-  formatMoney,
   type CandidateRange,
+  type CurrencyTotals,
   type Money,
 } from "@/app/lib/api";
-import { formatNumber } from "@/app/lib/format";
+import { getDisplayCurrency, getDisplayRate } from "@/app/lib/display-currency";
+import {
+  convertMoney,
+  displayMoney,
+  formatNumber,
+  type DisplayCurrency,
+} from "@/app/lib/format";
 import { t } from "@/app/lib/i18n";
 import styles from "@/app/page.module.css";
 
-// Render a net price band: a single amount when low === high, otherwise "low – high".
-function band(low: Money, high: Money): string {
+// Render a price band in the given display currency: a single amount when low === high, otherwise
+// "low – high". Formatting follows the global toggle (decimals only in Original mode).
+function bandIn(
+  low: Money,
+  high: Money,
+  pref: DisplayCurrency,
+  rate: number,
+): string {
+  const lo = displayMoney(low, pref, rate);
   return low.amount === high.amount
-    ? formatMoney(low)
-    : `${formatMoney(low)} – ${formatMoney(high)}`;
+    ? lo
+    : `${lo} – ${displayMoney(high, pref, rate)}`;
 }
 
 function bidCountLabel(count: number): string {
@@ -24,11 +37,20 @@ function bidCountLabel(count: number): string {
     : t("budget.bidCountMany", { count: String(count) });
 }
 
-// The candidate-bids cell content for one currency: the price band plus the bid count.
-function CandidateLine({ range }: { range: CandidateRange }) {
+// The candidate-bids cell content for one currency: the price band (in the display currency) plus
+// the bid count.
+function CandidateLine({
+  range,
+  pref,
+  rate,
+}: {
+  range: CandidateRange;
+  pref: DisplayCurrency;
+  rate: number;
+}) {
   return (
     <div>
-      {band(range.low, range.high)}
+      {bandIn(range.low, range.high, pref, rate)}
       <span className={styles.muted}> · {bidCountLabel(range.bidCount)}</span>
     </div>
   );
@@ -40,16 +62,39 @@ export default async function ProjectBudgetPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const budget = await getProjectBudget(id);
+  const [budget, displayCurrency, rate] = await Promise.all([
+    getProjectBudget(id),
+    getDisplayCurrency(),
+    getDisplayRate(),
+  ]);
 
   if (!budget) {
     notFound();
   }
 
-  // Show the EUR-equivalent total only when it adds information — i.e. there is more
-  // than one currency, or the single currency in play is not already EUR.
+  // In RON/EUR mode every currency is converted with the app-wide rate and the totals collapse to a
+  // single row; in Original mode each currency is shown natively (RON and EUR are never summed) with
+  // the backend's EUR-equivalent row alongside.
+  const converted = displayCurrency !== "Original";
+
+  // Sum one figure across every currency, converted into the display currency. Used only in RON/EUR
+  // mode (where a single combined row makes sense).
+  const totalIn = (pick: (t: CurrencyTotals) => Money): Money => ({
+    amount: budget.totalsByCurrency.reduce(
+      (sum, tot) =>
+        sum +
+        (convertMoney(pick(tot), displayCurrency as Money["currency"], rate)
+          ?.amount ?? 0),
+      0,
+    ),
+    currency: displayCurrency as Money["currency"],
+  });
+
+  // Show the EUR-equivalent total (Original mode only) when it adds information — i.e. more than one
+  // currency, or the single currency in play is not already EUR.
   const eur = budget.eurEquivalent ?? null;
   const showEur =
+    !converted &&
     eur !== null &&
     (budget.totalsByCurrency.length > 1 ||
       budget.totalsByCurrency[0]?.currency !== "EUR");
@@ -99,13 +144,18 @@ export default async function ProjectBudgetPage({
                   </td>
                   <td>
                     {line.kind === "Contract" && line.committed
-                      ? formatMoney(line.committed)
+                      ? displayMoney(line.committed, displayCurrency, rate)
                       : "—"}
                   </td>
                   <td>
                     {line.kind === "Bids" ? (
                       line.candidates.map((range) => (
-                        <CandidateLine key={range.currency} range={range} />
+                        <CandidateLine
+                          key={range.currency}
+                          range={range}
+                          pref={displayCurrency}
+                          rate={rate}
+                        />
                       ))
                     ) : line.kind === "Pending" ? (
                       <span className={styles.muted}>
@@ -121,7 +171,12 @@ export default async function ProjectBudgetPage({
                   </td>
                   <td>
                     {line.eurEquivalent
-                      ? band(line.eurEquivalent.low, line.eurEquivalent.high)
+                      ? bandIn(
+                          line.eurEquivalent.low,
+                          line.eurEquivalent.high,
+                          "Original",
+                          rate,
+                        )
                       : "—"}
                   </td>
                 </tr>
@@ -144,39 +199,91 @@ export default async function ProjectBudgetPage({
               </tr>
             </thead>
             <tbody>
-              {budget.totalsByCurrency.map((totals) => (
-                <tr key={totals.currency}>
-                  <td>{totals.currency}</td>
-                  <td>{formatMoney(totals.committed)}</td>
-                  <td>{band(totals.estimatedLow, totals.estimatedHigh)}</td>
-                  <td>
-                    <strong>
-                      {band(totals.projectedLow, totals.projectedHigh)}
-                    </strong>
-                  </td>
-                </tr>
-              ))}
-              {showEur && eur && (
+              {converted ? (
+                // RON/EUR: one unified row summing every currency into the display currency.
                 <tr>
+                  <td>{displayCurrency}</td>
+                  <td>{displayMoney(totalIn((x) => x.committed), displayCurrency, rate)}</td>
                   <td>
-                    <strong>{t("budget.eurEquivalent")}</strong>
-                  </td>
-                  <td>{formatMoney(eur.totals.committed)}</td>
-                  <td>
-                    {band(eur.totals.estimatedLow, eur.totals.estimatedHigh)}
+                    {bandIn(
+                      totalIn((x) => x.estimatedLow),
+                      totalIn((x) => x.estimatedHigh),
+                      displayCurrency,
+                      rate,
+                    )}
                   </td>
                   <td>
                     <strong>
-                      {band(eur.totals.projectedLow, eur.totals.projectedHigh)}
+                      {bandIn(
+                        totalIn((x) => x.projectedLow),
+                        totalIn((x) => x.projectedHigh),
+                        displayCurrency,
+                        rate,
+                      )}
                     </strong>
                   </td>
                 </tr>
+              ) : (
+                <>
+                  {budget.totalsByCurrency.map((totals) => (
+                    <tr key={totals.currency}>
+                      <td>{totals.currency}</td>
+                      <td>{displayMoney(totals.committed, displayCurrency, rate)}</td>
+                      <td>
+                        {bandIn(
+                          totals.estimatedLow,
+                          totals.estimatedHigh,
+                          displayCurrency,
+                          rate,
+                        )}
+                      </td>
+                      <td>
+                        <strong>
+                          {bandIn(
+                            totals.projectedLow,
+                            totals.projectedHigh,
+                            displayCurrency,
+                            rate,
+                          )}
+                        </strong>
+                      </td>
+                    </tr>
+                  ))}
+                  {showEur && eur && (
+                    <tr>
+                      <td>
+                        <strong>{t("budget.eurEquivalent")}</strong>
+                      </td>
+                      <td>{displayMoney(eur.totals.committed, "Original", rate)}</td>
+                      <td>
+                        {bandIn(
+                          eur.totals.estimatedLow,
+                          eur.totals.estimatedHigh,
+                          "Original",
+                          rate,
+                        )}
+                      </td>
+                      <td>
+                        <strong>
+                          {bandIn(
+                            eur.totals.projectedLow,
+                            eur.totals.projectedHigh,
+                            "Original",
+                            rate,
+                          )}
+                        </strong>
+                      </td>
+                    </tr>
+                  )}
+                </>
               )}
             </tbody>
           </table>
-          {showEur && eur && (
+          {(converted || (showEur && eur)) && (
             <p className={styles.muted}>
-              {t("budget.eurRate", { rate: formatNumber(eur.ronPerEur) })}
+              {t("budget.eurRate", {
+                rate: formatNumber(converted ? rate : (eur?.ronPerEur ?? rate)),
+              })}
             </p>
           )}
           {budget.unpricedWorkPackageCount > 0 && (

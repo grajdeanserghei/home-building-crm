@@ -1,69 +1,44 @@
-"use client";
-
-import { useSyncExternalStore } from "react";
 import Link from "next/link";
 import type {
   CostScenario,
-  Currency,
+  Money,
   ScenarioCandidateWorkPackage,
 } from "@/app/lib/api";
 import { ScenarioSelectionSelect } from "@/app/components/ScenarioSelectionSelect";
-import { convertMoney, formatMoneyIn, formatMoneyWhole, formatNumber } from "@/app/lib/format";
+import {
+  convertMoney,
+  displayMoney,
+  formatMoney,
+  formatMoneyWhole,
+  formatNumber,
+  type DisplayCurrency,
+} from "@/app/lib/format";
 import { t } from "@/app/lib/i18n";
 import styles from "@/app/page.module.css";
-
-const CURRENCIES: Currency[] = ["RON", "EUR"];
-
-// Where the chosen display currency is remembered across reloads. Browser-local, not per-user.
-const STORAGE_KEY = "simulator.displayCurrency";
-// Same-tab notification: the native "storage" event only fires in *other* tabs, so we dispatch this
-// to re-render the current tab after a toggle. `useSyncExternalStore` subscribes to both.
-const CURRENCY_EVENT = "simulator:display-currency";
-
-function subscribeCurrency(callback: () => void) {
-  window.addEventListener("storage", callback);
-  window.addEventListener(CURRENCY_EVENT, callback);
-  return () => {
-    window.removeEventListener("storage", callback);
-    window.removeEventListener(CURRENCY_EVENT, callback);
-  };
-}
-
-// Client snapshot: the persisted currency, defaulting to RON. Server snapshot is always RON, so the
-// first render matches on both sides and the stored choice is picked up without a hydration mismatch.
-function readStoredCurrency(): Currency {
-  return window.localStorage.getItem(STORAGE_KEY) === "EUR" ? "EUR" : "RON";
-}
-
-function selectCurrency(currency: Currency) {
-  window.localStorage.setItem(STORAGE_KEY, currency);
-  window.dispatchEvent(new Event(CURRENCY_EVENT));
-}
 
 interface CostScenarioViewProps {
   scenario: CostScenario;
   candidates: ScenarioCandidateWorkPackage[];
   projectId: string;
+  // The global display currency (the header toggle), read from the cookie by the server page.
+  displayCurrency: DisplayCurrency;
 }
 
 /**
- * Interactive body of a cost scenario (the "simulator"): the choose-offers table, the breakdown,
- * and the totals. A single RON/EUR toggle re-renders every price in the chosen currency, converting
- * client-side with the app-wide `ronPerEur` rate carried on the scenario. Conversion is approximate
- * (one display rate, not per-BoQ pinned rates) — the same basis as the former "EUR equivalent".
+ * Body of a cost scenario (the "simulator"): the choose-offers table, the breakdown, and the totals.
+ * Every price renders in the global display currency (the header toggle). In "Original" mode each
+ * figure shows in its own currency (with decimals) and the totals are listed per currency — RON and
+ * EUR are never summed. In RON/EUR mode every figure is converted with the app-wide `ronPerEur` rate
+ * carried on the scenario and summed into one total (whole numbers, no decimals). Conversion is
+ * approximate (one display rate, not per-BoQ pinned rates) — the same basis as the former
+ * "EUR equivalent".
  */
 export function CostScenarioView({
   scenario,
   candidates,
   projectId,
+  displayCurrency,
 }: CostScenarioViewProps) {
-  // The chosen display currency, persisted in localStorage and shared across tabs. Server-renders as
-  // RON, then reflects the stored choice on the client (see readStoredCurrency).
-  const displayCurrency = useSyncExternalStore(
-    subscribeCurrency,
-    readStoredCurrency,
-    () => "RON" as Currency,
-  );
   const { ronPerEur } = scenario;
 
   // The chosen bid per work package, for seeding the per-row selects.
@@ -71,40 +46,33 @@ export function CostScenarioView({
     scenario.lines.map((line) => [line.workPackageId, line.bidId]),
   );
 
-  // Unified totals: every per-currency total converted into the display currency and summed.
+  // In RON/EUR mode, every per-currency total is converted into the display currency and summed.
+  const converted = displayCurrency !== "Original";
+  const target = displayCurrency as Money["currency"];
   const totalNet = scenario.totalsByCurrency.reduce(
-    (sum, tot) => sum + (convertMoney(tot.net, displayCurrency, ronPerEur)?.amount ?? 0),
+    (sum, tot) =>
+      sum +
+      (converted ? (convertMoney(tot.net, target, ronPerEur)?.amount ?? 0) : 0),
     0,
   );
   const totalGross = scenario.totalsByCurrency.reduce(
-    (sum, tot) => sum + (convertMoney(tot.gross, displayCurrency, ronPerEur)?.amount ?? 0),
+    (sum, tot) =>
+      sum +
+      (converted ? (convertMoney(tot.gross, target, ronPerEur)?.amount ?? 0) : 0),
     0,
   );
 
   // A conversion is in effect (and the rate worth noting) whenever a native currency differs.
-  const converting = scenario.totalsByCurrency.some(
-    (tot) => tot.currency !== displayCurrency,
-  );
+  const converting =
+    converted &&
+    scenario.totalsByCurrency.some((tot) => tot.currency !== displayCurrency);
+
+  // Format a summed amount in the (converted) display currency — whole numbers, matching displayMoney.
+  const summed = (amount: number): string =>
+    formatMoneyWhole({ amount, currency: displayCurrency as Money["currency"] });
 
   return (
     <>
-      <div className={styles.currencyToggle}>
-        <span className={styles.label}>{t("costScenario.displayCurrency")}</span>
-        <span className={styles.options} role="group" aria-label={t("costScenario.displayCurrency")}>
-          {CURRENCIES.map((currency) => (
-            <button
-              key={currency}
-              type="button"
-              aria-pressed={displayCurrency === currency}
-              className={displayCurrency === currency ? styles.active : undefined}
-              onClick={() => selectCurrency(currency)}
-            >
-              {currency}
-            </button>
-          ))}
-        </span>
-      </div>
-
       <section className={styles.card}>
         <h2>{t("costScenario.editorTitle")}</h2>
         <p className={styles.muted}>{t("costScenario.editorHint")}</p>
@@ -186,8 +154,8 @@ export function CostScenarioView({
                   <td>{line.contractorName}</td>
                   {line.priced ? (
                     <>
-                      <td>{formatMoneyIn(line.net, displayCurrency, ronPerEur)}</td>
-                      <td>{formatMoneyIn(line.gross, displayCurrency, ronPerEur)}</td>
+                      <td>{displayMoney(line.net, displayCurrency, ronPerEur)}</td>
+                      <td>{displayMoney(line.gross, displayCurrency, ronPerEur)}</td>
                     </>
                   ) : (
                     <td colSpan={2} className={styles.muted}>
@@ -213,17 +181,33 @@ export function CostScenarioView({
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <td>
-                  <strong>{t("costScenario.total")}</strong>
-                </td>
-                <td>{formatMoneyWhole({ amount: totalNet, currency: displayCurrency })}</td>
-                <td>
-                  <strong>
-                    {formatMoneyWhole({ amount: totalGross, currency: displayCurrency })}
-                  </strong>
-                </td>
-              </tr>
+              {converted ? (
+                // RON/EUR: one unified row summing every currency into the display currency.
+                <tr>
+                  <td>
+                    <strong>{t("costScenario.total")}</strong>
+                  </td>
+                  <td>{summed(totalNet)}</td>
+                  <td>
+                    <strong>{summed(totalGross)}</strong>
+                  </td>
+                </tr>
+              ) : (
+                // Original: a row per currency (RON and EUR are never summed), with decimals.
+                scenario.totalsByCurrency.map((tot) => (
+                  <tr key={tot.currency}>
+                    <td>
+                      <strong>
+                        {t("costScenario.total")} · {tot.currency}
+                      </strong>
+                    </td>
+                    <td>{formatMoney(tot.net)}</td>
+                    <td>
+                      <strong>{formatMoney(tot.gross)}</strong>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
           {converting && (

@@ -12,8 +12,8 @@ import {
 import { BoqChevron } from "@/app/components/BoqChevron";
 import { ConfirmDeleteButton } from "@/app/components/ConfirmDeleteButton";
 import { LineItemsTable } from "@/app/components/LineItemsTable";
-import type { Currency, Money, Section } from "@/app/lib/api";
-import { convertMoney, formatMoney } from "@/app/lib/format";
+import type { Money, Section } from "@/app/lib/api";
+import { displayMoney, type DisplayCurrency } from "@/app/lib/format";
 import { t } from "@/app/lib/i18n";
 import { useBoqAccordion } from "@/app/lib/useBoqAccordion";
 import styles from "@/app/page.module.css";
@@ -41,13 +41,13 @@ export function BoqSections({
   sections: Section[];
   unitCode: Record<string, string>;
   editable: boolean;
-  // The currency to display prices in (driven by the page-level ?currency toggle) and the app-wide
-  // "1 EUR = N RON" rate to convert with. A no-op when the display currency matches the pricing one.
-  displayCurrency: Currency;
+  // The global display currency (the header toggle) and the BoQ's "1 EUR = N RON" rate to convert
+  // with. "Original" shows the pricing currency with decimals; RON/EUR convert and drop decimals.
+  displayCurrency: DisplayCurrency;
   ronPerEur: number;
 }) {
-  // Convert a Money into the chosen display currency and format it (2 decimals). A no-op in RON.
-  const money = (m: Money) => formatMoney(convertMoney(m, displayCurrency, ronPerEur));
+  // Format a Money for the chosen display currency (see displayMoney: decimals only in Original mode).
+  const money = (m: Money) => displayMoney(m, displayCurrency, ronPerEur);
 
   // LineItemsTable expects a Map; rebuild it once from the plain object passed across the boundary.
   const unitCodeMap = useMemo(() => new Map(Object.entries(unitCode)), [unitCode]);

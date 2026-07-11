@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { deleteBid, duplicateBid, removeBidNote } from "@/app/bids/actions";
 import { deleteBoq } from "@/app/bills-of-quantities/actions";
-import { BoqCurrencyToggle } from "@/app/components/BoqCurrencyToggle";
 import { BoqDndBoard } from "@/app/components/BoqDndBoard";
 import { BoqSections } from "@/app/components/BoqSections";
 import { ConfirmDeleteButton } from "@/app/components/ConfirmDeleteButton";
@@ -26,14 +25,10 @@ import {
   type BidStatus,
   type BoqStatus,
   type Contract,
-  type Currency,
+  type Money,
 } from "@/app/lib/api";
-import {
-  convertMoney,
-  formatDate,
-  formatMoney,
-  formatNumber,
-} from "@/app/lib/format";
+import { getDisplayCurrency } from "@/app/lib/display-currency";
+import { displayMoney, formatDate, formatNumber } from "@/app/lib/format";
 import { t } from "@/app/lib/i18n";
 import styles from "@/app/page.module.css";
 
@@ -64,10 +59,10 @@ export default async function BidDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ arrange?: string; currency?: string }>;
+  searchParams: Promise<{ arrange?: string }>;
 }) {
   const { id } = await params;
-  const { arrange, currency } = await searchParams;
+  const { arrange } = await searchParams;
   const bid = await getBid(id);
 
   if (!bid) {
@@ -94,19 +89,15 @@ export default async function BidDetailPage({
   // figures stay out of the JSX. Null when the bid has no BoQ yet (see the empty state below).
   let boqSection: React.ReactNode = null;
   if (boq) {
-    // The BoQ renders in one display currency, chosen via the ?currency toggle (default the BoQ's
-    // own pricing currency). Conversion uses the app-wide rate on the BoQ and is approximate by
-    // design. `money` converts + formats; a no-op when already in the display currency.
-    const displayCurrency: Currency = currency === "EUR" ? "EUR" : "RON";
-    const converting = displayCurrency !== boq.pricingCurrency;
-    const money = (m: Parameters<typeof formatMoney>[0]) =>
-      formatMoney(convertMoney(m, displayCurrency, boq.ronPerEur));
-    // Preserve the arrange flag when switching currency so the toggle doesn't drop the arrange view.
-    const arrangeSuffix = arrange ? `&arrange=${arrange}` : "";
-    const currencyHrefs: Record<Currency, string> = {
-      RON: `/bids/${bid.id}?currency=RON${arrangeSuffix}`,
-      EUR: `/bids/${bid.id}?currency=EUR${arrangeSuffix}`,
-    };
+    // The BoQ renders in the global display currency (the header toggle). "Original" shows the BoQ's
+    // own pricing currency (with decimals); RON/EUR convert every figure via the BoQ's own rate
+    // (`boq.ronPerEur` — the pinned rate when it has one, else the app-wide rate) and drop decimals.
+    // `money` converts + formats; a no-op when already in the display currency.
+    const displayCurrency = await getDisplayCurrency();
+    const converting =
+      displayCurrency !== "Original" && boq.pricingCurrency !== displayCurrency;
+    const money = (m: Money | null | undefined) =>
+      displayMoney(m, displayCurrency, boq.ronPerEur);
 
     // All units (incl. retired) so a line whose unit was later deactivated still renders its code.
     const allUnits = await getUnitsOfMeasure(true);
@@ -180,7 +171,6 @@ export default async function BidDetailPage({
             </p>
           </div>
           <div style={{ display: "flex", alignItems: "flex-start", gap: 16 }}>
-            <BoqCurrencyToggle current={displayCurrency} hrefs={currencyHrefs} />
             {editable ? (
               <div className={styles.actions}>
                 {arranging ? (

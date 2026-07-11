@@ -15,7 +15,8 @@ import {
   getWorkPackage,
   type ContractStatus,
 } from "@/app/lib/api";
-import { formatDate, formatMoney } from "@/app/lib/format";
+import { getDisplayCurrency, getDisplayRate } from "@/app/lib/display-currency";
+import { displayMoney, formatDate } from "@/app/lib/format";
 import { t } from "@/app/lib/i18n";
 import styles from "@/app/page.module.css";
 
@@ -47,6 +48,13 @@ export default async function ContractDetailPage({
   const bid = boq ? await getBid(boq.bidId) : null;
   const contractor = bid ? await getContractor(bid.contractorId) : null;
 
+  // The global display currency (the header toggle). The contract value carries no rate, so it
+  // converts with the app-wide display rate; the accepted BoQ's total uses the BoQ's own rate.
+  const [displayCurrency, rate] = await Promise.all([
+    getDisplayCurrency(),
+    getDisplayRate(),
+  ]);
+
   const targets = allowedTargets(contract.status);
   const title = contract.contractNumber
     ? t("contracts.titleNumbered", { number: contract.contractNumber })
@@ -75,7 +83,7 @@ export default async function ContractDetailPage({
           {CONTRACT_STATUS_LABELS[contract.status]}
         </span>
         {" · "}
-        <strong>{formatMoney(contract.value)}</strong>
+        <strong>{displayMoney(contract.value, displayCurrency, rate)}</strong>
       </p>
 
       <section className={styles.card}>
@@ -117,7 +125,7 @@ export default async function ContractDetailPage({
                 {t("boq.title")}
                 {boq.reference ? ` · ${boq.reference}` : ""} (
                 {t("contracts.inclVat", {
-                  amount: formatMoney(boq.totalWithVat),
+                  amount: displayMoney(boq.totalWithVat, displayCurrency, boq.ronPerEur),
                 })}
                 )
               </Link>
@@ -130,7 +138,7 @@ export default async function ContractDetailPage({
           <dt>{t("common.status")}</dt>
           <dd>{CONTRACT_STATUS_LABELS[contract.status]}</dd>
           <dt>{t("contracts.agreedValue")}</dt>
-          <dd>{formatMoney(contract.value)}</dd>
+          <dd>{displayMoney(contract.value, displayCurrency, rate)}</dd>
           <dt>{t("contracts.signedOn")}</dt>
           <dd>{formatDate(contract.signedOn)}</dd>
           <dt>{t("contracts.startDate")}</dt>

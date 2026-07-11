@@ -1,7 +1,13 @@
 import Link from "next/link";
 import { ConfirmDeleteButton } from "@/app/components/ConfirmDeleteButton";
-import type { Currency, LineItem, Money } from "@/app/lib/api";
-import { convertMoney, formatMoney, formatNumber, formatPercent } from "@/app/lib/format";
+import type { LineItem, Money } from "@/app/lib/api";
+import {
+  displayMoney,
+  formatMoney,
+  formatNumber,
+  formatPercent,
+  type DisplayCurrency,
+} from "@/app/lib/format";
 import { t } from "@/app/lib/i18n";
 import styles from "@/app/page.module.css";
 
@@ -25,9 +31,9 @@ interface LineItemsTableProps {
   // The server action that duplicates a line in place (keyed only by line id, so one action
   // serves both the section and subsection tables).
   duplicateAction: (formData: FormData) => void | Promise<void>;
-  // The currency to display prices in, and the app-wide "1 EUR = N RON" rate to convert with.
+  // The global display currency (the header toggle) and the "1 EUR = N RON" rate to convert with.
   // Optional: when omitted (e.g. arrange mode), prices render in their own currency, unconverted.
-  displayCurrency?: Currency;
+  displayCurrency?: DisplayCurrency;
   ronPerEur?: number;
 }
 
@@ -53,11 +59,11 @@ export function LineItemsTable({
     return <p>{t("lineItems.empty")}</p>;
   }
 
-  // Convert into the display currency when one is set (2-decimal formatting — unit prices are
-  // small enough that rounding to whole units would lose meaning); otherwise render as-is.
+  // Format for the chosen display currency when one is set (Original keeps decimals; RON/EUR convert
+  // and drop them — see displayMoney); otherwise render as-is in the pricing currency.
   const money = (m: Money) =>
     displayCurrency && ronPerEur
-      ? formatMoney(convertMoney(m, displayCurrency, ronPerEur))
+      ? displayMoney(m, displayCurrency, ronPerEur)
       : formatMoney(m);
 
   return (

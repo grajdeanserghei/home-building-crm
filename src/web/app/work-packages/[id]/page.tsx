@@ -26,7 +26,8 @@ import {
   type Trade,
   type WorkPackageStatus,
 } from "@/app/lib/api";
-import { formatDate, formatMoney } from "@/app/lib/format";
+import { getDisplayCurrency } from "@/app/lib/display-currency";
+import { displayMoney, formatDate } from "@/app/lib/format";
 import { t } from "@/app/lib/i18n";
 import styles from "@/app/page.module.css";
 
@@ -108,6 +109,10 @@ export default async function WorkPackageDetailPage({
   );
 
   const scopeItems = workPackage.scopeItems;
+
+  // The global display currency (the header toggle). Each priced row converts with its own BoQ's
+  // rate (`boq.ronPerEur`) so per-BoQ pinned rates are honoured; "Original" shows pricing currency.
+  const displayCurrency = await getDisplayCurrency();
 
   return (
     <main className={styles.main}>
@@ -191,19 +196,25 @@ export default async function WorkPackageDetailPage({
                   </td>
                   <td>
                     {boq
-                      ? formatMoney(
+                      ? displayMoney(
                           effectiveMoney(
                             boq.totalWithVat,
                             boq.budgetScopeKind,
                             apartmentUnits,
                           ),
+                          displayCurrency,
+                          boq.ronPerEur,
                         )
-                      : formatMoney(null)}
+                      : displayMoney(null, displayCurrency, 1)}
                     {boq &&
                     budgetMultiplier(boq.budgetScopeKind, apartmentUnits) > 1 ? (
                       <div className={styles.muted}>
                         {t("boq.perApartmentNote", {
-                          base: formatMoney(boq.totalWithVat),
+                          base: displayMoney(
+                            boq.totalWithVat,
+                            displayCurrency,
+                            boq.ronPerEur,
+                          ),
                           count: String(apartmentUnits),
                         })}
                       </div>

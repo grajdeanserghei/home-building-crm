@@ -68,6 +68,47 @@
   border-color: #2563eb;
 }
 
+/* Right cluster: the global currency toggle sits beside the section links / hamburger. */
+.navEnd {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* Segmented Original / RON / EUR switch. Compact, bordered group; the active option is filled. */
+.currencyToggle {
+  display: inline-flex;
+  border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.currencyToggle button {
+  padding: 6px 10px;
+  border: 0;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.82rem;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.currencyToggle button + button {
+  border-left: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+}
+
+.currencyToggle button:hover {
+  color: #2563eb;
+}
+
+.currencyToggle button.currencyActive {
+  background: #2563eb;
+  color: #fff;
+}
+
 /* Hamburger toggle: hidden on desktop, revealed at the small-screen breakpoint. */
 .menuToggle {
   display: none;
@@ -133,6 +174,12 @@
   .switcherSelect {
     flex: 1;
     max-width: none;
+  }
+
+  /* Dissolve the right cluster so the currency toggle, hamburger and the full-width links
+     panel flow directly into `.inner`'s wrap layout, exactly as before this wrapper existed. */
+  .navEnd {
+    display: contents;
   }
 
   .menuToggle {

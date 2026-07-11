@@ -8,6 +8,7 @@ import {
 import { deleteCostScenario } from "@/app/cost-scenarios/actions";
 import { ConfirmDeleteButton } from "@/app/components/ConfirmDeleteButton";
 import { CostScenarioView } from "@/app/components/CostScenarioView";
+import { getDisplayCurrency } from "@/app/lib/display-currency";
 import { t } from "@/app/lib/i18n";
 import styles from "@/app/page.module.css";
 
@@ -17,9 +18,10 @@ export default async function CostScenarioPage({
   params: Promise<{ id: string; scenarioId: string }>;
 }) {
   const { id, scenarioId } = await params;
-  const [scenario, candidatesData] = await Promise.all([
+  const [scenario, candidatesData, displayCurrency] = await Promise.all([
     getCostScenario(scenarioId),
     getScenarioCandidates(id),
+    getDisplayCurrency(),
   ]);
 
   if (!scenario) {
@@ -59,6 +61,7 @@ export default async function CostScenarioPage({
         scenario={scenario}
         candidates={candidates}
         projectId={id}
+        displayCurrency={displayCurrency}
       />
     </main>
   );

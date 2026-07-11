@@ -1,8 +1,10 @@
 import Link from "next/link";
-import { setCurrentProject } from "../actions";
+import { setCurrentProject, setDisplayCurrency } from "../actions";
 import { resolveCurrentProject } from "../lib/current-project";
+import { getDisplayCurrency } from "../lib/display-currency";
 import { t } from "../lib/i18n";
 import type { Project } from "../lib/api";
+import { CurrencyToggle } from "./CurrencyToggle";
 import { ProjectSwitcher } from "./ProjectSwitcher";
 import { NavMenu } from "./NavMenu";
 import styles from "./Nav.module.css";
@@ -22,6 +24,10 @@ export async function Nav() {
     // renders nothing and the section links still work.
   }
 
+  // The global display-currency preference is a cookie read (no API call), so it stays available
+  // even when the project list above failed to load.
+  const displayCurrency = await getDisplayCurrency();
+
   return (
     <nav className={styles.nav}>
       <div className={styles.inner}>
@@ -35,7 +41,10 @@ export async function Nav() {
             action={setCurrentProject}
           />
         </div>
-        <NavMenu />
+        <div className={styles.navEnd}>
+          <CurrencyToggle current={displayCurrency} action={setDisplayCurrency} />
+          <NavMenu />
+        </div>
       </div>
     </nav>
   );

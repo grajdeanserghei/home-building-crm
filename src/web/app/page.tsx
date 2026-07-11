@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { resolveCurrentProject } from "./lib/current-project";
 import {
-  formatMoney,
   getProjectActivity,
   getProjectBudget,
   getWorkPackages,
@@ -13,31 +12,68 @@ import {
   type ProjectBudget,
   type WorkPackage,
 } from "./lib/api";
+import { getDisplayCurrency, getDisplayRate } from "./lib/display-currency";
+import {
+  convertMoney,
+  displayMoney,
+  formatMoneyWhole,
+  type DisplayCurrency,
+} from "./lib/format";
 import { ActivityFeed } from "./components/ActivityFeed";
 import { WorkPackagesTable } from "./components/WorkPackagesTable";
 import { t } from "./lib/i18n";
 import styles from "./page.module.css";
 
-// Render a projected band: a single amount when low === high, otherwise "low – high".
-function band(low: Money, high: Money): string {
+// Render a projected band in the display currency: a single amount when low === high, otherwise
+// "low – high". Formatting follows the global toggle (decimals only in Original mode).
+function band(
+  low: Money,
+  high: Money,
+  pref: DisplayCurrency,
+  rate: number,
+): string {
+  const lo = displayMoney(low, pref, rate);
   return low.amount === high.amount
-    ? formatMoney(low)
-    : `${formatMoney(low)} – ${formatMoney(high)}`;
+    ? lo
+    : `${lo} – ${displayMoney(high, pref, rate)}`;
 }
 
-// The single projected-cost figure to headline on the dashboard: the EUR-equivalent
-// projection when available (comparable across currencies), otherwise the lone
-// currency's projection. Null when there is nothing priced yet, or several
-// currencies with no EUR rate to combine them.
-function projectedHeadline(budget: ProjectBudget | null): string | null {
+// The single projected-cost figure to headline on the dashboard, in the chosen display currency.
+// In RON/EUR mode every currency's projection is converted with the app-wide rate and summed into
+// one band. In Original mode there is no single "original" for a multi-currency blend, so it keeps
+// the prior behaviour: the backend's EUR-equivalent projection when available, else the lone
+// currency's projection. Null when there is nothing priced yet.
+function projectedHeadline(
+  budget: ProjectBudget | null,
+  pref: DisplayCurrency,
+  rate: number,
+): string | null {
   if (!budget) return null;
+
+  if (pref !== "Original") {
+    if (budget.totalsByCurrency.length === 0) return null;
+    let low = 0;
+    let high = 0;
+    for (const tot of budget.totalsByCurrency) {
+      const target = pref as Money["currency"];
+      low += convertMoney(tot.projectedLow, target, rate)?.amount ?? 0;
+      high += convertMoney(tot.projectedHigh, target, rate)?.amount ?? 0;
+    }
+    const lo = formatMoneyWhole({ amount: low, currency: pref });
+    return low === high
+      ? lo
+      : `${lo} – ${formatMoneyWhole({ amount: high, currency: pref })}`;
+  }
+
   const eur = budget.eurEquivalent?.totals;
-  if (eur) return band(eur.projectedLow, eur.projectedHigh);
+  if (eur) return band(eur.projectedLow, eur.projectedHigh, pref, rate);
   const single: CurrencyTotals | undefined =
     budget.totalsByCurrency.length === 1
       ? budget.totalsByCurrency[0]
       : undefined;
-  return single ? band(single.projectedLow, single.projectedHigh) : null;
+  return single
+    ? band(single.projectedLow, single.projectedHigh, pref, rate)
+    : null;
 }
 
 export default async function Home() {
@@ -99,7 +135,13 @@ export default async function Home() {
     (wp) => wp.status === "OpenForBids",
   ).length;
   const awarded = workPackages.filter((wp) => wp.status === "Awarded").length;
-  const projected = projectedHeadline(budget);
+
+  // The projected-cost headline honours the global display-currency toggle.
+  const [displayCurrency, rate] = await Promise.all([
+    getDisplayCurrency(),
+    getDisplayRate(),
+  ]);
+  const projected = projectedHeadline(budget, displayCurrency, rate);
 
   return (
     <main className={styles.main}>

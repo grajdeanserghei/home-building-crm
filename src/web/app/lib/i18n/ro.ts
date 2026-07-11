@@ -126,6 +126,12 @@ export const ro = {
   "nav.unitsOfMeasure": "Unități de măsură",
   "nav.trades": "Meserii",
 
+  // Global display-currency toggle in the header (see displayMoney / getDisplayCurrency).
+  "currency.toggleLabel": "Monedă afișată",
+  "currency.Original": "Originală",
+  "currency.RON": "RON",
+  "currency.EUR": "EUR",
+
   // — Domain-exception codes → Romanian templates ————————————————————————————
   // Keyed by the stable `code` the backend puts on the ProblemDetails. {params} are
   // re-interpolated from the response's `params` extension. Codes not listed here fall

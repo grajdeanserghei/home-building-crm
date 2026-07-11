@@ -7,6 +7,15 @@ import type { Currency, Money } from "./api";
 
 const LOCALE = "ro-RO";
 
+// The global display-currency preference (the header toggle). "Original" shows each amount in the
+// currency the contractor priced it in (no conversion); "RON"/"EUR" convert every amount into that
+// single currency via the app-wide display rate. Kept here (not in the server-only display-currency
+// module) so client components can import it too. See docs — global currency toggle.
+export type DisplayCurrency = "Original" | "RON" | "EUR";
+
+// The options in header/toggle order.
+export const DISPLAY_CURRENCIES: readonly DisplayCurrency[] = ["Original", "RON", "EUR"];
+
 // The placeholder shown for a null/absent value (em dash).
 export const EMPTY = "—";
 
@@ -112,6 +121,22 @@ export function formatMoneyIn(
   ronPerEur: number,
 ): string {
   return formatMoneyWhole(convertMoney(money, target, ronPerEur));
+}
+
+/**
+ * Format a Money for the global currency toggle. In "Original" mode the amount renders in its own
+ * currency with decimals ({@link formatMoney}); in "RON"/"EUR" mode it is converted to that currency
+ * via the app-wide `ronPerEur` rate and rendered whole (no decimals) — decimals are shown only in
+ * Original mode. Whole-number rounding therefore applies in RON/EUR mode even when no conversion
+ * happens (e.g. a RON amount viewed in RON). Null → em dash.
+ */
+export function displayMoney(
+  money: Money | null | undefined,
+  pref: DisplayCurrency,
+  ronPerEur: number,
+): string {
+  if (pref === "Original") return formatMoney(money);
+  return formatMoneyWhole(convertMoney(money, pref, ronPerEur));
 }
 
 /** Format a whole-number VAT rate as a percentage (21 → "21%"). Null → em dash. */

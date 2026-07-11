@@ -2,9 +2,9 @@
 
 import { useRef } from "react";
 import { setScenarioSelection } from "@/app/cost-scenarios/actions";
-import { formatMoneyIn } from "@/app/lib/format";
+import { displayMoney, type DisplayCurrency } from "@/app/lib/format";
 import { t } from "@/app/lib/i18n";
-import type { Currency, ScenarioCandidateBid } from "@/app/lib/api";
+import type { ScenarioCandidateBid } from "@/app/lib/api";
 import styles from "@/app/page.module.css";
 
 interface ScenarioSelectionSelectProps {
@@ -15,8 +15,8 @@ interface ScenarioSelectionSelectProps {
   candidates: ScenarioCandidateBid[];
   // The currently chosen bid id, or "" when the work package is not included.
   selectedBidId: string;
-  // The currency to display each bid's price in, and the app-wide rate used to convert.
-  displayCurrency: Currency;
+  // The global display currency (the header toggle), and the app-wide rate used to convert.
+  displayCurrency: DisplayCurrency;
   ronPerEur: number;
 }
 
@@ -58,7 +58,7 @@ export function ScenarioSelectionSelect({
         <option value="">{t("costScenario.notIncluded")}</option>
         {candidates.map((bid) => (
           <option key={bid.bidId} value={bid.bidId}>
-            {bid.contractorName} — {formatMoneyIn(bid.gross, displayCurrency, ronPerEur)}
+            {bid.contractorName} — {displayMoney(bid.gross, displayCurrency, ronPerEur)}
           </option>
         ))}
       </select>
