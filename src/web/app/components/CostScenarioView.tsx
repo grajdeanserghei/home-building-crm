@@ -8,7 +8,7 @@ import type {
   ScenarioCandidateWorkPackage,
 } from "@/app/lib/api";
 import { ScenarioSelectionSelect } from "@/app/components/ScenarioSelectionSelect";
-import { convertMoney, formatMoney, formatMoneyIn, formatNumber } from "@/app/lib/format";
+import { convertMoney, formatMoneyIn, formatMoneyWhole, formatNumber } from "@/app/lib/format";
 import { t } from "@/app/lib/i18n";
 import styles from "@/app/page.module.css";
 
@@ -185,10 +185,10 @@ export function CostScenarioView({
                 <td>
                   <strong>{t("costScenario.total")}</strong>
                 </td>
-                <td>{formatMoney({ amount: totalNet, currency: displayCurrency })}</td>
+                <td>{formatMoneyWhole({ amount: totalNet, currency: displayCurrency })}</td>
                 <td>
                   <strong>
-                    {formatMoney({ amount: totalGross, currency: displayCurrency })}
+                    {formatMoneyWhole({ amount: totalGross, currency: displayCurrency })}
                   </strong>
                 </td>
               </tr>

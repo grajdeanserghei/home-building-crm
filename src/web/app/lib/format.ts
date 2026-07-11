@@ -49,6 +49,16 @@ export function formatNumber(value?: number | null): string {
   return numberFormatter.format(value);
 }
 
+function formatMoneyWith(money: Money, fractionDigits: number): string {
+  return new Intl.NumberFormat(LOCALE, {
+    style: "currency",
+    currency: money.currency,
+    currencyDisplay: "code",
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  }).format(money.amount);
+}
+
 /**
  * Format a Money amount in ro-RO with the ISO currency code, e.g. "12.500,50 RON".
  * `currencyDisplay: "code"` keeps RON/EUR consistent (no lei/€ split) and matches the spec
@@ -56,11 +66,16 @@ export function formatNumber(value?: number | null): string {
  */
 export function formatMoney(money?: Money | null): string {
   if (!money) return EMPTY;
-  return new Intl.NumberFormat(LOCALE, {
-    style: "currency",
-    currency: money.currency,
-    currencyDisplay: "code",
-  }).format(money.amount);
+  return formatMoneyWith(money, 2);
+}
+
+/**
+ * Like {@link formatMoney} but rounded to whole units (no decimals), e.g. "12.501 RON". Used by the
+ * cost simulator, where cents are noise against large, already-approximate build totals. Null → em dash.
+ */
+export function formatMoneyWhole(money?: Money | null): string {
+  if (!money) return EMPTY;
+  return formatMoneyWith(money, 0);
 }
 
 /**
@@ -87,13 +102,16 @@ export function convertMoney(
   return money;
 }
 
-/** Convert a Money to `target` (via {@link convertMoney}) and format it. Null → em dash. */
+/**
+ * Convert a Money to `target` (via {@link convertMoney}) and format it whole (no decimals) for the
+ * cost simulator's RON/EUR toggle. Null → em dash.
+ */
 export function formatMoneyIn(
   money: Money | null | undefined,
   target: Currency,
   ronPerEur: number,
 ): string {
-  return formatMoney(convertMoney(money, target, ronPerEur));
+  return formatMoneyWhole(convertMoney(money, target, ronPerEur));
 }
 
 /** Format a whole-number VAT rate as a percentage (21 → "21%"). Null → em dash. */
