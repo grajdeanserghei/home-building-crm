@@ -17,7 +17,7 @@ namespace HomeProjectManagement.Infrastructure.ExchangeRates;
 public sealed class ManualExchangeRateProvider : IExchangeRateProvider
 {
     /// <summary>Fallback "1 EUR = N RON" display rate when no override is configured.</summary>
-    public const decimal DefaultRonPerEur = 5.07m;
+    public const decimal DefaultRonPerEur = 5.24m;
 
     private readonly decimal _ronPerEur;
 

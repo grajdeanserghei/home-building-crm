@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useSyncExternalStore } from "react";
 import Link from "next/link";
 import type {
   CostScenario,
@@ -13,6 +13,32 @@ import { t } from "@/app/lib/i18n";
 import styles from "@/app/page.module.css";
 
 const CURRENCIES: Currency[] = ["RON", "EUR"];
+
+// Where the chosen display currency is remembered across reloads. Browser-local, not per-user.
+const STORAGE_KEY = "simulator.displayCurrency";
+// Same-tab notification: the native "storage" event only fires in *other* tabs, so we dispatch this
+// to re-render the current tab after a toggle. `useSyncExternalStore` subscribes to both.
+const CURRENCY_EVENT = "simulator:display-currency";
+
+function subscribeCurrency(callback: () => void) {
+  window.addEventListener("storage", callback);
+  window.addEventListener(CURRENCY_EVENT, callback);
+  return () => {
+    window.removeEventListener("storage", callback);
+    window.removeEventListener(CURRENCY_EVENT, callback);
+  };
+}
+
+// Client snapshot: the persisted currency, defaulting to RON. Server snapshot is always RON, so the
+// first render matches on both sides and the stored choice is picked up without a hydration mismatch.
+function readStoredCurrency(): Currency {
+  return window.localStorage.getItem(STORAGE_KEY) === "EUR" ? "EUR" : "RON";
+}
+
+function selectCurrency(currency: Currency) {
+  window.localStorage.setItem(STORAGE_KEY, currency);
+  window.dispatchEvent(new Event(CURRENCY_EVENT));
+}
 
 interface CostScenarioViewProps {
   scenario: CostScenario;
@@ -31,7 +57,13 @@ export function CostScenarioView({
   candidates,
   projectId,
 }: CostScenarioViewProps) {
-  const [displayCurrency, setDisplayCurrency] = useState<Currency>("RON");
+  // The chosen display currency, persisted in localStorage and shared across tabs. Server-renders as
+  // RON, then reflects the stored choice on the client (see readStoredCurrency).
+  const displayCurrency = useSyncExternalStore(
+    subscribeCurrency,
+    readStoredCurrency,
+    () => "RON" as Currency,
+  );
   const { ronPerEur } = scenario;
 
   // The chosen bid per work package, for seeding the per-row selects.
@@ -65,7 +97,7 @@ export function CostScenarioView({
               type="button"
               aria-pressed={displayCurrency === currency}
               className={displayCurrency === currency ? styles.active : undefined}
-              onClick={() => setDisplayCurrency(currency)}
+              onClick={() => selectCurrency(currency)}
             >
               {currency}
             </button>
