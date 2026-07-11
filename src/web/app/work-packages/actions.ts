@@ -83,9 +83,11 @@ export async function deleteWorkPackage(formData: FormData) {
     throw new Error(await describeApiError(res, "common.actionError"));
   }
 
-  // Deleting can be driven from the package's own read view; revalidate the project's
-  // list and return to it (the gone package's detail page no longer exists).
+  // Deleting can be driven from the package's own read view, the project overview, or the
+  // home dashboard (which also lists work packages) — revalidate both the project's list and
+  // the home page, then return to the project (the gone package's detail page no longer exists).
   revalidatePath(`/projects/${projectId}`);
+  revalidatePath("/");
   redirect(`/projects/${projectId}`);
 }
 

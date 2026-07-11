@@ -6,7 +6,6 @@ import {
   getProjectBudget,
   getWorkPackages,
   PROJECT_STATUS_LABELS,
-  WORK_PACKAGE_STATUS_LABELS,
   type ActivityItem,
   type CurrencyTotals,
   type Money,
@@ -15,7 +14,7 @@ import {
   type WorkPackage,
 } from "./lib/api";
 import { ActivityFeed } from "./components/ActivityFeed";
-import { formatDate } from "./lib/format";
+import { WorkPackagesTable } from "./components/WorkPackagesTable";
 import { t } from "./lib/i18n";
 import styles from "./page.module.css";
 
@@ -118,9 +117,6 @@ export default async function Home() {
           <Link href={`/projects/${current.id}/edit`} className={styles.edit}>
             {t("projects.edit")}
           </Link>
-          <Link href={`/projects/${current.id}`} className={styles.edit}>
-            {t("dashboard.workPackagesManage")}
-          </Link>
           <Link
             href={`/projects/${current.id}/budget`}
             className={styles.primaryButton}
@@ -128,6 +124,24 @@ export default async function Home() {
             {t("budget.link")}
           </Link>
         </div>
+      </div>
+
+      <p className={styles.muted}>
+        {t("projects.apartmentUnitsSummary", {
+          count: String(current.apartmentUnits),
+        })}
+      </p>
+
+      <div className={styles.linkRow}>
+        <Link href={`/projects/${current.id}/bids`} className={styles.edit}>
+          {t("projectBids.link")} →
+        </Link>
+        <Link
+          href={`/projects/${current.id}/cost-scenarios`}
+          className={styles.edit}
+        >
+          {t("costScenario.link")} →
+        </Link>
       </div>
 
       <section className={styles.stats}>
@@ -166,51 +180,21 @@ export default async function Home() {
 
       <section className={styles.card}>
         <h2>{t("dashboard.workPackagesTitle")}</h2>
-        {dataError ? (
-          <p className={styles.error}>{t("common.apiError", { error: dataError })}</p>
-        ) : workPackages.length === 0 ? (
-          <p>{t("workPackages.empty")}</p>
-        ) : (
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>{t("common.name")}</th>
-                <th>{t("common.status")}</th>
-                <th>{t("workPackages.col.plannedStart")}</th>
-                <th>{t("workPackages.col.plannedEnd")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {workPackages.map((wp) => (
-                <tr key={wp.id}>
-                  <td>{wp.sequence}</td>
-                  <td>
-                    <Link
-                      href={`/work-packages/${wp.id}`}
-                      className={styles.nameLink}
-                    >
-                      <strong>{wp.name}</strong>
-                    </Link>
-                    {wp.description ? (
-                      <div className={styles.muted}>{wp.description}</div>
-                    ) : null}
-                  </td>
-                  <td>
-                    <span
-                      className={`${styles.badge} ${styles[`status${wp.status}`]}`}
-                    >
-                      {WORK_PACKAGE_STATUS_LABELS[wp.status]}
-                    </span>
-                  </td>
-                  <td>{formatDate(wp.plannedStartDate)}</td>
-                  <td>{formatDate(wp.plannedEndDate)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+        <WorkPackagesTable
+          workPackages={workPackages}
+          projectId={current.id}
+          error={dataError}
+        />
       </section>
+
+      <p>
+        <Link
+          href={`/projects/${current.id}/work-packages/new`}
+          className={styles.primaryButton}
+        >
+          {t("workPackages.add")}
+        </Link>
+      </p>
     </main>
   );
 }
