@@ -427,6 +427,8 @@ export const ro = {
   "boq.inclVat": "cu TVA",
   "boq.exclVat": "fără TVA",
   "boq.exclShort": "fără",
+  "boq.displayCurrency": "Monedă afișată",
+  "boq.rateNote": "Echivalent aproximativ · 1 EUR = {rate} RON",
   "boq.reference": "Referință",
   "boq.pricingCurrency": "Monedă de tarifare",
   "boq.pinnedRate": "Curs fixat",

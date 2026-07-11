@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { BoqCurrencyToggle } from "@/app/components/BoqCurrencyToggle";
 import { BoqDndBoard } from "@/app/components/BoqDndBoard";
 import { BoqSections } from "@/app/components/BoqSections";
 import { ConfirmDeleteButton } from "@/app/components/ConfirmDeleteButton";
@@ -18,8 +19,9 @@ import {
   getWorkPackage,
   type BoqStatus,
   type Contract,
+  type Currency,
 } from "@/app/lib/api";
-import { formatDate, formatMoney, formatNumber } from "@/app/lib/format";
+import { convertMoney, formatDate, formatMoney, formatNumber } from "@/app/lib/format";
 import { t } from "@/app/lib/i18n";
 import styles from "@/app/page.module.css";
 
@@ -43,15 +45,29 @@ export default async function BillOfQuantitiesDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ arrange?: string }>;
+  searchParams: Promise<{ arrange?: string; currency?: string }>;
 }) {
   const { id } = await params;
-  const { arrange } = await searchParams;
+  const { arrange, currency } = await searchParams;
   const boq = await getBillOfQuantities(id);
 
   if (!boq) {
     notFound();
   }
+
+  // The whole page renders prices in one display currency, chosen via the ?currency toggle (default
+  // the BoQ's own pricing currency). Conversion uses the app-wide rate carried on the BoQ and is
+  // approximate by design. `money` converts + formats; a no-op when already in the display currency.
+  const displayCurrency: Currency = currency === "EUR" ? "EUR" : "RON";
+  const converting = displayCurrency !== boq.pricingCurrency;
+  const money = (m: Parameters<typeof formatMoney>[0]) =>
+    formatMoney(convertMoney(m, displayCurrency, boq.ronPerEur));
+  // Preserve the arrange flag when switching currency so the toggle doesn't drop you out of that view.
+  const arrangeSuffix = arrange ? `&arrange=${arrange}` : "";
+  const currencyHrefs: Record<Currency, string> = {
+    RON: `/bills-of-quantities/${boq.id}?currency=RON${arrangeSuffix}`,
+    EUR: `/bills-of-quantities/${boq.id}?currency=EUR${arrangeSuffix}`,
+  };
 
   // All units (incl. retired) so a line whose unit was later deactivated still renders its
   // code. Active-only filtering for new lines lives on the add-line route.
@@ -113,23 +129,31 @@ export default async function BillOfQuantitiesDetailPage({
             {t("boq.scopePrefix")}{" "}
             <strong>{BUDGET_SCOPE_KIND_LABELS[boq.budgetScopeKind]}</strong>
             {" · "}
-            <strong>{formatMoney(effectiveTotalWithVat)}</strong> {t("boq.inclVat")}
+            <strong>{money(effectiveTotalWithVat)}</strong> {t("boq.inclVat")}
             <span className={styles.muted}>
               {" "}
-              ({formatMoney(effectiveTotal)} {t("boq.exclVat")})
+              ({money(effectiveTotal)} {t("boq.exclVat")})
             </span>
             {multiplier > 1 ? (
               <span className={styles.muted}>
                 {" "}
                 {t("boq.perApartmentNote", {
-                  base: formatMoney(boq.totalWithVat),
+                  base: money(boq.totalWithVat),
                   count: String(apartmentUnits),
                 })}
               </span>
             ) : null}
+            {converting ? (
+              <span className={styles.muted}>
+                {" · "}
+                {t("boq.rateNote", { rate: formatNumber(boq.ronPerEur) })}
+              </span>
+            ) : null}
           </p>
         </div>
-        {editable ? (
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 16 }}>
+          <BoqCurrencyToggle current={displayCurrency} hrefs={currencyHrefs} />
+          {editable ? (
           <div className={styles.actions}>
             {arranging ? (
               <Link
@@ -157,7 +181,8 @@ export default async function BillOfQuantitiesDetailPage({
               </>
             )}
           </div>
-        ) : null}
+          ) : null}
+        </div>
       </div>
 
       <section className={styles.card}>
@@ -186,15 +211,15 @@ export default async function BillOfQuantitiesDetailPage({
           <dt>{t("boq.validUntil")}</dt>
           <dd>{formatDate(boq.validUntil)}</dd>
           <dt>{t("boq.totalExclVat")}</dt>
-          <dd>{formatMoney(boq.total)}</dd>
+          <dd>{money(boq.total)}</dd>
           <dt>{t("boq.totalInclVat")}</dt>
-          <dd>{formatMoney(boq.totalWithVat)}</dd>
+          <dd>{money(boq.totalWithVat)}</dd>
           {multiplier > 1 ? (
             <>
               <dt>{t("boq.buildTotalExclVat", { count: String(apartmentUnits) })}</dt>
-              <dd>{formatMoney(effectiveTotal)}</dd>
+              <dd>{money(effectiveTotal)}</dd>
               <dt>{t("boq.buildTotalInclVat", { count: String(apartmentUnits) })}</dt>
-              <dd>{formatMoney(effectiveTotalWithVat)}</dd>
+              <dd>{money(effectiveTotalWithVat)}</dd>
             </>
           ) : null}
           <dt>{t("common.created")}</dt>
@@ -278,6 +303,8 @@ export default async function BillOfQuantitiesDetailPage({
           sections={boq.sections}
           unitCode={Object.fromEntries(unitCode)}
           editable={editable}
+          displayCurrency={displayCurrency}
+          ronPerEur={boq.ronPerEur}
         />
       ) : null}
 

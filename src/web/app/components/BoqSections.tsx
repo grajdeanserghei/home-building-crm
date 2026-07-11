@@ -12,8 +12,8 @@ import {
 import { BoqChevron } from "@/app/components/BoqChevron";
 import { ConfirmDeleteButton } from "@/app/components/ConfirmDeleteButton";
 import { LineItemsTable } from "@/app/components/LineItemsTable";
-import type { Section } from "@/app/lib/api";
-import { formatMoney } from "@/app/lib/format";
+import type { Currency, Money, Section } from "@/app/lib/api";
+import { convertMoney, formatMoney } from "@/app/lib/format";
 import { t } from "@/app/lib/i18n";
 import { useBoqAccordion } from "@/app/lib/useBoqAccordion";
 import styles from "@/app/page.module.css";
@@ -30,12 +30,21 @@ export function BoqSections({
   sections,
   unitCode,
   editable,
+  displayCurrency,
+  ronPerEur,
 }: {
   boqId: string;
   sections: Section[];
   unitCode: Record<string, string>;
   editable: boolean;
+  // The currency to display prices in (driven by the page-level ?currency toggle) and the app-wide
+  // "1 EUR = N RON" rate to convert with. A no-op when the display currency matches the pricing one.
+  displayCurrency: Currency;
+  ronPerEur: number;
 }) {
+  // Convert a Money into the chosen display currency and format it (2 decimals). A no-op in RON.
+  const money = (m: Money) => formatMoney(convertMoney(m, displayCurrency, ronPerEur));
+
   // LineItemsTable expects a Map; rebuild it once from the plain object passed across the boundary.
   const unitCodeMap = useMemo(() => new Map(Object.entries(unitCode)), [unitCode]);
   const allIds = useMemo(
@@ -71,8 +80,8 @@ export function BoqSections({
                 <span>
                   {section.sequence}. {section.name}{" "}
                   <span className={styles.muted}>
-                    · {formatMoney(section.subtotalWithVat)} {t("boq.inclVat")} (
-                    {formatMoney(section.subtotal)} {t("boq.exclShort")})
+                    · {money(section.subtotalWithVat)} {t("boq.inclVat")} (
+                    {money(section.subtotal)} {t("boq.exclShort")})
                   </span>
                 </span>
               </button>
@@ -107,6 +116,8 @@ export function BoqSections({
                 editHrefBase={`/bills-of-quantities/${boqId}/sections/${section.id}/line-items`}
                 removeAction={removeLineItem}
                 duplicateAction={duplicateLineItem}
+                displayCurrency={displayCurrency}
+                ronPerEur={ronPerEur}
               />
 
               {/* Subsections: an optional second level of grouping within the section. */}
@@ -127,8 +138,8 @@ export function BoqSections({
                         <span>
                           {section.sequence}.{subsection.sequence} {subsection.name}{" "}
                           <span className={styles.muted}>
-                            · {formatMoney(subsection.subtotalWithVat)} {t("boq.inclVat")} (
-                            {formatMoney(subsection.subtotal)} {t("boq.exclShort")})
+                            · {money(subsection.subtotalWithVat)} {t("boq.inclVat")} (
+                            {money(subsection.subtotal)} {t("boq.exclShort")})
                           </span>
                         </span>
                       </button>
@@ -149,6 +160,8 @@ export function BoqSections({
                         editHrefBase={`/bills-of-quantities/${boqId}/sections/${section.id}/subsections/${subsection.id}/line-items`}
                         removeAction={removeSubsectionLineItem}
                         duplicateAction={duplicateLineItem}
+                        displayCurrency={displayCurrency}
+                        ronPerEur={ronPerEur}
                       />
 
                       {editable ? (

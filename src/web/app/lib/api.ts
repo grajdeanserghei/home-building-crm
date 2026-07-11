@@ -614,6 +614,9 @@ export interface BillOfQuantities {
   validUntil?: string | null;
   total: Money; // derived: sum of section subtotals (net, VAT-exclusive)
   totalWithVat: Money; // derived: sum of section subtotals (gross, VAT-inclusive)
+  // "1 EUR = N RON": the BoQ's own pinned rate when it has one, else the app-wide display rate.
+  // Lets the read view show EUR equivalents alongside the pricing-currency figures.
+  ronPerEur: number;
   sections: Section[];
   createdAt: string;
 }

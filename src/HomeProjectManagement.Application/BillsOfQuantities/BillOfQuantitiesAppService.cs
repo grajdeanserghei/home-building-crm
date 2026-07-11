@@ -23,6 +23,7 @@ public sealed class BillOfQuantitiesAppService(
     IContractorRepository contractors,
     IWorkPackageRepository workPackages,
     IBoqSpreadsheetExporter exporter,
+    IExchangeRateProvider exchangeRates,
     ICurrentUser currentUser,
     IUnitOfWork unitOfWork,
     TimeProvider timeProvider) : IBillOfQuantitiesAppService
@@ -672,6 +673,21 @@ public sealed class BillOfQuantitiesAppService(
     private static VatRate ToVatRate(decimal? percentage) =>
         percentage is { } value ? new VatRate(value) : VatRate.Standard;
 
+    // "1 EUR = N RON", surfaced so the UI can show EUR equivalents. Honour the BoQ's own pinned rate
+    // when it has one (authoritative for that quote — it always relates RON↔EUR since it must involve
+    // the pricing currency and only those two currencies exist); otherwise fall back to the app-wide
+    // display rate. Approximate by design, the same basis as the cost simulator's EUR equivalent.
+    private decimal RonPerEur(BillOfQuantities boq)
+    {
+        if (boq.ExchangeRate is { } pinned)
+        {
+            return pinned.BaseCurrency == Currency.EUR ? pinned.Rate : 1m / pinned.Rate;
+        }
+
+        var asOf = DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime);
+        return exchangeRates.GetRate(Currency.EUR, Currency.RON, asOf).Rate;
+    }
+
     private static ExchangeRate? ToExchangeRate(ExchangeRateDto? dto) =>
         dto is null ? null : new ExchangeRate(dto.BaseCurrency, dto.QuoteCurrency, dto.Rate, dto.AsOf);
 
@@ -689,7 +705,7 @@ public sealed class BillOfQuantitiesAppService(
         return new DocumentReference(trimmedName, resolvedUrl, now, currentUser.UserId);
     }
 
-    private static BillOfQuantitiesDto ToDto(BillOfQuantities boq) => new(
+    private BillOfQuantitiesDto ToDto(BillOfQuantities boq) => new(
         boq.Id.Value,
         boq.BidId.Value,
         boq.Reference,
@@ -701,6 +717,7 @@ public sealed class BillOfQuantitiesAppService(
         boq.ValidUntil,
         ToDto(boq.Total),
         ToDto(boq.TotalWithVat),
+        RonPerEur(boq),
         boq.Sections
             .OrderBy(s => s.Sequence)
             .Select(s => ToDto(boq, s))

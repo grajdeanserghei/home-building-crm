@@ -9,6 +9,8 @@ namespace HomeProjectManagement.Application.BillsOfQuantities;
 /// <c>BudgetScopeKind</c> is what the supplier priced against (entire building, or per apartment); the
 /// cost scaled to the whole build is the total times the owning project's apartment-unit count when
 /// per-apartment — applied by the budget rollup and the UI, which read that count from the project.
+/// <c>RonPerEur</c> ("1 EUR = N RON") lets the UI show EUR equivalents alongside the priced figures:
+/// it is the BoQ's own pinned rate when it has one, else the app-wide display rate.
 /// </summary>
 public sealed record BillOfQuantitiesDto(
     Guid Id,
@@ -22,6 +24,7 @@ public sealed record BillOfQuantitiesDto(
     DateTimeOffset? ValidUntil,
     MoneyDto Total,
     MoneyDto TotalWithVat,
+    decimal RonPerEur,
     IReadOnlyList<SectionDto> Sections,
     string? SourceContentHash,
     SourceDocumentDto? SourceDocument,
