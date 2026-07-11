@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { deleteBid, duplicateBid, removeBidNote } from "@/app/bids/actions";
+import { deleteBoq } from "@/app/bills-of-quantities/actions";
+import { BoqCurrencyToggle } from "@/app/components/BoqCurrencyToggle";
+import { BoqDndBoard } from "@/app/components/BoqDndBoard";
+import { BoqSections } from "@/app/components/BoqSections";
 import { ConfirmDeleteButton } from "@/app/components/ConfirmDeleteButton";
 import { SubmitButton } from "@/app/components/SubmitButton";
 import {
@@ -9,16 +13,27 @@ import {
   BOQ_STATUS_LABELS,
   BUDGET_SCOPE_KIND_LABELS,
   budgetMultiplier,
+  CONTRACT_STATUS_LABELS,
   effectiveMoney,
   NOTE_TYPE_LABELS,
   getBid,
   getBidBoq,
+  getContractByWorkPackage,
   getContractor,
   getProject,
+  getUnitsOfMeasure,
   getWorkPackage,
   type BidStatus,
+  type BoqStatus,
+  type Contract,
+  type Currency,
 } from "@/app/lib/api";
-import { formatDate, formatMoney } from "@/app/lib/format";
+import {
+  convertMoney,
+  formatDate,
+  formatMoney,
+  formatNumber,
+} from "@/app/lib/format";
 import { t } from "@/app/lib/i18n";
 import styles from "@/app/page.module.css";
 
@@ -28,15 +43,31 @@ function canChangeStatus(current: BidStatus): boolean {
   return current !== "Withdrawn" && BID_STATUSES.length > 0;
 }
 
-// Read-first detail page: it shows the bid, its priced BoQ and its discussion log, with no
-// inline create/edit forms. Every mutation (status change, edit, drafting a BoQ, logging a
-// note) is a deliberate step away on its own route.
+// A BoQ accepts structural edits (header, sections, line items) only while Draft or
+// Submitted; once Accepted/Rejected/Withdrawn it is locked. Mirrors the aggregate.
+function isBoqEditable(status: BoqStatus): boolean {
+  return status === "Draft" || status === "Submitted";
+}
+
+// Rejected and Withdrawn are terminal for a BoQ — the backend forbids transitioning out of
+// them, so the status-change action is only offered from a non-terminal state.
+function canChangeBoqStatus(status: BoqStatus): boolean {
+  return status !== "Rejected" && status !== "Withdrawn";
+}
+
+// The bid detail page. It leads with the bid's priced BoQ (the thing readers usually come for),
+// then the bid's own metadata and discussion log below. The BoQ's structural edits — sections,
+// line items, status, award, export — are deliberate steps away on the /bids/[id]/boq/… routes;
+// line-item add/edit open as modals over this page via the @modal slot in the layout.
 export default async function BidDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ arrange?: string; currency?: string }>;
 }) {
   const { id } = await params;
+  const { arrange, currency } = await searchParams;
   const bid = await getBid(id);
 
   if (!bid) {
@@ -57,6 +88,269 @@ export default async function BidDetailPage({
   if (boq?.budgetScopeKind === "PerApartment" && workPackage) {
     const project = await getProject(workPackage.projectId);
     apartmentUnits = project?.apartmentUnits ?? 1;
+  }
+
+  // The BoQ section is assembled here so its awaits (units, any awarded contract) and derived
+  // figures stay out of the JSX. Null when the bid has no BoQ yet (see the empty state below).
+  let boqSection: React.ReactNode = null;
+  if (boq) {
+    // The BoQ renders in one display currency, chosen via the ?currency toggle (default the BoQ's
+    // own pricing currency). Conversion uses the app-wide rate on the BoQ and is approximate by
+    // design. `money` converts + formats; a no-op when already in the display currency.
+    const displayCurrency: Currency = currency === "EUR" ? "EUR" : "RON";
+    const converting = displayCurrency !== boq.pricingCurrency;
+    const money = (m: Parameters<typeof formatMoney>[0]) =>
+      formatMoney(convertMoney(m, displayCurrency, boq.ronPerEur));
+    // Preserve the arrange flag when switching currency so the toggle doesn't drop the arrange view.
+    const arrangeSuffix = arrange ? `&arrange=${arrange}` : "";
+    const currencyHrefs: Record<Currency, string> = {
+      RON: `/bids/${bid.id}?currency=RON${arrangeSuffix}`,
+      EUR: `/bids/${bid.id}?currency=EUR${arrangeSuffix}`,
+    };
+
+    // All units (incl. retired) so a line whose unit was later deactivated still renders its code.
+    const allUnits = await getUnitsOfMeasure(true);
+    const unitCode = new Map(allUnits.map((u) => [u.id, u.code]));
+
+    const editable = isBoqEditable(boq.status);
+    // Arrange mode: a deliberate, editable-only drag-and-drop view for reordering and moving lines.
+    // Gated behind ?arrange=1 so the page stays read-first by default.
+    const arranging = editable && arrange === "1" && boq.sections.length > 0;
+    const title = t("boq.title") + (boq.reference ? ` · ${boq.reference}` : "");
+
+    // A contract is awarded from an accepted BoQ. Resolve any contract already on the owning work
+    // package so we can either link to it (read) or offer the award action.
+    let existingContract: Contract | null = null;
+    if (boq.status === "Accepted") {
+      existingContract = await getContractByWorkPackage(bid.workPackageId);
+    }
+    const canAward = boq.status === "Accepted" && !existingContract;
+
+    const multiplier = budgetMultiplier(boq.budgetScopeKind, apartmentUnits);
+    const effectiveTotal = effectiveMoney(
+      boq.total,
+      boq.budgetScopeKind,
+      apartmentUnits,
+    );
+    const effectiveTotalWithVat = effectiveMoney(
+      boq.totalWithVat,
+      boq.budgetScopeKind,
+      apartmentUnits,
+    );
+
+    boqSection = (
+      <>
+        <div
+          className={`${styles.toolbar}${arranging ? ` ${styles.stickyToolbar}` : ""}`}
+        >
+          <div>
+            <h2>{title}</h2>
+            <p className={styles.subtitle}>
+              {t("boq.subtitle", { currency: boq.pricingCurrency })}
+              {" · "}
+              <span
+                className={`${styles.badge} ${styles[`status${boq.status}`]}`}
+              >
+                {BOQ_STATUS_LABELS[boq.status]}
+              </span>
+              {" · "}
+              {t("boq.scopePrefix")}{" "}
+              <strong>{BUDGET_SCOPE_KIND_LABELS[boq.budgetScopeKind]}</strong>
+              {" · "}
+              <strong>{money(effectiveTotalWithVat)}</strong> {t("boq.inclVat")}
+              <span className={styles.muted}>
+                {" "}
+                ({money(effectiveTotal)} {t("boq.exclVat")})
+              </span>
+              {multiplier > 1 ? (
+                <span className={styles.muted}>
+                  {" "}
+                  {t("boq.perApartmentNote", {
+                    base: money(boq.totalWithVat),
+                    count: String(apartmentUnits),
+                  })}
+                </span>
+              ) : null}
+              {converting ? (
+                <span className={styles.muted}>
+                  {" · "}
+                  {t("boq.rateNote", { rate: formatNumber(boq.ronPerEur) })}
+                </span>
+              ) : null}
+            </p>
+          </div>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 16 }}>
+            <BoqCurrencyToggle current={displayCurrency} hrefs={currencyHrefs} />
+            {editable ? (
+              <div className={styles.actions}>
+                {arranging ? (
+                  <Link
+                    href={`/bids/${bid.id}`}
+                    className={styles.primaryButton}
+                  >
+                    {t("boq.arrangeDone")}
+                  </Link>
+                ) : (
+                  <>
+                    {boq.sections.length > 0 ? (
+                      <Link
+                        href={`/bids/${bid.id}?arrange=1`}
+                        className={styles.edit}
+                      >
+                        {t("boq.arrange")}
+                      </Link>
+                    ) : null}
+                    <Link
+                      href={`/bids/${bid.id}/boq/sections/new`}
+                      className={styles.primaryButton}
+                    >
+                      {t("sections.add")}
+                    </Link>
+                  </>
+                )}
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        <section className={styles.card}>
+          <dl className={styles.detailList}>
+            <dt>{t("boq.reference")}</dt>
+            <dd>{boq.reference || "—"}</dd>
+            <dt>{t("common.status")}</dt>
+            <dd>{BOQ_STATUS_LABELS[boq.status]}</dd>
+            <dt>{t("boq.budgetScope")}</dt>
+            <dd>{BUDGET_SCOPE_KIND_LABELS[boq.budgetScopeKind]}</dd>
+            <dt>{t("boq.pricingCurrency")}</dt>
+            <dd>{boq.pricingCurrency}</dd>
+            <dt>{t("boq.pinnedRate")}</dt>
+            <dd>
+              {boq.exchangeRate
+                ? t("boq.pinnedRateValue", {
+                    base: boq.exchangeRate.baseCurrency,
+                    rate: formatNumber(boq.exchangeRate.rate),
+                    quote: boq.exchangeRate.quoteCurrency,
+                    asOf: formatDate(boq.exchangeRate.asOf),
+                  })
+                : "—"}
+            </dd>
+            <dt>{t("boq.submittedOn")}</dt>
+            <dd>{formatDate(boq.submittedOn)}</dd>
+            <dt>{t("boq.validUntil")}</dt>
+            <dd>{formatDate(boq.validUntil)}</dd>
+            <dt>{t("boq.totalExclVat")}</dt>
+            <dd>{money(boq.total)}</dd>
+            <dt>{t("boq.totalInclVat")}</dt>
+            <dd>{money(boq.totalWithVat)}</dd>
+            {multiplier > 1 ? (
+              <>
+                <dt>
+                  {t("boq.buildTotalExclVat", { count: String(apartmentUnits) })}
+                </dt>
+                <dd>{money(effectiveTotal)}</dd>
+                <dt>
+                  {t("boq.buildTotalInclVat", { count: String(apartmentUnits) })}
+                </dt>
+                <dd>{money(effectiveTotalWithVat)}</dd>
+              </>
+            ) : null}
+            <dt>{t("common.created")}</dt>
+            <dd>{formatDate(boq.createdAt)}</dd>
+          </dl>
+          <div className={styles.actions}>
+            <a
+              href={`/bids/${bid.id}/boq/export`}
+              className={styles.edit}
+            >
+              {t("boq.exportExcel")}
+            </a>
+            {canChangeBoqStatus(boq.status) ? (
+              <Link
+                href={`/bids/${bid.id}/boq/status`}
+                className={styles.edit}
+              >
+                {t("boq.changeStatus")}
+              </Link>
+            ) : null}
+            {canAward ? (
+              <Link
+                href={`/bids/${bid.id}/boq/award`}
+                className={styles.edit}
+              >
+                {t("boq.awardContract")}
+              </Link>
+            ) : null}
+            {editable ? (
+              <Link
+                href={`/bids/${bid.id}/boq/edit`}
+                className={styles.edit}
+              >
+                {t("common.edit")}
+              </Link>
+            ) : null}
+            <ConfirmDeleteButton
+              action={deleteBoq}
+              fields={{ id: boq.id, bidId: boq.bidId }}
+              title={t("boq.deleteTitle")}
+              bodyTemplate={t("boq.deleteBody")}
+              name={boq.reference || t("boq.title")}
+            />
+          </div>
+        </section>
+
+        {boq.status === "Accepted" && existingContract ? (
+          <section className={styles.card}>
+            <h2>{t("boq.contract")}</h2>
+            <p>
+              {t("boq.underContractBefore")}
+              <span
+                className={`${styles.badge} ${styles[`status${existingContract.status}`]}`}
+              >
+                {CONTRACT_STATUS_LABELS[existingContract.status]}
+              </span>
+              {t("boq.underContractAfter")}{" "}
+              <Link
+                href={`/contracts/${existingContract.id}`}
+                className={styles.nameLink}
+              >
+                {t("boq.viewContract")}
+              </Link>
+            </p>
+          </section>
+        ) : null}
+
+        {arranging ? (
+          <section className={styles.card}>
+            <BoqDndBoard
+              bidId={bid.id}
+              boqId={boq.id}
+              sections={boq.sections}
+              unitCode={Object.fromEntries(unitCode)}
+            />
+          </section>
+        ) : null}
+
+        {!arranging && boq.sections.length > 0 ? (
+          <BoqSections
+            bidId={bid.id}
+            boqId={boq.id}
+            sections={boq.sections}
+            unitCode={Object.fromEntries(unitCode)}
+            editable={editable}
+            displayCurrency={displayCurrency}
+            ronPerEur={boq.ronPerEur}
+          />
+        ) : null}
+
+        {boq.sections.length === 0 ? (
+          <section className={styles.card}>
+            <p className={styles.muted}>
+              {editable ? t("boq.noSectionsYet") : t("boq.noSectionsLocked")}
+            </p>
+          </section>
+        ) : null}
+      </>
+    );
   }
 
   return (
@@ -108,7 +402,24 @@ export default async function BidDetailPage({
         </Link>
       </div>
 
+      {/* The priced BoQ leads — or an invitation to draft one when the bid has none yet. The BoQ
+          cluster is wrapped so it reads as one grouped unit, distinct from the bid cards below. */}
+      {boq ? (
+        <div className={styles.boqGroup}>{boqSection}</div>
+      ) : (
+        <section className={styles.card}>
+          <h2>{t("bids.boqHeading")}</h2>
+          <p className={styles.muted}>{t("bids.boqEmpty")}</p>
+          <div className={styles.actions}>
+            <Link href={`/bids/${bid.id}/boq/new`} className={styles.edit}>
+              {t("bids.draftBoqSubmit")}
+            </Link>
+          </div>
+        </section>
+      )}
+
       <section className={styles.card}>
+        <h2>{t("bids.detailsHeading")}</h2>
         <dl className={styles.detailList}>
           <dt>{t("common.status")}</dt>
           <dd>{BID_STATUS_LABELS[bid.status]}</dd>
@@ -146,75 +457,6 @@ export default async function BidDetailPage({
             name={contractorName}
           />
         </div>
-      </section>
-
-      <section className={styles.card}>
-        <h2>{t("bids.boqHeading")}</h2>
-        {!boq ? (
-          <>
-            <p className={styles.muted}>{t("bids.boqEmpty")}</p>
-            <div className={styles.actions}>
-              <Link href={`/bids/${bid.id}/boq/new`} className={styles.edit}>
-                {t("bids.draftBoqSubmit")}
-              </Link>
-            </div>
-          </>
-        ) : (
-          <div className={styles.tableWrap}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>{t("bids.boqCol.reference")}</th>
-                  <th>{t("common.status")}</th>
-                  <th>{t("boq.budgetScope")}</th>
-                  <th>{t("bids.boqCol.totalWithVat")}</th>
-                  <th aria-label={t("common.actions")} />
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>{boq.reference || "—"}</td>
-                  <td>
-                    <span
-                      className={`${styles.badge} ${styles[`status${boq.status}`]}`}
-                    >
-                      {BOQ_STATUS_LABELS[boq.status]}
-                    </span>
-                  </td>
-                  <td>{BUDGET_SCOPE_KIND_LABELS[boq.budgetScopeKind]}</td>
-                  <td>
-                    {formatMoney(
-                      effectiveMoney(
-                        boq.totalWithVat,
-                        boq.budgetScopeKind,
-                        apartmentUnits,
-                      ),
-                    )}
-                    {budgetMultiplier(boq.budgetScopeKind, apartmentUnits) > 1 ? (
-                      <span className={styles.muted}>
-                        {" "}
-                        {t("boq.perApartmentNote", {
-                          base: formatMoney(boq.totalWithVat),
-                          count: String(apartmentUnits),
-                        })}
-                      </span>
-                    ) : null}
-                  </td>
-                  <td>
-                    <div className={styles.actions}>
-                      <Link
-                        href={`/bills-of-quantities/${boq.id}`}
-                        className={styles.edit}
-                      >
-                        {t("bids.view")}
-                      </Link>
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        )}
       </section>
 
       <section className={styles.card}>

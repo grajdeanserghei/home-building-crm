@@ -111,7 +111,7 @@ export default async function ContractDetailPage({
           <dd>
             {boq ? (
               <Link
-                href={`/bills-of-quantities/${boq.id}`}
+                href={`/bids/${boq.bidId}`}
                 className={styles.nameLink}
               >
                 {t("boq.title")}

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
   apiBaseUrl,
+  getBillOfQuantities,
   type BillOfQuantities,
   type BoqStatus,
   type BudgetScopeKind,
@@ -11,6 +12,14 @@ import {
 } from "../lib/api";
 import { describeApiError } from "@/app/lib/errors";
 import { t } from "@/app/lib/i18n";
+
+// The BoQ detail now lives on its owning bid's page (/bids/[id]); these mutations key off the
+// boqId, so resolve the bid to refresh and return the reader to the right route. Null when the
+// BoQ has since been deleted — a benign race whose callers fall back to a safe path.
+async function bidIdForBoq(boqId: string): Promise<string | null> {
+  const boq = await getBillOfQuantities(boqId);
+  return boq?.bidId ?? null;
+}
 
 // An <input type="date"> yields a bare `yyyy-MM-dd`. The BoQ's submittedOn / validUntil
 // are DateTimeOffset on the backend, whose System.Text.Json converter wants a full ISO
@@ -72,9 +81,8 @@ export async function draftBoq(formData: FormData) {
     throw new Error(await describeApiError(res, "common.actionError"));
   }
 
-  const created = await res.json();
   revalidatePath(`/bids/${bidId}`);
-  redirect(`/bills-of-quantities/${created.id}`);
+  redirect(`/bids/${bidId}`);
 }
 
 // Update a BoQ's header (reference, pinned rate, dates). Pricing currency is immutable.
@@ -92,9 +100,10 @@ export async function updateBoq(formData: FormData) {
     throw new Error(await describeApiError(res, "common.actionError"));
   }
 
-  // Refresh the detail, then return to it (the edit form is its own route).
-  revalidatePath(`/bills-of-quantities/${id}`);
-  redirect(`/bills-of-quantities/${id}`);
+  // Refresh the bid page that hosts this BoQ, then return to it (the edit form is its own route).
+  const bidId = await bidIdForBoq(id);
+  if (bidId) revalidatePath(`/bids/${bidId}`);
+  redirect(bidId ? `/bids/${bidId}` : "/");
 }
 
 // Move a BoQ through its lifecycle (Draft → Submitted → Accepted / Rejected / Withdrawn).
@@ -118,12 +127,10 @@ export async function changeBoqStatus(formData: FormData) {
     throw new Error(await describeApiError(res, "common.actionError"));
   }
 
-  revalidatePath(`/bills-of-quantities/${id}`);
-  if (bidId) {
-    revalidatePath(`/bids/${bidId}`);
-  }
-  // The status form is its own route; return to the read-only detail on success.
-  redirect(`/bills-of-quantities/${id}`);
+  // The status form is its own route; return to the bid page that hosts this BoQ.
+  const targetBidId = bidId || (await bidIdForBoq(id));
+  if (targetBidId) revalidatePath(`/bids/${targetBidId}`);
+  redirect(targetBidId ? `/bids/${targetBidId}` : "/");
 }
 
 export async function deleteBoq(formData: FormData) {
@@ -175,9 +182,10 @@ export async function addSection(formData: FormData) {
     throw new Error(await describeApiError(res, "common.actionError"));
   }
 
-  revalidatePath(`/bills-of-quantities/${boqId}`);
-  // The add form is its own route; return to the read-only detail on success.
-  redirect(`/bills-of-quantities/${boqId}`);
+  const bidId = await bidIdForBoq(boqId);
+  if (bidId) revalidatePath(`/bids/${bidId}`);
+  // The add form is its own route; return to the bid page that hosts this BoQ on success.
+  redirect(bidId ? `/bids/${bidId}` : "/");
 }
 
 // Rename / reorder / re-describe an existing section. Mirrors addSection but targets the
@@ -211,8 +219,9 @@ export async function updateSection(formData: FormData) {
     throw new Error(await describeApiError(res, "common.actionError"));
   }
 
-  revalidatePath(`/bills-of-quantities/${boqId}`);
-  redirect(`/bills-of-quantities/${boqId}`);
+  const bidId = await bidIdForBoq(boqId);
+  if (bidId) revalidatePath(`/bids/${bidId}`);
+  redirect(bidId ? `/bids/${bidId}` : "/");
 }
 
 export async function removeSection(formData: FormData) {
@@ -229,7 +238,8 @@ export async function removeSection(formData: FormData) {
     throw new Error(await describeApiError(res, "common.actionError"));
   }
 
-  revalidatePath(`/bills-of-quantities/${boqId}`);
+  const bidId = await bidIdForBoq(boqId);
+  if (bidId) revalidatePath(`/bids/${bidId}`);
 }
 
 // Subsections -------------------------------------------------------------
@@ -262,9 +272,10 @@ export async function addSubsection(formData: FormData) {
     throw new Error(await describeApiError(res, "common.actionError"));
   }
 
-  revalidatePath(`/bills-of-quantities/${boqId}`);
-  // The add form is its own route; return to the read-only detail on success.
-  redirect(`/bills-of-quantities/${boqId}`);
+  const bidId = await bidIdForBoq(boqId);
+  if (bidId) revalidatePath(`/bids/${bidId}`);
+  // The add form is its own route; return to the bid page that hosts this BoQ on success.
+  redirect(bidId ? `/bids/${bidId}` : "/");
 }
 
 // Rename / reorder / re-describe an existing subsection. Mirrors addSubsection but targets
@@ -299,8 +310,9 @@ export async function updateSubsection(formData: FormData) {
     throw new Error(await describeApiError(res, "common.actionError"));
   }
 
-  revalidatePath(`/bills-of-quantities/${boqId}`);
-  redirect(`/bills-of-quantities/${boqId}`);
+  const bidId = await bidIdForBoq(boqId);
+  if (bidId) revalidatePath(`/bids/${bidId}`);
+  redirect(bidId ? `/bids/${bidId}` : "/");
 }
 
 export async function removeSubsection(formData: FormData) {
@@ -318,7 +330,8 @@ export async function removeSubsection(formData: FormData) {
     throw new Error(await describeApiError(res, "common.actionError"));
   }
 
-  revalidatePath(`/bills-of-quantities/${boqId}`);
+  const bidId = await bidIdForBoq(boqId);
+  if (bidId) revalidatePath(`/bids/${bidId}`);
 }
 
 // Line items --------------------------------------------------------------
@@ -377,9 +390,10 @@ export async function addLineItem(formData: FormData) {
     throw new Error(await describeApiError(res, "common.actionError"));
   }
 
-  revalidatePath(`/bills-of-quantities/${boqId}`);
-  // The add form is its own route; return to the read-only detail on success.
-  redirect(`/bills-of-quantities/${boqId}`);
+  const bidId = await bidIdForBoq(boqId);
+  if (bidId) revalidatePath(`/bids/${bidId}`);
+  // The add form is its own route; return to the bid page that hosts this BoQ on success.
+  redirect(bidId ? `/bids/${bidId}` : "/");
 }
 
 // Edit an existing line item. Mirrors addLineItem but targets the line's PUT route and
@@ -412,8 +426,9 @@ export async function reviseLineItem(formData: FormData) {
     throw new Error(await describeApiError(res, "common.actionError"));
   }
 
-  revalidatePath(`/bills-of-quantities/${boqId}`);
-  redirect(`/bills-of-quantities/${boqId}`);
+  const bidId = await bidIdForBoq(boqId);
+  if (bidId) revalidatePath(`/bids/${bidId}`);
+  redirect(bidId ? `/bids/${bidId}` : "/");
 }
 
 // Outcome of a drag-and-drop move: on success the BoQ with its containers freshly renumbered (so
@@ -451,7 +466,7 @@ export async function moveLineItem(input: {
   }
 
   const boq = (await res.json()) as BillOfQuantities;
-  revalidatePath(`/bills-of-quantities/${input.boqId}`);
+  revalidatePath(`/bids/${boq.bidId}`);
   return { ok: true, boq };
 }
 
@@ -470,7 +485,8 @@ export async function removeLineItem(formData: FormData) {
     throw new Error(await describeApiError(res, "common.actionError"));
   }
 
-  revalidatePath(`/bills-of-quantities/${boqId}`);
+  const bidId = await bidIdForBoq(boqId);
+  if (bidId) revalidatePath(`/bids/${bidId}`);
 }
 
 // Duplicate a line (section-direct or subsection): one click, no confirmation, no redirect. The
@@ -490,7 +506,8 @@ export async function duplicateLineItem(formData: FormData) {
     throw new Error(await describeApiError(res, "common.actionError"));
   }
 
-  revalidatePath(`/bills-of-quantities/${boqId}`);
+  const bidId = await bidIdForBoq(boqId);
+  if (bidId) revalidatePath(`/bids/${bidId}`);
 }
 
 // Modal line-item forms ---------------------------------------------------
@@ -519,7 +536,8 @@ async function saveLineItem(
     return { ok: false, error: await describeApiError(res, "common.actionError") };
   }
 
-  revalidatePath(`/bills-of-quantities/${boqId}`);
+  const bidId = await bidIdForBoq(boqId);
+  if (bidId) revalidatePath(`/bids/${bidId}`);
   return { ok: true };
 }
 
@@ -644,9 +662,10 @@ export async function addSubsectionLineItem(formData: FormData) {
     throw new Error(await describeApiError(res, "common.actionError"));
   }
 
-  revalidatePath(`/bills-of-quantities/${boqId}`);
-  // The add form is its own route; return to the read-only detail on success.
-  redirect(`/bills-of-quantities/${boqId}`);
+  const bidId = await bidIdForBoq(boqId);
+  if (bidId) revalidatePath(`/bids/${bidId}`);
+  // The add form is its own route; return to the bid page that hosts this BoQ on success.
+  redirect(bidId ? `/bids/${bidId}` : "/");
 }
 
 export async function reviseSubsectionLineItem(formData: FormData) {
@@ -678,8 +697,9 @@ export async function reviseSubsectionLineItem(formData: FormData) {
     throw new Error(await describeApiError(res, "common.actionError"));
   }
 
-  revalidatePath(`/bills-of-quantities/${boqId}`);
-  redirect(`/bills-of-quantities/${boqId}`);
+  const bidId = await bidIdForBoq(boqId);
+  if (bidId) revalidatePath(`/bids/${bidId}`);
+  redirect(bidId ? `/bids/${bidId}` : "/");
 }
 
 export async function removeSubsectionLineItem(formData: FormData) {
@@ -698,5 +718,6 @@ export async function removeSubsectionLineItem(formData: FormData) {
     throw new Error(await describeApiError(res, "common.actionError"));
   }
 
-  revalidatePath(`/bills-of-quantities/${boqId}`);
+  const bidId = await bidIdForBoq(boqId);
+  if (bidId) revalidatePath(`/bids/${bidId}`);
 }

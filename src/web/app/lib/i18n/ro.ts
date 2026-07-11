@@ -358,6 +358,7 @@ export const ro = {
   "bids.updateStatus": "Actualizează statusul",
   "bids.selectWinnerNote":
     "Selectarea acestei oferte drept câștigătoare respinge celelalte oferte active pentru acest pachet de lucrări.",
+  "bids.detailsHeading": "Detalii ofertă",
   "bids.boqHeading": "Liste de cantități",
   "bids.boqEmpty": "Nicio listă de cantități încă.",
   "bids.boqCol.reference": "Referință",

@@ -26,6 +26,7 @@ import styles from "@/app/page.module.css";
  * as before — only the headings became disclosure buttons and the bodies became collapsible.
  */
 export function BoqSections({
+  bidId,
   boqId,
   sections,
   unitCode,
@@ -33,6 +34,9 @@ export function BoqSections({
   displayCurrency,
   ronPerEur,
 }: {
+  // The owning bid's id builds the edit/add hrefs (the BoQ routes live under /bids/[id]/boq);
+  // boqId still keys the accordion state and the mutation action fields.
+  bidId: string;
   boqId: string;
   sections: Section[];
   unitCode: Record<string, string>;
@@ -113,7 +117,7 @@ export function BoqSections({
                 editable={editable}
                 boqId={boqId}
                 sectionId={section.id}
-                editHrefBase={`/bills-of-quantities/${boqId}/sections/${section.id}/line-items`}
+                editHrefBase={`/bids/${bidId}/boq/sections/${section.id}/line-items`}
                 removeAction={removeLineItem}
                 duplicateAction={duplicateLineItem}
                 displayCurrency={displayCurrency}
@@ -157,7 +161,7 @@ export function BoqSections({
                         boqId={boqId}
                         sectionId={section.id}
                         subsectionId={subsection.id}
-                        editHrefBase={`/bills-of-quantities/${boqId}/sections/${section.id}/subsections/${subsection.id}/line-items`}
+                        editHrefBase={`/bids/${bidId}/boq/sections/${section.id}/subsections/${subsection.id}/line-items`}
                         removeAction={removeSubsectionLineItem}
                         duplicateAction={duplicateLineItem}
                         displayCurrency={displayCurrency}
@@ -167,13 +171,13 @@ export function BoqSections({
                       {editable ? (
                         <div className={styles.actions}>
                           <Link
-                            href={`/bills-of-quantities/${boqId}/sections/${section.id}/subsections/${subsection.id}/line-items/new`}
+                            href={`/bids/${bidId}/boq/sections/${section.id}/subsections/${subsection.id}/line-items/new`}
                             className={styles.edit}
                           >
                             {t("subsections.addLine")}
                           </Link>
                           <Link
-                            href={`/bills-of-quantities/${boqId}/sections/${section.id}/subsections/${subsection.id}/edit`}
+                            href={`/bids/${bidId}/boq/sections/${section.id}/subsections/${subsection.id}/edit`}
                             className={styles.edit}
                           >
                             {t("subsections.edit")}
@@ -201,19 +205,19 @@ export function BoqSections({
               {editable ? (
                 <div className={styles.actions} style={{ marginTop: 16 }}>
                   <Link
-                    href={`/bills-of-quantities/${boqId}/sections/${section.id}/line-items/new`}
+                    href={`/bids/${bidId}/boq/sections/${section.id}/line-items/new`}
                     className={styles.edit}
                   >
                     {t("lineItems.add")}
                   </Link>
                   <Link
-                    href={`/bills-of-quantities/${boqId}/sections/${section.id}/subsections/new`}
+                    href={`/bids/${bidId}/boq/sections/${section.id}/subsections/new`}
                     className={styles.edit}
                   >
                     {t("subsections.add")}
                   </Link>
                   <Link
-                    href={`/bills-of-quantities/${boqId}/sections/${section.id}/edit`}
+                    href={`/bids/${bidId}/boq/sections/${section.id}/edit`}
                     className={styles.edit}
                   >
                     {t("sections.edit")}

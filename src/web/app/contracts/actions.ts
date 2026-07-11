@@ -57,8 +57,8 @@ export async function awardContract(formData: FormData) {
 
   const created = await res.json();
 
-  // The award changed the BoQ, its bid and the work package; refresh whichever we know.
-  revalidatePath(`/bills-of-quantities/${boqId}`);
+  // The award changed the BoQ, its bid and the work package; refresh whichever we know. The BoQ
+  // now lives on the bid page, so refreshing the bid covers it.
   const bidId = formData.get("bidId") as string;
   const workPackageId = formData.get("workPackageId") as string;
   if (bidId) revalidatePath(`/bids/${bidId}`);

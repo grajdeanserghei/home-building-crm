@@ -119,10 +119,14 @@ function boardSignature(sections: Section[]): string {
  * (rename/remove/price) stays on the regular detail page.
  */
 export function BoqDndBoard({
+  bidId,
   boqId,
   sections,
   unitCode,
 }: {
+  // bidId builds the per-line edit hrefs (BoQ routes live under /bids/[id]/boq); boqId keys the
+  // accordion state and the drag/mutation action fields.
+  bidId: string;
   boqId: string;
   sections: Section[];
   unitCode: Record<string, string>;
@@ -306,6 +310,7 @@ export function BoqDndBoard({
 
             <div id={sectionPanelId} hidden={!sectionOpen}>
               <ContainerList
+                bidId={bidId}
                 boqId={boqId}
                 container={group.section}
                 lineIds={board.items[group.section.key]}
@@ -336,6 +341,7 @@ export function BoqDndBoard({
                     </h3>
                     <div id={subPanelId} hidden={!subOpen}>
                       <ContainerList
+                        bidId={bidId}
                         boqId={boqId}
                         container={container}
                         lineIds={board.items[container.key]}
@@ -366,12 +372,14 @@ export function BoqDndBoard({
 // One container's lines as a vertical sortable list. The whole body is a droppable (keyed by the
 // container key) so a line can be dropped into it even when empty.
 function ContainerList({
+  bidId,
   boqId,
   container,
   lineIds,
   lines,
   unitCode,
 }: {
+  bidId: string;
   boqId: string;
   container: Container;
   lineIds: string[];
@@ -395,6 +403,7 @@ function ContainerList({
           lineIds.map((id, index) => (
             <SortableLineRow
               key={id}
+              bidId={bidId}
               boqId={boqId}
               container={container}
               line={lines[id]}
@@ -414,12 +423,14 @@ function ContainerList({
 // (the row body and its action controls stay clickable); which routes/actions a row edits and
 // removes through is derived from its container (section-direct vs subsection).
 function SortableLineRow({
+  bidId,
   boqId,
   container,
   line,
   position,
   unitCode,
 }: {
+  bidId: string;
   boqId: string;
   container: Container;
   line: LineItem;
@@ -430,8 +441,8 @@ function SortableLineRow({
     useSortable({ id: line.id });
 
   const editHrefBase = container.isSection
-    ? `/bills-of-quantities/${boqId}/sections/${container.sectionId}/line-items`
-    : `/bills-of-quantities/${boqId}/sections/${container.sectionId}/subsections/${container.subsectionId}/line-items`;
+    ? `/bids/${bidId}/boq/sections/${container.sectionId}/line-items`
+    : `/bids/${bidId}/boq/sections/${container.sectionId}/subsections/${container.subsectionId}/line-items`;
   const removeAction = container.isSection ? removeLineItem : removeSubsectionLineItem;
   const removeFields = {
     boqId,

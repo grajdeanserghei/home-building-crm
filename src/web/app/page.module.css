@@ -130,6 +130,23 @@
 }
 
 /*
+ * Groups the whole priced BoQ (its header toolbar, meta card, any contract card and the section
+ * cards) into one visually distinct region, so the bill reads as a single unit set apart from the
+ * bid's own "Detalii ofertă" / "Jurnal de discuții" cards below it. A faint surface tint, an
+ * outline and an accent rule enclose the cluster; the inner cards keep their own outline.
+ * `padding-bottom` stays tiny because the last inner card supplies the bottom gap via its own
+ * margin. Not a scroll container, so the sections' sticky headers still pin to the viewport.
+ */
+.boqGroup {
+  margin-bottom: 32px;
+  padding: 20px 20px 1px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+  border-left: 4px solid #2563eb;
+  background: color-mix(in srgb, currentColor 3%, transparent);
+}
+
+/*
  * BoQ detail: keep the section number / heading and the table's column row visible while
  * scrolling a long bill, so it's always clear which (sub)section a row belongs to. Pure CSS
  * `position: sticky` — no scroll listeners. Scoped to `.boqSection` so the shared `.card h2`
@@ -962,5 +979,9 @@
 
   .card {
     padding: 16px;
+  }
+
+  .boqGroup {
+    padding: 10px 10px 1px;
   }
 }
