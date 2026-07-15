@@ -1276,6 +1276,25 @@ export async function getValuationComparison(
   return res.json();
 }
 
+// Estimate-vs-real under a cost scenario's chosen bids (the simulator's what-if basis). Same shape as the
+// standalone comparison; null when the project has no catalog or the scenario is gone. Not cached so it
+// reflects the scenario's current selections (the scenario page revalidates on every selection change).
+export async function getScenarioValuationComparison(
+  scenarioId: string,
+): Promise<ValuationVsBoq | null> {
+  const res = await fetch(
+    `${apiBaseUrl()}/api/cost-scenarios/${scenarioId}/valuation-comparison`,
+    { cache: "no-store" },
+  );
+  if (res.status === 404) {
+    return null;
+  }
+  if (!res.ok) {
+    throw new Error(`${res.status} ${res.statusText}`);
+  }
+  return res.json();
+}
+
 // Progress read model (frozen) ------------------------------------------
 //
 // Completion over time for a catalog: each snapshot's frozen totals, plus each catalog item's

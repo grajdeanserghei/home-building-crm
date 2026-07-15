@@ -804,6 +804,11 @@ export const ro = {
   "valuation.vsBoq.gapsTitle": "Lacune de acoperire",
   "valuation.vsBoq.gap.description": "Descriere",
   "valuation.vsBoq.gap.amount": "Sumă",
+  "valuation.vsBoq.scenarioCardTitle": "Estimare vs. real (acest scenariu)",
+  "valuation.vsBoq.scenarioCardSubtitle":
+    "Estimarea evaluatorului față de devizele alese în acest scenariu — câte un deviz per lot.",
+  "valuation.vsBoq.scenarioCardEmpty":
+    "Niciun catalog de evaluare pentru acest proiect încă, sau scenariul nu are devize alese.",
 
   // Progress read model
   "valuation.progress.title": "Progres — {name}",

@@ -258,6 +258,7 @@ public sealed class ValuationCatalog : AggregateRoot<ValuationCatalogId>
                 parameters: new Dictionary<string, object?>
                 {
                     ["boqId"] = link.BoqId.Value,
+                    ["workPackageId"] = link.WorkPackageId.Value,
                     ["sectionId"] = link.SectionId.Value,
                     ["subsectionId"] = link.SubsectionId?.Value,
                     ["ownerItemId"] = owner.Id.Value
@@ -293,6 +294,7 @@ public sealed class ValuationCatalog : AggregateRoot<ValuationCatalogId>
                 parameters: new Dictionary<string, object?>
                 {
                     ["boqId"] = link.BoqId.Value,
+                    ["workPackageId"] = link.WorkPackageId.Value,
                     ["sectionId"] = link.SectionId.Value,
                     ["subsectionId"] = link.SubsectionId?.Value
                 });

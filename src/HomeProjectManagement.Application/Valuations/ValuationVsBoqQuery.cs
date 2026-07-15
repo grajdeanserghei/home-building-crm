@@ -21,10 +21,14 @@ public sealed class ValuationVsBoqQuery(
     IValuationCatalogRepository catalogs,
     IProjectRepository projects,
     IBillOfQuantitiesRepository billsOfQuantities,
+    IRealBoqSelector realBoqSelector,
     IExchangeRateProvider exchangeRates,
     TimeProvider timeProvider) : IValuationVsBoqQuery
 {
-    public async Task<ValuationVsBoqDto?> GetByProjectAsync(Guid projectId, CancellationToken cancellationToken = default)
+    public Task<ValuationVsBoqDto?> GetByProjectAsync(Guid projectId, CancellationToken cancellationToken = default) =>
+        GetAsync(projectId, new ComparisonBasis.Decided(), cancellationToken);
+
+    public async Task<ValuationVsBoqDto?> GetAsync(Guid projectId, ComparisonBasis basis, CancellationToken cancellationToken = default)
     {
         var catalog = await catalogs.GetByProjectAsync(new ProjectId(projectId), cancellationToken);
         if (catalog is null)
@@ -43,6 +47,11 @@ public sealed class ValuationVsBoqQuery(
         // One conversion date for the whole rollup.
         var asOf = DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime);
         var ronPerEur = exchangeRates.GetRate(Currency.EUR, Currency.RON, asOf).Rate;
+
+        // The one active ("real") BoQ per work package under this basis. A link contributes only when its
+        // BoQ is the active one for its work package — so competing BoQs of a work package collapse to a
+        // single contribution and can never double-count; contributions sum only across work packages.
+        var activeBoqByWorkPackage = await realBoqSelector.ResolveAsync(projectId, basis, cancellationToken);
 
         // Load each referenced BoQ at most once; a missing (deleted) BoQ resolves to null and drops out.
         var boqCache = new Dictionary<Guid, BillOfQuantities?>();
@@ -87,13 +96,24 @@ public sealed class ValuationVsBoqQuery(
                 continue;
             }
 
-            mappedEstimate += estimate;
-
             var actual = 0m;
+            var activeContributions = 0;
             var linkDtos = new List<ValuationVsBoqLinkDto>(item.Links.Count);
 
             foreach (var link in item.Links)
             {
+                // Only the active BoQ of each work package is "real" under this basis; a competing (or
+                // non-decided) BoQ is recorded for the breakdown but contributes nothing.
+                var isActive = activeBoqByWorkPackage.TryGetValue(link.WorkPackageId.Value, out var activeBoqId)
+                    && activeBoqId == link.BoqId.Value;
+                if (!isActive)
+                {
+                    linkDtos.Add(new ValuationVsBoqLinkDto(
+                        link.BoqId.Value, link.SectionId.Value, link.SubsectionId?.Value,
+                        BoqResolved: false, new MoneyDto(0m, currency)));
+                    continue;
+                }
+
                 var boq = await LoadBoqAsync(link.BoqId);
                 if (boq is null)
                 {
@@ -110,6 +130,7 @@ public sealed class ValuationVsBoqQuery(
 
                 var contribution = ConvertTo(native, currency, asOf).Amount;
                 actual += contribution;
+                activeContributions++;
 
                 if (link.SubsectionId is { } sub)
                 {
@@ -127,6 +148,22 @@ public sealed class ValuationVsBoqQuery(
                     BoqResolved: true, new MoneyDto(contribution, currency)));
             }
 
+            // Mapped, but only to BoQs that are not real under this basis (all competitors lost / nothing
+            // decided): report the estimate as "not realized" rather than a misleading −100% variance.
+            if (activeContributions == 0)
+            {
+                items.Add(new ValuationVsBoqItemDto(
+                    item.Id.Value, item.Sequence, item.Name, IsMapped: false,
+                    new MoneyDto(estimate, currency), Actual: null, Variance: null, VariancePercentage: null,
+                    linkDtos));
+                gaps.Add(new ValuationCoverageGapDto(
+                    "NotRealized", item.Id.Value, null, null,
+                    $"\"{item.Name}\" is mapped only to BoQs that are not selected under this basis.",
+                    new MoneyDto(estimate, currency)));
+                continue;
+            }
+
+            mappedEstimate += estimate;
             totalActual += actual;
             var variance = actual - estimate;
             decimal? variancePct = estimate != 0m ? variance / estimate * 100m : null;

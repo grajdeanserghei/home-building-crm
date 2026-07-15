@@ -3,11 +3,13 @@ import { notFound } from "next/navigation";
 import {
   getCostScenario,
   getScenarioCandidates,
+  getScenarioValuationComparison,
   type ScenarioCandidateWorkPackage,
 } from "@/app/lib/api";
 import { deleteCostScenario } from "@/app/cost-scenarios/actions";
 import { ConfirmDeleteButton } from "@/app/components/ConfirmDeleteButton";
 import { CostScenarioView } from "@/app/components/CostScenarioView";
+import { ValuationComparisonTable } from "@/app/components/ValuationComparisonTable";
 import { getDisplayCurrency } from "@/app/lib/display-currency";
 import { t } from "@/app/lib/i18n";
 import styles from "@/app/page.module.css";
@@ -18,11 +20,13 @@ export default async function CostScenarioPage({
   params: Promise<{ id: string; scenarioId: string }>;
 }) {
   const { id, scenarioId } = await params;
-  const [scenario, candidatesData, displayCurrency] = await Promise.all([
-    getCostScenario(scenarioId),
-    getScenarioCandidates(id),
-    getDisplayCurrency(),
-  ]);
+  const [scenario, candidatesData, valuation, displayCurrency] =
+    await Promise.all([
+      getCostScenario(scenarioId),
+      getScenarioCandidates(id),
+      getScenarioValuationComparison(scenarioId),
+      getDisplayCurrency(),
+    ]);
 
   if (!scenario) {
     notFound();
@@ -63,6 +67,23 @@ export default async function CostScenarioPage({
         projectId={id}
         displayCurrency={displayCurrency}
       />
+
+      <h2>{t("valuation.vsBoq.scenarioCardTitle")}</h2>
+      <p className={styles.subtitle}>
+        {t("valuation.vsBoq.scenarioCardSubtitle")}
+      </p>
+      {valuation ? (
+        <ValuationComparisonTable
+          comparison={valuation}
+          displayCurrency={displayCurrency}
+        />
+      ) : (
+        <section className={styles.card}>
+          <p className={styles.muted}>
+            {t("valuation.vsBoq.scenarioCardEmpty")}
+          </p>
+        </section>
+      )}
     </main>
   );
 }

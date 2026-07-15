@@ -1,4 +1,5 @@
 using HomeProjectManagement.Application.CostScenarios;
+using HomeProjectManagement.Application.Valuations;
 
 namespace HomeProjectManagement.ApiService.Endpoints;
 
@@ -42,6 +43,22 @@ public static class CostScenarioEndpoints
                 await query.GetAsync(id, ct) is { } result
                     ? Results.Ok(result)
                     : Results.NotFound());
+
+        // Estimate-vs-real under this scenario's chosen bids (the simulator's what-if basis). The project
+        // and its catalog are resolved from the scenario; competing BoQs collapse to the scenario's picks.
+        scenarios.MapGet("/{id:guid}/valuation-comparison",
+            async (Guid id, ICostScenarioQuery scenarioQuery, IValuationVsBoqQuery valuationQuery, CancellationToken ct) =>
+            {
+                var scenario = await scenarioQuery.GetAsync(id, ct);
+                if (scenario is null)
+                {
+                    return Results.NotFound();
+                }
+
+                return await valuationQuery.GetAsync(scenario.ProjectId, new ComparisonBasis.Scenario(id), ct) is { } comparison
+                    ? Results.Ok(comparison)
+                    : Results.NotFound();
+            });
 
         scenarios.MapPut("/{id:guid}",
             async (Guid id, UpdateCostScenarioCommand command, ICostScenarioAppService service, CancellationToken ct) =>

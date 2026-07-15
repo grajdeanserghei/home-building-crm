@@ -96,6 +96,9 @@ public sealed class ValuationCatalogConfiguration : IEntityTypeConfiguration<Val
                 links.WithOwner().HasForeignKey("ValuationCatalogItemId");
 
                 links.Property(l => l.BoqId).IsRequired();
+                // Stamped by the app service (boq → bid → workPackage); groups competing BoQs for the
+                // estimate-vs-real read model. Not part of the link's identity (see ValuationItemLink).
+                links.Property(l => l.WorkPackageId).IsRequired();
                 links.Property(l => l.SectionId).IsRequired();
                 links.Property(l => l.SubsectionId);
 

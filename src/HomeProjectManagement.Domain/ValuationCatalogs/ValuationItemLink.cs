@@ -1,5 +1,6 @@
 using HomeProjectManagement.Domain.BillsOfQuantities;
 using HomeProjectManagement.Domain.Common;
+using HomeProjectManagement.Domain.WorkPackages;
 
 namespace HomeProjectManagement.Domain.ValuationCatalogs;
 
@@ -24,21 +25,32 @@ public sealed class ValuationItemLink : ValueObject
     /// <summary>The bill of quantities the mapped section belongs to (by id).</summary>
     public BoqId BoqId { get; }
 
+    /// <summary>
+    /// The work package the mapped BoQ competes for (by id). Stamped by the application service
+    /// (<c>boq → bid → workPackage</c>) so the estimate-vs-real read model can treat competing BoQs of
+    /// one work package as mutually-exclusive alternatives (group by work package, pick one "real" BoQ)
+    /// rather than summing them. Functionally determined by <see cref="BoqId"/>.
+    /// </summary>
+    public WorkPackageId WorkPackageId { get; }
+
     /// <summary>The mapped BoQ section (by id).</summary>
     public SectionId SectionId { get; }
 
     /// <summary>The mapped subsection within that section (by id), when the mapping is that fine-grained.</summary>
     public SubsectionId? SubsectionId { get; }
 
-    public ValuationItemLink(BoqId boqId, SectionId sectionId, SubsectionId? subsectionId = null)
+    public ValuationItemLink(BoqId boqId, WorkPackageId workPackageId, SectionId sectionId, SubsectionId? subsectionId = null)
     {
         BoqId = boqId;
+        WorkPackageId = workPackageId;
         SectionId = sectionId;
         SubsectionId = subsectionId;
     }
 
     protected override IEnumerable<object?> GetEqualityComponents()
     {
+        // WorkPackageId is deliberately excluded — it is derived from BoqId, not part of identity, so an
+        // unlink can match on the loose triple and the no-double-count/granularity invariants are unchanged.
         yield return BoqId;
         yield return SectionId;
         yield return SubsectionId;

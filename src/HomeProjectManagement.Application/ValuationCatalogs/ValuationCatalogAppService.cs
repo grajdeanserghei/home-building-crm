@@ -1,9 +1,11 @@
 using HomeProjectManagement.Application.BillsOfQuantities;
+using HomeProjectManagement.Domain.Bids;
 using HomeProjectManagement.Domain.BillsOfQuantities;
 using HomeProjectManagement.Domain.Common;
 using HomeProjectManagement.Domain.Common.ValueObjects;
 using HomeProjectManagement.Domain.Projects;
 using HomeProjectManagement.Domain.ValuationCatalogs;
+using HomeProjectManagement.Domain.WorkPackages;
 
 namespace HomeProjectManagement.Application.ValuationCatalogs;
 
@@ -20,6 +22,7 @@ public sealed class ValuationCatalogAppService(
     IValuationCatalogRepository repository,
     IProjectRepository projects,
     IBillOfQuantitiesRepository billsOfQuantities,
+    IBidRepository bids,
     IUnitOfWork unitOfWork,
     TimeProvider timeProvider) : IValuationCatalogAppService
 {
@@ -247,8 +250,11 @@ public sealed class ValuationCatalogAppService(
                 code: "ValuationLinkSectionRequired");
         }
 
+        // WorkPackageId is not part of link identity, so a placeholder matches the stored link by
+        // equality — unlinking still needs no BoQ/bid lookup (and works for a since-deleted BoQ).
         var link = new ValuationItemLink(
             new BoqId(command.BoqId),
+            default,
             new SectionId(sectionId),
             command.SubsectionId is { } sub ? new SubsectionId(sub) : null);
 
@@ -286,6 +292,10 @@ public sealed class ValuationCatalogAppService(
                 nameof(command.BoqId),
                 code: "ValuationLinkBoqNotFound");
 
+        // The BoQ competes for exactly one work package (boq → bid → workPackage). Stamped on the link so
+        // the read model can treat competing BoQs of one work package as alternatives, not additive parts.
+        var workPackageId = await ResolveWorkPackageAsync(boq, cancellationToken);
+
         if (command.SubsectionId is { } subGuid)
         {
             var subsectionId = new SubsectionId(subGuid);
@@ -304,7 +314,7 @@ public sealed class ValuationCatalogAppService(
                     code: "ValuationLinkSectionMismatch");
             }
 
-            return new ValuationItemLink(boqId, parent.Id, subsectionId);
+            return new ValuationItemLink(boqId, workPackageId, parent.Id, subsectionId);
         }
 
         if (command.SectionId is not { } sectionGuid)
@@ -324,7 +334,20 @@ public sealed class ValuationCatalogAppService(
                 code: "ValuationLinkSectionNotFound");
         }
 
-        return new ValuationItemLink(boqId, sectionId);
+        return new ValuationItemLink(boqId, workPackageId, sectionId);
+    }
+
+    // Resolve the work package a BoQ competes for: boq → bid → workPackage. The bid should always exist
+    // (a BoQ references its bid by identity); a dangling reference is a data error, surfaced as validation.
+    private async Task<WorkPackageId> ResolveWorkPackageAsync(BillOfQuantities boq, CancellationToken cancellationToken)
+    {
+        var bid = await bids.GetAsync(boq.BidId, cancellationToken)
+            ?? throw new DomainValidationException(
+                "The mapped BoQ's bid does not exist.",
+                nameof(boq.BidId),
+                code: "ValuationLinkBidNotFound");
+
+        return bid.WorkPackageId;
     }
 
     private static Money ToMoney(MoneyDto dto) => new(dto.Amount, dto.Currency);

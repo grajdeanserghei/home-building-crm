@@ -30,10 +30,12 @@ public static class ValuationCatalogEndpoints
                     ? Results.Created($"/api/valuation-catalogs/{created.Id}", created)
                     : Results.NotFound());
 
-        // Live estimate-vs-real-BoQ comparison for the project's catalog.
+        // Live estimate-vs-real-BoQ comparison for the project's catalog. The competing BoQs of each work
+        // package collapse to the one that is "real" under the basis; only 'decided' (the default) applies
+        // here — a scenario basis has its own scenario-scoped route.
         app.MapGet("/api/projects/{projectId:guid}/valuation/comparison",
-            async (Guid projectId, IValuationVsBoqQuery query, CancellationToken ct) =>
-                await query.GetByProjectAsync(projectId, ct) is { } comparison
+            async (Guid projectId, string? basis, IValuationVsBoqQuery query, CancellationToken ct) =>
+                await query.GetAsync(projectId, new ComparisonBasis.Decided(), ct) is { } comparison
                     ? Results.Ok(comparison)
                     : Results.NotFound());
 

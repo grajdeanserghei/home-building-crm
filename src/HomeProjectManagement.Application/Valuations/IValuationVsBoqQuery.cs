@@ -6,5 +6,12 @@ namespace HomeProjectManagement.Application.Valuations;
 /// </summary>
 public interface IValuationVsBoqQuery
 {
+    /// <summary>
+    /// The comparison under an explicit <see cref="ComparisonBasis"/>: competing BoQs of a work package
+    /// collapse to the single active one, contributions sum only across work packages.
+    /// </summary>
+    Task<ValuationVsBoqDto?> GetAsync(Guid projectId, ComparisonBasis basis, CancellationToken cancellationToken = default);
+
+    /// <summary>The standalone comparison on the <c>Decided</c> basis (accepted-then-selected).</summary>
     Task<ValuationVsBoqDto?> GetByProjectAsync(Guid projectId, CancellationToken cancellationToken = default);
 }

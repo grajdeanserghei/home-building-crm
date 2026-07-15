@@ -35,6 +35,7 @@ public static class DependencyInjection
         services.AddScoped<ICostScenarioQuery, CostScenarioQuery>();
         services.AddScoped<IValuationCatalogAppService, ValuationCatalogAppService>();
         services.AddScoped<IConstructionValuationAppService, ConstructionValuationAppService>();
+        services.AddScoped<IRealBoqSelector, RealBoqSelector>();
         services.AddScoped<IValuationVsBoqQuery, ValuationVsBoqQuery>();
         services.AddScoped<IValuationProgressQuery, ValuationProgressQuery>();
         return services;
