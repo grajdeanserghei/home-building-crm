@@ -197,38 +197,43 @@ public static class ValuationCatalogTools
 
     [McpServerTool(Name = "link_valuation_item_to_boq"), Description(
         "Map a catalog item onto a real BoQ target so its estimate can be compared to the owners' actual cost. " +
-        "Provide the boqId and either a sectionId (map the whole section) or a subsectionId (map just that " +
-        "subsection — its parent section is resolved server-side; the work package is derived from the BoQ). " +
-        "Two invariants are enforced: (1) no double-counting — a given BoQ section/subsection is linked to at " +
-        "most one item; (2) granularity exclusivity — a section is mapped either as a whole OR " +
-        "subsection-by-subsection, never both (switch by unlinking first). Discover section/subsection ids with " +
-        "get_boq. Returns the updated catalog.")]
+        "Provide the boqId and a target at one of three granularities: a sectionId (map the whole section), a " +
+        "subsectionId (map just that subsection), or a lineItemId (map a single line). For the finer levels the " +
+        "parent section/subsection is resolved server-side; the work package is derived from the BoQ. Two " +
+        "invariants are enforced: (1) no double-counting — a given BoQ section/subsection/line is linked to at " +
+        "most one item; (2) granularity exclusivity — within one section the three levels are nested and " +
+        "mutually exclusive (Section covers Subsection covers Line): map a section as a whole, OR " +
+        "subsection-by-subsection, OR line-by-line, never a coarser and a finer target together (switch by " +
+        "unlinking first). Discover section/subsection/line ids with get_boq. Returns the updated catalog.")]
     public static async Task<ValuationCatalogDto> LinkValuationItemToBoq(
         IValuationCatalogAppService service,
         [Description("The catalog id.")] Guid catalogId,
         [Description("The catalog item id to map.")] Guid itemId,
         [Description("The BoQ id (from get_bid_boq / get_boq).")] Guid boqId,
-        [Description("The BoQ section id to map as a whole. Omit when mapping a subsection.")] Guid? sectionId = null,
-        [Description("The BoQ subsection id to map. Omit when mapping the whole section.")] Guid? subsectionId = null,
+        [Description("The BoQ section id to map as a whole. Omit when mapping a subsection or line.")] Guid? sectionId = null,
+        [Description("The BoQ subsection id to map. Omit when mapping the whole section or a single line.")] Guid? subsectionId = null,
+        [Description("The BoQ line item id to map a single line. Omit when mapping a whole section or subsection.")] Guid? lineItemId = null,
         CancellationToken ct = default)
         => await service.LinkBoqSectionAsync(
-               catalogId, itemId, new LinkBoqSectionCommand(boqId, sectionId, subsectionId), ct)
+               catalogId, itemId, new LinkBoqSectionCommand(boqId, sectionId, subsectionId, lineItemId), ct)
            ?? throw new McpException($"Catalog {catalogId} or item {itemId} was not found.");
 
     [McpServerTool(Name = "unlink_valuation_item_from_boq"), Description(
         "Remove a BoQ mapping from a catalog item (the inverse of link_valuation_item_to_boq). Identify the " +
-        "same target: boqId plus the sectionId (whole-section link) or subsectionId (subsection link). Do this " +
-        "before switching a section's mapping granularity. Returns the updated catalog.")]
+        "same target: boqId plus the sectionId (whole-section link), the subsectionId (subsection link), or the " +
+        "lineItemId (line link). Do this before switching a section's mapping granularity. Returns the updated " +
+        "catalog.")]
     public static async Task<ValuationCatalogDto> UnlinkValuationItemFromBoq(
         IValuationCatalogAppService service,
         [Description("The catalog id.")] Guid catalogId,
         [Description("The catalog item id.")] Guid itemId,
         [Description("The BoQ id of the link to remove.")] Guid boqId,
-        [Description("The section id of a whole-section link. Omit for a subsection link.")] Guid? sectionId = null,
-        [Description("The subsection id of a subsection link. Omit for a whole-section link.")] Guid? subsectionId = null,
+        [Description("The section id of the link (its real parent for a subsection/line link).")] Guid? sectionId = null,
+        [Description("The subsection id of a subsection link, or a line link's parent subsection. Omit otherwise.")] Guid? subsectionId = null,
+        [Description("The line item id of a line link. Omit for a whole-section or subsection link.")] Guid? lineItemId = null,
         CancellationToken ct = default)
         => await service.UnlinkBoqSectionAsync(
-               catalogId, itemId, new LinkBoqSectionCommand(boqId, sectionId, subsectionId), ct)
+               catalogId, itemId, new LinkBoqSectionCommand(boqId, sectionId, subsectionId, lineItemId), ct)
            ?? throw new McpException($"Catalog {catalogId} or item {itemId} was not found.");
 
     [McpServerTool(Name = "delete_valuation_catalog"), Description(

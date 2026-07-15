@@ -251,12 +251,14 @@ public sealed class ValuationCatalogAppService(
         }
 
         // WorkPackageId is not part of link identity, so a placeholder matches the stored link by
-        // equality — unlinking still needs no BoQ/bid lookup (and works for a since-deleted BoQ).
+        // equality — unlinking still needs no BoQ/bid lookup (and works for a since-deleted BoQ). The
+        // client round-trips the link's real section/subsection/line ids (they are in the DTO).
         var link = new ValuationItemLink(
             new BoqId(command.BoqId),
             default,
             new SectionId(sectionId),
-            command.SubsectionId is { } sub ? new SubsectionId(sub) : null);
+            command.SubsectionId is { } sub ? new SubsectionId(sub) : null,
+            command.LineItemId is { } line ? new LineItemId(line) : null);
 
         if (!catalog.UnlinkBoqSection(new ValuationCatalogItemId(itemId), link))
         {
@@ -295,6 +297,38 @@ public sealed class ValuationCatalogAppService(
         // The BoQ competes for exactly one work package (boq → bid → workPackage). Stamped on the link so
         // the read model can treat competing BoQs of one work package as alternatives, not additive parts.
         var workPackageId = await ResolveWorkPackageAsync(boq, cancellationToken);
+
+        // Line-level link (finest granularity): resolve the line's actual parent section/subsection so the
+        // aggregate can police granularity from the tuple alone. Takes precedence over section/subsection.
+        if (command.LineItemId is { } lineGuid)
+        {
+            var lineItemId = new LineItemId(lineGuid);
+            var line = boq.LineItems.FirstOrDefault(li => li.Id == lineItemId)
+                ?? throw new DomainValidationException(
+                    "The mapped BoQ line item does not exist.",
+                    nameof(command.LineItemId),
+                    code: "ValuationLinkLineItemNotFound");
+
+            // Any client-supplied section/subsection ids must agree with the line's real parents.
+            if (command.SectionId is { } claimedSection && new SectionId(claimedSection) != line.SectionId)
+            {
+                throw new DomainValidationException(
+                    "The supplied section id is not the parent of the mapped line item.",
+                    nameof(command.SectionId),
+                    code: "ValuationLinkSectionMismatch");
+            }
+
+            if (command.SubsectionId is { } claimedSub
+                && (line.SubsectionId is null || new SubsectionId(claimedSub) != line.SubsectionId))
+            {
+                throw new DomainValidationException(
+                    "The supplied subsection id is not the parent of the mapped line item.",
+                    nameof(command.SubsectionId),
+                    code: "ValuationLinkSubsectionMismatch");
+            }
+
+            return new ValuationItemLink(boqId, workPackageId, line.SectionId, line.SubsectionId, lineItemId);
+        }
 
         if (command.SubsectionId is { } subGuid)
         {
@@ -383,7 +417,8 @@ public sealed class ValuationCatalogAppService(
         ToDto(item.TotalCostWithVat),
         item.IsActive,
         item.Links
-            .Select(l => new ValuationItemLinkDto(l.BoqId.Value, l.SectionId.Value, l.SubsectionId?.Value))
+            .Select(l => new ValuationItemLinkDto(
+                l.BoqId.Value, l.SectionId.Value, l.SubsectionId?.Value, l.LineItemId?.Value))
             .ToList());
 
     private static MoneyDto ToDto(Money money) => new(money.Amount, money.Currency);

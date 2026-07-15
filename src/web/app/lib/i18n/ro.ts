@@ -544,6 +544,7 @@ export const ro = {
   "lineItems.col.vat": "TVA",
   "lineItems.col.lineTotalExclVat": "Total articol (fără TVA)",
   "lineItems.col.lineTotalInclVat": "Total articol (cu TVA)",
+  "lineItems.col.mapping": "Fișă de evaluare",
 
   // — Contractors ——————————————————————————————————————————————————————————
   "contractors.title": "Antreprenori",
@@ -783,6 +784,9 @@ export const ro = {
   "valuation.map.none": "— nemapat —",
   "valuation.map.aria": "Mapează secțiunea la un articol de evaluare",
   "valuation.map.noCatalog": "Fără fișă de evaluare",
+  "valuation.map.covered": "— acoperit —",
+  "valuation.map.coveredHint":
+    "Acoperit de maparea secțiunii sau subsecțiunii. Demapează întâi maparea mai generală pentru a mapa individual.",
 
   // Estimate-vs-real read model
   "valuation.vsBoq.title": "Evaluare vs. real — {name}",

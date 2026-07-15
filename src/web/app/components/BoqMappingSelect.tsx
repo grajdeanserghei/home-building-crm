@@ -19,11 +19,17 @@ interface BoqMappingSelectProps {
   boqId: string;
   bidId: string; // for revalidating this BoQ page after a change
   sectionId: string;
-  subsectionId?: string | null; // present at subsection level, absent at section level
+  subsectionId?: string | null; // the target's parent subsection (section-level ⇒ absent)
+  lineItemId?: string | null; // present at line level (finest granularity), absent above it
   // The project's active catalog items (empty ⇒ no catalog / nothing to map to).
   catalogItems: BoqMappingItem[];
-  // The item currently linked to this (section/subsection) triple, or undefined when unmapped.
+  // The item currently linked to this target, or undefined when unmapped.
   linkedItemId?: string;
+  // Covered by a coarser link (whole section/subsection): the select is shown read-only with a hint
+  // so the user unlinks the coarser mapping first (the backend also rejects it with a 409).
+  disabled?: boolean;
+  // Compact rendering for an inline per-line cell: drop the "mapat la:" prefix.
+  compact?: boolean;
 }
 
 /**
@@ -33,8 +39,8 @@ interface BoqMappingSelectProps {
  *
  * A client component only so the native `<select>` can auto-submit on change. It appears
  * regardless of BoQ status — the mapping is project-level metadata, decoupled from BoQ edit
- * gating. Options are never disabled: one item may map to many sections, and a single-value
- * select keeps a section pointed at one item.
+ * gating. Options are never disabled: one item may map to many targets, and a single-value
+ * select keeps a target pointed at one item.
  */
 export function BoqMappingSelect(props: BoqMappingSelectProps) {
   const { projectId, catalogItems, linkedItemId } = props;
@@ -72,34 +78,44 @@ function MappingForm({
   bidId,
   sectionId,
   subsectionId,
+  lineItemId,
   catalogItems,
   linkedItemId,
+  disabled,
+  compact,
 }: BoqMappingSelectProps) {
   const formRef = useRef<HTMLFormElement>(null);
   const [selected, setSelected] = useState(linkedItemId ?? "");
 
   return (
     <form action={setValuationLink} ref={formRef} className={styles.boqMapForm}>
-      <span className={styles.muted}>{t("valuation.map.prefix")}</span>
+      {compact ? null : (
+        <span className={styles.muted}>{t("valuation.map.prefix")}</span>
+      )}
       <input type="hidden" name="projectId" value={projectId} />
       <input type="hidden" name="catalogId" value={catalogId} />
       <input type="hidden" name="boqId" value={boqId} />
       <input type="hidden" name="bidId" value={bidId} />
       <input type="hidden" name="sectionId" value={sectionId} />
       <input type="hidden" name="subsectionId" value={subsectionId ?? ""} />
-      {/* The item currently holding this triple — the action unlinks it before linking the new
+      <input type="hidden" name="lineItemId" value={lineItemId ?? ""} />
+      {/* The item currently holding this target — the action unlinks it before linking the new
           choice (the domain rejects double-mapping), giving replace-on-change. */}
       <input type="hidden" name="currentItemId" value={linkedItemId ?? ""} />
       <select
         name="itemId"
         aria-label={t("valuation.map.aria")}
         value={selected}
+        disabled={disabled}
+        title={disabled ? t("valuation.map.coveredHint") : undefined}
         onChange={(e) => {
           setSelected(e.target.value);
           formRef.current?.requestSubmit();
         }}
       >
-        <option value="">{t("valuation.map.none")}</option>
+        <option value="">
+          {disabled ? t("valuation.map.covered") : t("valuation.map.none")}
+        </option>
         {catalogItems.map((it) => (
           <option key={it.id} value={it.id}>
             {it.printedNumber}. {it.name}

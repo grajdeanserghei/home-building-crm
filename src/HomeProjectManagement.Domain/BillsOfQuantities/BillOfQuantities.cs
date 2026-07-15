@@ -561,6 +561,15 @@ public sealed class BillOfQuantities : AggregateRoot<BoqId>
     public Money SubtotalWithVatOf(SubsectionId subsectionId) =>
         Sum(_lineItems.Where(li => li.SubsectionId == subsectionId), li => li.LineTotalWithVat);
 
+    /// <summary>A single line's net total, or zero in the pricing currency if no such line exists (a
+    /// deleted line drops out of the rollup, mirroring the section/subsection subtotals).</summary>
+    public Money LineTotalOf(LineItemId lineItemId) =>
+        _lineItems.FirstOrDefault(li => li.Id == lineItemId)?.LineTotal ?? Money.Zero(PricingCurrency);
+
+    /// <summary>A single line's gross (VAT-inclusive) total, or zero in the pricing currency if absent.</summary>
+    public Money LineTotalWithVatOf(LineItemId lineItemId) =>
+        _lineItems.FirstOrDefault(li => li.Id == lineItemId)?.LineTotalWithVat ?? Money.Zero(PricingCurrency);
+
     private void TransitionTo(BoqStatus status, DateTimeOffset now)
     {
         if (status == Status)

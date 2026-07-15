@@ -101,9 +101,14 @@ public sealed class ValuationCatalogConfiguration : IEntityTypeConfiguration<Val
                 links.Property(l => l.WorkPackageId).IsRequired();
                 links.Property(l => l.SectionId).IsRequired();
                 links.Property(l => l.SubsectionId);
+                // Set for a line-level link (the finest granularity); its Section/Subsection are the line's
+                // actual parents. Nullable, maps to a nullable uuid via the strongly-typed-id convention.
+                links.Property(l => l.LineItemId);
 
-                // Backs no-double-count: a (boq, section, subsection) triple maps to at most one item.
-                links.HasIndex(l => new { l.BoqId, l.SectionId, l.SubsectionId }).IsUnique();
+                // Backs no-double-count: a (boq, section, subsection, line) tuple maps to at most one item.
+                // A best-effort backstop — the aggregate is the real enforcer (Postgres treats NULLs as
+                // distinct, so it can't catch every duplicate on its own).
+                links.HasIndex(l => new { l.BoqId, l.SectionId, l.SubsectionId, l.LineItemId }).IsUnique();
             });
 
             items.Navigation(i => i.Links)

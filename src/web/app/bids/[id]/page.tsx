@@ -116,11 +116,20 @@ export default async function BidDetailPage({
       printedNumber: i.printedNumber,
       name: i.name,
     }));
+    // One item per target, keyed by its finest id (line → subsection → section; all distinct GUIDs).
+    // The whole-mapped sets drive disabling the finer selects a coarser link already covers.
     const mappedItemBySection: Record<string, string> = {};
+    const wholeMappedSectionIds: string[] = [];
+    const wholeMappedSubsectionIds: string[] = [];
     for (const item of activeItems) {
       for (const link of item.links) {
         if (link.boqId !== boq.id) continue;
-        mappedItemBySection[link.subsectionId ?? link.sectionId] = item.id;
+        mappedItemBySection[link.lineItemId ?? link.subsectionId ?? link.sectionId] = item.id;
+        if (!link.subsectionId && !link.lineItemId) {
+          wholeMappedSectionIds.push(link.sectionId);
+        } else if (link.subsectionId && !link.lineItemId) {
+          wholeMappedSubsectionIds.push(link.subsectionId);
+        }
       }
     }
 
@@ -354,6 +363,8 @@ export default async function BidDetailPage({
             catalogId={catalog?.id ?? ""}
             catalogItems={catalogItems}
             mappedItemBySection={mappedItemBySection}
+            wholeMappedSectionIds={wholeMappedSectionIds}
+            wholeMappedSubsectionIds={wholeMappedSubsectionIds}
           />
         ) : null}
 

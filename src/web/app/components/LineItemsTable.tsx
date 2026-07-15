@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BoqMappingSelect, type BoqMappingItem } from "@/app/components/BoqMappingSelect";
 import { ConfirmDeleteButton } from "@/app/components/ConfirmDeleteButton";
 import type { LineItem, Money } from "@/app/lib/api";
 import {
@@ -35,6 +36,18 @@ interface LineItemsTableProps {
   // Optional: when omitted (e.g. arrange mode), prices render in their own currency, unconverted.
   displayCurrency?: DisplayCurrency;
   ronPerEur?: number;
+  // When set, render a per-line valuation-catalog mapping select (the finest link granularity).
+  // Omitted when the project has no catalog / no active items. `disabled` is true when a coarser
+  // link (whole section or subsection) already covers these lines.
+  mapping?: {
+    projectId: string;
+    catalogId: string;
+    bidId: string;
+    catalogItems: BoqMappingItem[];
+    // Item currently linked to a line, keyed by line id (undefined ⇒ unmapped).
+    linkedItemByLine: Record<string, string>;
+    disabled: boolean;
+  };
 }
 
 /**
@@ -54,6 +67,7 @@ export function LineItemsTable({
   duplicateAction,
   displayCurrency,
   ronPerEur,
+  mapping,
 }: LineItemsTableProps) {
   if (lineItems.length === 0) {
     return <p>{t("lineItems.empty")}</p>;
@@ -78,6 +92,7 @@ export function LineItemsTable({
           <th>{t("lineItems.col.vat")}</th>
           <th>{t("lineItems.col.lineTotalExclVat")}</th>
           <th>{t("lineItems.col.lineTotalInclVat")}</th>
+          {mapping ? <th>{t("lineItems.col.mapping")}</th> : null}
           {editable ? <th aria-label={t("common.actions")} /> : null}
         </tr>
       </thead>
@@ -95,6 +110,23 @@ export function LineItemsTable({
             <td>{formatPercent(li.vatRatePercentage)}</td>
             <td>{money(li.lineTotal)}</td>
             <td>{money(li.lineTotalWithVat)}</td>
+            {mapping ? (
+              <td>
+                <BoqMappingSelect
+                  projectId={mapping.projectId}
+                  catalogId={mapping.catalogId}
+                  boqId={boqId}
+                  bidId={mapping.bidId}
+                  sectionId={sectionId}
+                  subsectionId={subsectionId ?? null}
+                  lineItemId={li.id}
+                  catalogItems={mapping.catalogItems}
+                  linkedItemId={mapping.linkedItemByLine[li.id]}
+                  disabled={mapping.disabled}
+                  compact
+                />
+              </td>
+            ) : null}
             {editable ? (
               <td>
                 <div className={styles.actions}>
