@@ -117,6 +117,16 @@ Two cross-aggregate read-only queries (the domain holds only ids; money is compo
 
 Mutations go through app services that load via a repository port, invoke domain behaviour, and commit through the unit of work: `ValuationCatalogAppService` (create/edit catalog, add/revise/deactivate items, change VAT, link/unlink BoQ sections) and `ConstructionValuationAppService` (import/capture a snapshot idempotently, list). Snapshot capture reads the current catalog items' totals, freezes the derived values, and stores them.
 
+### MCP
+
+`McpServer/Tools/ValuationCatalogTools.cs` and `McpServer/Tools/ConstructionValuationTools.cs` expose the same operations to an agent — thin wrappers over the app-service and query ports, following the BoQ/cost-scenario precedent (the agent parses the source spreadsheet; the server only validates and persists). Grouped:
+
+- **Catalog** (`IValuationCatalogAppService`): `get_project_valuation_catalog`, `get_valuation_catalog`, `create_valuation_catalog`, `update_valuation_catalog_header`, `activate_valuation_catalog`, `change_valuation_vat_rate`, `add_valuation_items` (bulk — the itemized estimate in one call; `unit` stays raw text), `revise_valuation_item`, `deactivate_valuation_item`, `link_valuation_item_to_boq`, `unlink_valuation_item_from_boq`, `delete_valuation_catalog`.
+- **Snapshots** (`IConstructionValuationAppService`): `capture_construction_valuation` (idempotent by `sourceContentHash`; the agent supplies only each item's completion %, the RON/EUR rate is pinned as `ronPerEur`), `get_construction_valuation`, `list_construction_valuations`.
+- **Read models**: `get_valuation_vs_boq` (`IValuationVsBoqQuery` — estimate vs. real; an optional `costScenarioId` switches the comparison from the default `Decided` basis to a `Scenario` basis, see [Valuation Comparison Basis](./valuation-comparison-basis.md)) and `get_valuation_progress` (`IValuationProgressQuery`).
+
+BoQ section/subsection ids for `link_valuation_item_to_boq` come from the existing `get_boq` tool; a scenario id for the `Scenario` basis comes from `list_cost_scenarios`.
+
 ### Persistence (when implemented)
 
 Tables `valuation_catalogs`, `valuation_catalog_items`, `valuation_item_links`, `construction_valuations`, `construction_valuation_items`. Unique index on `valuation_catalogs.projectId` (one per project). `valuation_item_links` carries a unique constraint on `(valuationCatalogId, boqId, sectionId, subsectionId)` to back the no-double-count invariant. Money stored as amount+currency; derived read-model figures are not persisted.
@@ -126,4 +136,4 @@ Tables `valuation_catalogs`, `valuation_catalog_items`, `valuation_item_links`, 
 - **Price revisions vs. history.** Decided: a revised report edits the catalog **in place** (frozen snapshots preserve history). Revisit only if a diff between two priced baselines is ever needed — that would reintroduce catalog versioning.
 - **Denormalization drift.** A snapshot's `name`/`estimatedValue…` are copied at capture. If a catalog item is renamed/re-priced after a snapshot, the snapshot keeps the old values (intended). Confirm the UI signals that a snapshot reflects the catalog *as it was*.
 - **Own-regie adjustment.** `ownRegieAdjustment` (0.20) is stored for provenance; whether any read model applies it to the estimate is unspecified — it appears already folded into the catalog totals in the source sheet.
-- **Frontend & MCP surface** (list/detail pages, agent tools for import) — out of scope for this design pass; follows the BoQ/cost-scenario precedent when implemented.
+- **Frontend & MCP surface** — delivered. The frontend (list/detail pages, vs-BoQ comparison, progress chart) and the MCP agent tools (see [MCP](#mcp)) both follow the BoQ/cost-scenario precedent.
