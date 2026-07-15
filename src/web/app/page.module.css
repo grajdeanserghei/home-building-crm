@@ -985,3 +985,92 @@
     padding: 10px 10px 1px;
   }
 }
+
+/* — Construction valuation ————————————————————————————————————————— */
+
+/* The inline "mapat la: […]" mapping control shown under a BoQ section/subsection header —
+   a muted, single-line sibling of the subtotal line. */
+.boqMapForm {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0 2px;
+}
+
+.boqMapForm select {
+  padding: 3px 8px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+  background: transparent;
+  color: inherit;
+  font-size: 0.85rem;
+  max-width: 22rem;
+}
+
+/* Completed-vs-remaining progress meter (see ValuationProgressChart). */
+.valuationChart {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.valuationChartRow {
+  display: grid;
+  grid-template-columns: 6.5rem 1fr auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.valuationChartLabel {
+  font-size: 0.85rem;
+  color: color-mix(in srgb, currentColor 75%, transparent);
+}
+
+.valuationBarTrack {
+  display: block;
+  height: 14px;
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 12%, transparent);
+  overflow: hidden;
+}
+
+.valuationBarCompleted {
+  display: block;
+  height: 100%;
+  background: #2563eb;
+}
+
+.valuationBarRemaining {
+  display: block;
+  height: 100%;
+  background: color-mix(in srgb, currentColor 18%, transparent);
+}
+
+.valuationChartValue {
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.valuationLegend {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.valuationLegendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  color: color-mix(in srgb, currentColor 75%, transparent);
+}
+
+.valuationSwatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}

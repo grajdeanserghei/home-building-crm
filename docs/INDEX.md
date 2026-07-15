@@ -40,6 +40,7 @@ A complete map of the documentation under `docs/`. Start with the
 | [BoQ Excel Export](./specifications/boq-excel-export.md) | Implemented | Export a *deviz* to `.xlsx` — one worksheet per Section, Subsections as visually separated bands, summary sheet, live `SUM()` totals; ClosedXML behind a driven port. |
 | [BoQ Line-Item Reordering](./specifications/boq-line-item-reordering.md) | Implemented | Drag-and-drop reorder of BoQ line items, including moving a line between subcapitols anywhere in the BoQ; root `MoveLineItem` with dense renumbering, a `move-line-item` endpoint, and a read-first "Arrange" mode using `@dnd-kit`. |
 | [Construction Valuation](./specifications/construction-valuation.md) | Draft | The bank appraiser's *fișă de calcul a valorii construcției*: a per-project `ValuationCatalog` (itemized estimate + BoQ-section mapping) and dated `ConstructionValuation` snapshots (frozen completion assessments); enables estimate-vs-real-BoQ comparison and progress tracking. |
+| [Valuation Comparison Basis](./specifications/valuation-comparison-basis.md) | Draft | Treats competing BoQs as alternatives, not additive: the estimate-vs-real read model selects one BoQ per work package via a `ComparisonBasis` — `Decided` (accepted-then-selected) by default, or `Scenario` for the cost simulator's what-if; adds `WorkPackageId` to `ValuationItemLink`. |
 
 ## Conventions
 

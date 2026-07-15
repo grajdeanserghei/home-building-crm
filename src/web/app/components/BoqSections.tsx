@@ -10,6 +10,7 @@ import {
   removeSubsectionLineItem,
 } from "@/app/bills-of-quantities/actions";
 import { BoqChevron } from "@/app/components/BoqChevron";
+import { BoqMappingSelect, type BoqMappingItem } from "@/app/components/BoqMappingSelect";
 import { ConfirmDeleteButton } from "@/app/components/ConfirmDeleteButton";
 import { LineItemsTable } from "@/app/components/LineItemsTable";
 import type { Money, Section } from "@/app/lib/api";
@@ -33,6 +34,10 @@ export function BoqSections({
   editable,
   displayCurrency,
   ronPerEur,
+  projectId,
+  catalogId,
+  catalogItems,
+  mappedItemBySection,
 }: {
   // The owning bid's id builds the edit/add hrefs (the BoQ routes live under /bids/[id]/boq);
   // boqId still keys the accordion state and the mutation action fields.
@@ -45,6 +50,15 @@ export function BoqSections({
   // with. "Original" shows the pricing currency with decimals; RON/EUR convert and drop decimals.
   displayCurrency: DisplayCurrency;
   ronPerEur: number;
+  // The owning project + its valuation catalog, for the per-header mapping control. `catalogId`
+  // is "" when the project has no catalog yet; `catalogItems` (active items) is then empty, and
+  // each header shows a "Fără fișă de evaluare" hint instead of a select.
+  projectId: string;
+  catalogId: string;
+  catalogItems: BoqMappingItem[];
+  // The catalog item currently linked to a section/subsection, keyed by that section's or
+  // subsection's id (a triple maps to at most one item, so a scalar per key suffices).
+  mappedItemBySection: Record<string, string>;
 }) {
   // Format a Money for the chosen display currency (see displayMoney: decimals only in Original mode).
   const money = (m: Money) => displayMoney(m, displayCurrency, ronPerEur);
@@ -106,6 +120,16 @@ export function BoqSections({
               ) : null}
             </h2>
 
+            <BoqMappingSelect
+              projectId={projectId}
+              catalogId={catalogId}
+              boqId={boqId}
+              bidId={bidId}
+              sectionId={section.id}
+              catalogItems={catalogItems}
+              linkedItemId={mappedItemBySection[section.id]}
+            />
+
             <div id={sectionPanelId} hidden={!sectionOpen}>
               {section.description ? (
                 <p className={styles.muted}>{section.description}</p>
@@ -148,6 +172,17 @@ export function BoqSections({
                         </span>
                       </button>
                     </h3>
+
+                    <BoqMappingSelect
+                      projectId={projectId}
+                      catalogId={catalogId}
+                      boqId={boqId}
+                      bidId={bidId}
+                      sectionId={section.id}
+                      subsectionId={subsection.id}
+                      catalogItems={catalogItems}
+                      linkedItemId={mappedItemBySection[subsection.id]}
+                    />
 
                     <div id={subPanelId} hidden={!subOpen}>
                       {subsection.description ? (

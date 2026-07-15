@@ -1008,3 +1008,320 @@ export async function getScenarioCandidates(
   }
   return res.json();
 }
+
+// Construction valuation -------------------------------------------------
+//
+// The bank appraiser's construction valuation (RO "fișă de calcul a valorii construcției",
+// segregated-cost method). Two aggregates: a per-project ValuationCatalog (the itemized
+// estimate + each item's mapping onto the owners' real BoQ sections) and dated, frozen
+// ConstructionValuation snapshots (on-site completion assessments). Money is stored in one
+// catalog currency (RON); each snapshot pins its own RON/EUR rate. Types mirror the backend
+// DTOs 1:1 (camelCased over the wire). See docs/specifications/construction-valuation.md.
+
+// The appraisal method (only segregated-cost for now; serialized as its string name).
+export type ValuationMethod = "SegregatedCost";
+
+export const VALUATION_METHODS: readonly ValuationMethod[] = ["SegregatedCost"];
+
+export const VALUATION_METHOD_LABELS: Record<ValuationMethod, string> = {
+  SegregatedCost: t("enum.valuationMethod.SegregatedCost"),
+};
+
+// A draft catalog is being assembled; an active catalog is the project's baseline. One active
+// catalog per project (enforced server-side).
+export type ValuationCatalogStatus = "Draft" | "Active";
+
+export const VALUATION_CATALOG_STATUSES: readonly ValuationCatalogStatus[] = [
+  "Draft",
+  "Active",
+];
+
+export const VALUATION_CATALOG_STATUS_LABELS: Record<ValuationCatalogStatus, string> = {
+  Draft: t("enum.valuationCatalogStatus.Draft"),
+  Active: t("enum.valuationCatalogStatus.Active"),
+};
+
+// One item's mapping onto a BoQ target. `subsectionId` present maps a single subsection;
+// absent (null) maps the whole section. A subsection link carries its actual parent sectionId.
+export interface ValuationItemLink {
+  boqId: string;
+  sectionId: string;
+  subsectionId?: string | null;
+}
+
+// One priced row of the appraiser's estimate. `unit` is raw printed text (mc/mp/ml/kg or the
+// lump-sum markers %/lei) — deliberately not the UnitOfMeasure vocabulary. `totalCostWithVat`
+// is stored (kept in sync when the catalog VAT changes). Retired items keep `isActive: false`.
+export interface ValuationCatalogItem {
+  id: string;
+  sequence: number; // stable ordering key
+  printedNumber: string; // the appraiser's printed Nr. Crt. verbatim (quirks preserved)
+  name: string;
+  unit: string;
+  catalogSource: string; // Sursă / Nr. Fișă (e.g. F.38, Deviz, F.26, F.24)
+  costWeight: number; // Pondere în total cost
+  unitCostPerBuiltArea: Money; // Cost lucrare (Lei/mpAd)
+  totalCostWithoutVat: Money; // Cost total, fără TVA (col G)
+  totalCostWithVat: Money; // Cost total, cu TVA (stored)
+  isActive: boolean;
+  links: ValuationItemLink[]; // the BoQ sections/subsections this item maps to
+}
+
+export interface ValuationCatalog {
+  id: string;
+  projectId: string;
+  method: ValuationMethod;
+  catalogReference: string; // e.g. "MATRIX, Fișa 38"
+  status: ValuationCatalogStatus;
+  currency: Currency; // pricing currency of the estimate (RON)
+  vatRatePercentage: number; // report VAT (21); changing it recomputes each item's gross total
+  builtArea: number; // Suprafață Construită (mp)
+  grossFloorArea: number; // Suprafață Construită Desfășurată / SCD (mp)
+  usableArea: number; // Suprafață Utilă (mp)
+  ownRegieAdjustment: number; // Ajustare regie proprie (e.g. 0.20), stored for provenance
+  items: ValuationCatalogItem[];
+  createdAt: string;
+}
+
+// The (at most one) valuation catalog for a project, or null if none has been created yet.
+export async function getValuationCatalog(
+  projectId: string,
+): Promise<ValuationCatalog | null> {
+  const res = await fetch(
+    `${apiBaseUrl()}/api/projects/${projectId}/valuation-catalog`,
+    { cache: "no-store" },
+  );
+  if (res.status === 404) {
+    return null;
+  }
+  if (!res.ok) {
+    throw new Error(`${res.status} ${res.statusText}`);
+  }
+  return res.json();
+}
+
+// A pointer to the source report a snapshot was captured from (agent-provided). Mirrors
+// SourceDocumentDto.
+export interface SourceDocument {
+  fileName: string;
+  url: string;
+  uploadedOn?: string | null;
+  uploadedBy?: string | null;
+}
+
+// Estimated / completed / remaining totals for a single currency (net and gross). Shared by the
+// snapshot detail and progress read models.
+export interface ValuationCurrencyTotal {
+  currency: Currency;
+  estimatedWithoutVat: Money;
+  estimatedWithVat: Money;
+  completedWithoutVat: Money;
+  completedWithVat: Money;
+  remainingWithoutVat: Money;
+  remainingWithVat: Money;
+}
+
+// The gross totals converted to a single comparable EUR figure via the snapshot's pinned rate.
+export interface ValuationEurEquivalent {
+  ronPerEur: number;
+  estimatedWithVat: Money;
+  completedWithVat: Money;
+  remainingWithVat: Money;
+}
+
+export interface ValuationProgressTotals {
+  byCurrency: ValuationCurrencyTotal[];
+  eurEquivalent?: ValuationEurEquivalent | null;
+}
+
+// One assessed row of a dated snapshot. Every money field is frozen at capture (never
+// recomputed on read). `name`/`estimatedValue…` are denormalized from the catalog item so a
+// snapshot renders itself without joining a catalog that may since have changed.
+export interface ConstructionValuationItem {
+  id: string;
+  valuationCatalogItemId: string; // groups the same item across snapshots
+  name: string;
+  estimatedValueWithoutVat: Money;
+  estimatedValueWithVat: Money;
+  completionPercentage: number; // % executat (col H), 0..100
+  completedValueWithoutVat: Money; // lei executați (col I)
+  completedValueWithVat: Money;
+  remainingPercentage: number; // % rămas (col J = 100 − H)
+  remainingValueWithoutVat: Money; // lei rămași (col K)
+  remainingValueWithVat: Money;
+}
+
+// A single dated site-visit assessment against a catalog — a frozen historical fact.
+export interface ConstructionValuation {
+  id: string;
+  valuationCatalogId: string;
+  assessedOn: string; // yyyy-MM-dd
+  appraiser?: string | null;
+  exchangeRate: ExchangeRate; // RON/EUR pinned for this report (moves between visits)
+  ronPerEur: number; // derived from the pinned rate, for the EUR toggle
+  sourceDocument?: SourceDocument | null;
+  sourceContentHash?: string | null;
+  items: ConstructionValuationItem[];
+  totals: ValuationProgressTotals; // per-currency rollup + approximate EUR equivalent
+  createdAt: string;
+}
+
+// The dated snapshots captured against a catalog, newest/oldest as the backend orders them.
+// Catalog-scoped (not project-scoped) — resolve the catalog id first (see getValuationCatalog).
+export async function getConstructionValuations(
+  catalogId: string,
+): Promise<ConstructionValuation[]> {
+  const res = await fetch(
+    `${apiBaseUrl()}/api/valuation-catalogs/${catalogId}/valuations`,
+    { cache: "no-store" },
+  );
+  if (res.status === 404) {
+    return [];
+  }
+  if (!res.ok) {
+    throw new Error(`${res.status} ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function getConstructionValuation(
+  snapshotId: string,
+): Promise<ConstructionValuation | null> {
+  const res = await fetch(
+    `${apiBaseUrl()}/api/construction-valuations/${snapshotId}`,
+    { cache: "no-store" },
+  );
+  if (res.status === 404) {
+    return null;
+  }
+  if (!res.ok) {
+    throw new Error(`${res.status} ${res.statusText}`);
+  }
+  return res.json();
+}
+
+// Estimate-vs-real read model (live) ------------------------------------
+//
+// Per catalog item: the appraiser's net estimate (col G) against the Σ of each linked BoQ
+// section/subsection subtotal, scaled to the whole build and converted to the catalog
+// currency. Net-to-net. Unmapped `%` catch-alls and uncovered direct lines surface as coverage
+// gaps, not as −100% variance. Mirrors ValuationVsBoqDto.
+
+// One mapping's contribution to an item's actual cost. `boqResolved` is false when the linked
+// BoQ could not be resolved (e.g. deleted) — its contribution is then zero.
+export interface ValuationVsBoqLink {
+  boqId: string;
+  sectionId: string;
+  subsectionId?: string | null;
+  boqResolved: boolean;
+  contribution: Money;
+}
+
+export interface ValuationVsBoqItem {
+  valuationCatalogItemId: string;
+  sequence: number;
+  name: string;
+  isMapped: boolean;
+  estimate: Money; // col G (net)
+  actual?: Money | null; // Σ BoQ subtotals (net); null when unmapped
+  variance?: Money | null; // actual − estimate; null when unmapped
+  variancePercentage?: number | null; // whole-number percent (already ×100); null when unmapped
+  links: ValuationVsBoqLink[];
+}
+
+// A gap in coverage. `Kind` is "UnmappedItem" (an estimated item with no mapping) or
+// "UnattributedBoqLines" (real BoQ cost under a subsection-mapped section that no mapping covers).
+export interface ValuationCoverageGap {
+  kind: string;
+  valuationCatalogItemId?: string | null;
+  boqId?: string | null;
+  sectionId?: string | null;
+  description: string;
+  amount: Money;
+}
+
+export interface ValuationVsBoqTotals {
+  totalEstimate: Money;
+  mappedEstimate: Money;
+  totalActual: Money;
+  totalVariance: Money;
+  totalVariancePercentage?: number | null; // whole-number percent
+  coveragePercentage: number; // share of estimated value mapped (0..100)
+  totalUnattributedBoqCost: Money;
+}
+
+export interface ValuationVsBoq {
+  projectId: string;
+  valuationCatalogId: string;
+  currency: Currency;
+  ronPerEur: number;
+  items: ValuationVsBoqItem[];
+  coverageGaps: ValuationCoverageGap[];
+  totals: ValuationVsBoqTotals;
+}
+
+export async function getValuationComparison(
+  projectId: string,
+): Promise<ValuationVsBoq | null> {
+  const res = await fetch(
+    `${apiBaseUrl()}/api/projects/${projectId}/valuation/comparison`,
+    { cache: "no-store" },
+  );
+  if (res.status === 404) {
+    return null;
+  }
+  if (!res.ok) {
+    throw new Error(`${res.status} ${res.statusText}`);
+  }
+  return res.json();
+}
+
+// Progress read model (frozen) ------------------------------------------
+//
+// Completion over time for a catalog: each snapshot's frozen totals, plus each catalog item's
+// completion series across snapshots. Catalog-scoped. Mirrors ValuationProgressSeriesDto.
+
+export interface ValuationProgressSnapshot {
+  id: string;
+  assessedOn: string;
+  appraiser?: string | null;
+  ronPerEur: number; // the snapshot's own pinned rate
+  totals: ValuationProgressTotals;
+}
+
+export interface ValuationItemProgressPoint {
+  constructionValuationId: string;
+  assessedOn: string;
+  completionPercentage: number; // 0..100
+  estimatedValueWithVat: Money;
+  completedValueWithVat: Money;
+  remainingValueWithVat: Money;
+}
+
+export interface ValuationItemProgress {
+  valuationCatalogItemId: string;
+  name: string;
+  points: ValuationItemProgressPoint[];
+}
+
+export interface ValuationProgressSeries {
+  valuationCatalogId: string;
+  snapshots: ValuationProgressSnapshot[];
+  items: ValuationItemProgress[];
+}
+
+export async function getValuationProgress(
+  catalogId: string,
+): Promise<ValuationProgressSeries | null> {
+  const res = await fetch(
+    `${apiBaseUrl()}/api/valuation-catalogs/${catalogId}/valuations/progress`,
+    { cache: "no-store" },
+  );
+  if (res.status === 404) {
+    return null;
+  }
+  if (!res.ok) {
+    throw new Error(`${res.status} ${res.statusText}`);
+  }
+  return res.json();
+}

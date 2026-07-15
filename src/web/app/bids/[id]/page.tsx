@@ -21,6 +21,7 @@ import {
   getContractor,
   getProject,
   getUnitsOfMeasure,
+  getValuationCatalog,
   getWorkPackage,
   type BidStatus,
   type BoqStatus,
@@ -102,6 +103,26 @@ export default async function BidDetailPage({
     // All units (incl. retired) so a line whose unit was later deactivated still renders its code.
     const allUnits = await getUnitsOfMeasure(true);
     const unitCode = new Map(allUnits.map((u) => [u.id, u.code]));
+
+    // The project's valuation catalog drives the per-header "mapat la: […]" control. Only active
+    // items are selectable; the current linkage is derived from the catalog side (this BoQ has no
+    // back-pointer) and keyed by section/subsection id. Absent catalog ⇒ empty list ⇒ each header
+    // shows the "Fără fișă de evaluare" hint.
+    const projectId = workPackage?.projectId ?? "";
+    const catalog = projectId ? await getValuationCatalog(projectId) : null;
+    const activeItems = catalog?.items.filter((i) => i.isActive) ?? [];
+    const catalogItems = activeItems.map((i) => ({
+      id: i.id,
+      printedNumber: i.printedNumber,
+      name: i.name,
+    }));
+    const mappedItemBySection: Record<string, string> = {};
+    for (const item of activeItems) {
+      for (const link of item.links) {
+        if (link.boqId !== boq.id) continue;
+        mappedItemBySection[link.subsectionId ?? link.sectionId] = item.id;
+      }
+    }
 
     const editable = isBoqEditable(boq.status);
     // Arrange mode: a deliberate, editable-only drag-and-drop view for reordering and moving lines.
@@ -329,6 +350,10 @@ export default async function BidDetailPage({
             editable={editable}
             displayCurrency={displayCurrency}
             ronPerEur={boq.ronPerEur}
+            projectId={projectId}
+            catalogId={catalog?.id ?? ""}
+            catalogItems={catalogItems}
+            mappedItemBySection={mappedItemBySection}
           />
         ) : null}
 

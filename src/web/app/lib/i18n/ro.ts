@@ -677,6 +677,176 @@ export const ro = {
   "trades.namePlaceholder": "Nume (ex. Zidărie, Tâmplărie)",
   "trades.codePlaceholder": "Cod scurt (opțional, ex. ELE)",
   "trades.nameExists": "Există deja o meserie cu numele „{name}”.",
+
+  // — Construction valuation (appraiser's fișă de calcul) ————————————————
+  "enum.valuationMethod.SegregatedCost": "Costuri segregate",
+  "enum.valuationCatalogStatus.Draft": "Ciornă",
+  "enum.valuationCatalogStatus.Active": "Activă",
+
+  // Entry link + hub
+  "valuation.link": "Evaluare",
+  "valuation.backToProject": "← Înapoi la proiect",
+  "valuation.title": "Evaluare construcție — {name}",
+  "valuation.subtitle":
+    "Fișa de calcul a valorii construcției întocmită de evaluatorul băncii: estimarea pe articole și maparea la secțiunile reale din devize.",
+  "valuation.empty.body":
+    "Acest proiect nu are încă o fișă de evaluare. Creeaz-o pentru a introduce estimarea evaluatorului și a o compara cu devizele reale.",
+  "valuation.create": "Creează fișa de evaluare",
+  "valuation.newTitle": "Fișă de evaluare nouă",
+  "valuation.newSubtitle":
+    "Introdu antetul raportului de evaluare. Poți adăuga articolele după creare.",
+  "valuation.editTitle": "Editează fișa de evaluare",
+  "valuation.editSubtitle": "Actualizează antetul raportului de evaluare.",
+
+  // Header block
+  "valuation.header.title": "Antet",
+  "valuation.header.method": "Metodă",
+  "valuation.header.catalogReference": "Referință catalog",
+  "valuation.header.builtArea": "Suprafață construită (mp)",
+  "valuation.header.grossFloorArea": "Suprafață desfășurată / SCD (mp)",
+  "valuation.header.usableArea": "Suprafață utilă (mp)",
+  "valuation.header.ownRegieAdjustment": "Ajustare regie proprie",
+  "valuation.header.vatRate": "Cotă TVA",
+  "valuation.header.currency": "Monedă",
+  "valuation.header.status": "Stare",
+  "valuation.actions.edit": "Editează antetul",
+  "valuation.actions.activate": "Activează",
+  "valuation.vat.title": "Modifică TVA",
+  "valuation.vat.submit": "Recalculează TVA",
+  "valuation.vat.note":
+    "Recalcularea afectează costul cu TVA al articolelor acum — nu și instantaneele deja înregistrate.",
+  "valuation.activateNote":
+    "Promovează ciorna la baza activă a proiectului.",
+
+  // Sub-navigation from the hub
+  "valuation.subnav.vsBoq": "Estimare vs. real",
+  "valuation.subnav.progress": "Progres",
+  "valuation.subnav.snapshots": "Instantanee",
+
+  // Items table
+  "valuation.items.title": "Articole",
+  "valuation.items.empty": "Niciun articol încă.",
+  "valuation.items.add": "Adaugă articol",
+  "valuation.item.col.printedNumber": "Nr. Crt.",
+  "valuation.item.col.name": "Denumire",
+  "valuation.item.col.source": "Sursă",
+  "valuation.item.col.unit": "UM",
+  "valuation.item.col.unitCost": "Cost/mpAd",
+  "valuation.item.col.weight": "Pondere",
+  "valuation.item.col.costNet": "Cost fără TVA",
+  "valuation.item.col.costGross": "Cost cu TVA",
+  "valuation.item.col.mapping": "Mapare",
+  "valuation.item.retired": "retras",
+  "valuation.item.revise": "Revizuiește",
+  "valuation.item.deactivate": "Dezactivează",
+  "valuation.item.deactivateTitle": "Dezactivezi articolul?",
+  "valuation.item.deactivateBody":
+    "Articolul „{name}” va fi retras (păstrat pentru instantanee).",
+  "valuation.item.mappingCountOne": "1 mapare",
+  "valuation.item.mappingCount": "{count} mapări",
+  "valuation.item.mappingNone": "— nemapat —",
+  "valuation.item.mappingManage": "gestionează pe devize",
+
+  // Add / revise item form
+  "valuation.item.addTitle": "Adaugă articol",
+  "valuation.item.editTitle": "Revizuiește articolul",
+  "valuation.item.field.printedNumber": "Nr. Crt. (ex. 12)",
+  "valuation.item.field.sequence": "Ordine",
+  "valuation.item.field.name": "Denumirea lucrării",
+  "valuation.item.field.source": "Sursă (ex. F.38, Deviz)",
+  "valuation.item.field.unit": "UM (ex. mp, mc, %)",
+  "valuation.item.field.unitCost": "Cost lucrare (Lei/mpAd)",
+  "valuation.item.field.weight": "Pondere în total cost",
+  "valuation.item.field.costNet": "Cost total, fără TVA",
+  "valuation.item.field.grossHint": "Costul cu TVA se calculează automat din cota TVA a fișei.",
+  "valuation.item.save": "Salvează articolul",
+
+  // Catalog header form
+  "valuation.form.catalogReference": "Referință catalog (ex. MATRIX, Fișa 38)",
+  "valuation.form.builtArea": "Suprafață construită (mp)",
+  "valuation.form.grossFloorArea": "Suprafață desfășurată / SCD (mp)",
+  "valuation.form.usableArea": "Suprafață utilă (mp)",
+  "valuation.form.ownRegieAdjustment": "Ajustare regie proprie (ex. 0,20)",
+  "valuation.form.vatRate": "Cotă TVA (%)",
+  "valuation.form.save": "Salvează fișa",
+
+  // BoQ-header mapping control
+  "valuation.map.prefix": "mapat la:",
+  "valuation.map.none": "— nemapat —",
+  "valuation.map.aria": "Mapează secțiunea la un articol de evaluare",
+  "valuation.map.noCatalog": "Fără fișă de evaluare",
+
+  // Estimate-vs-real read model
+  "valuation.vsBoq.title": "Estimare vs. real — {name}",
+  "valuation.vsBoq.subtitle":
+    "Estimarea evaluatorului (fără TVA) față de suma subtotalurilor reale din devizele mapate.",
+  "valuation.vsBoq.empty": "Niciun articol de comparat încă.",
+  "valuation.vsBoq.col.printedNumber": "Nr. Crt.",
+  "valuation.vsBoq.col.name": "Denumire",
+  "valuation.vsBoq.col.estimate": "Estimare (fără TVA)",
+  "valuation.vsBoq.col.actual": "Real BoQ (fără TVA)",
+  "valuation.vsBoq.col.variance": "Varianță",
+  "valuation.vsBoq.col.variancePct": "Varianță %",
+  "valuation.vsBoq.col.coverage": "Acoperire",
+  "valuation.vsBoq.unmapped": "— nemapat —",
+  "valuation.vsBoq.coverageGap": "acoperire parțială",
+  "valuation.vsBoq.covered": "acoperit",
+  "valuation.vsBoq.totalsTitle": "Total, pe monedă",
+  "valuation.vsBoq.totals.currency": "Monedă",
+  "valuation.vsBoq.totals.estimate": "Estimare (fără TVA)",
+  "valuation.vsBoq.totals.actual": "Real BoQ (fără TVA)",
+  "valuation.vsBoq.totals.estimateGross": "Estimare (cu TVA)",
+  "valuation.vsBoq.totals.actualGross": "Real BoQ (cu TVA)",
+  "valuation.vsBoq.mappedNote":
+    "{percent}% din valoarea estimată este mapată la devize.",
+  "valuation.vsBoq.eurEquivalent": "Echivalent în EUR (aprox.)",
+  "valuation.vsBoq.eurRate": "1 EUR = {rate} RON",
+  "valuation.vsBoq.gapsTitle": "Lacune de acoperire",
+  "valuation.vsBoq.gap.description": "Descriere",
+  "valuation.vsBoq.gap.amount": "Sumă",
+
+  // Progress read model
+  "valuation.progress.title": "Progres — {name}",
+  "valuation.progress.subtitle":
+    "Valoarea executată și rămasă pe fiecare instantaneu, din valorile înghețate la evaluare.",
+  "valuation.progress.empty": "Niciun instantaneu încă.",
+  "valuation.progress.col.assessedOn": "Data evaluării",
+  "valuation.progress.col.appraiser": "Evaluator",
+  "valuation.progress.col.completed": "Executat",
+  "valuation.progress.col.remaining": "Rămas",
+  "valuation.progress.col.completion": "% executat",
+  "valuation.progress.col.rate": "Curs (RON/EUR)",
+  "valuation.progress.col.eur": "Executat (EUR)",
+  "valuation.progress.chartTitle": "Executat vs. rămas în timp",
+  "valuation.progress.chartEmpty": "Fără date încă.",
+  "valuation.progress.rateNote":
+    "Fiecare instantaneu folosește cursul propriu fixat la data evaluării.",
+  "valuation.progress.legendCompleted": "Executat",
+  "valuation.progress.legendRemaining": "Rămas",
+
+  // Snapshots (list + frozen detail)
+  "valuation.snapshot.listTitle": "Instantanee — {name}",
+  "valuation.snapshot.subtitle":
+    "Evaluările de completare la fața locului, în ordine cronologică. Fiecare este un fapt istoric înghețat.",
+  "valuation.snapshot.empty": "Niciun instantaneu încă.",
+  "valuation.snapshot.col.assessedOn": "Data evaluării",
+  "valuation.snapshot.col.appraiser": "Evaluator",
+  "valuation.snapshot.col.items": "Articole",
+  "valuation.snapshot.col.completion": "% executat",
+  "valuation.snapshot.backToList": "← Înapoi la instantanee",
+  "valuation.snapshot.detailTitle": "Evaluare din {date}",
+  "valuation.snapshot.header.assessedOn": "Data evaluării",
+  "valuation.snapshot.header.appraiser": "Evaluator",
+  "valuation.snapshot.header.rate": "Curs valutar",
+  "valuation.snapshot.header.source": "Document sursă",
+  "valuation.snapshot.banner":
+    "Acest instantaneu reflectă fișa așa cum era la data evaluării ({date}); modificările ulterioare ale fișei nu îl afectează.",
+  "valuation.snapshot.item.name": "Denumire",
+  "valuation.snapshot.item.estimate": "Valoare estimată",
+  "valuation.snapshot.item.completionPct": "% executat",
+  "valuation.snapshot.item.completed": "Lei executați",
+  "valuation.snapshot.item.remainingPct": "% rămas",
+  "valuation.snapshot.item.remaining": "Lei rămași",
 } as const;
 
 export type RoCatalog = typeof ro;

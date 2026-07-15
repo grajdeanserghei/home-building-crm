@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { setScenarioSelection } from "@/app/cost-scenarios/actions";
 import { displayMoney, type DisplayCurrency } from "@/app/lib/format";
 import { t } from "@/app/lib/i18n";
@@ -27,7 +27,27 @@ interface ScenarioSelectionSelectProps {
  * update in place. Rendered as a client component only so the native `<select>` can
  * auto-submit on change (mirrors ProjectSwitcher).
  */
-export function ScenarioSelectionSelect({
+export function ScenarioSelectionSelect(props: ScenarioSelectionSelectProps) {
+  if (props.candidates.length === 0) {
+    return (
+      <span className={styles.muted}>{t("costScenario.noCandidates")}</span>
+    );
+  }
+
+  // Keyed by the server-derived value so a revalidation (or an external change) remounts the
+  // control with fresh optimistic state — the canonical value wins once it changes, without
+  // syncing state inside an effect.
+  return <SelectionForm key={props.selectedBidId} {...props} />;
+}
+
+/**
+ * The controlled select + its form. The select is **controlled** (not `defaultValue`): under
+ * React 19 a form bound to a server action auto-resets its fields once the action settles, which
+ * for an uncontrolled `<select>` snapped the choice back to its mount-time value until a full
+ * reload. Controlled optimistic state keeps the user's choice on screen immediately; the parent's
+ * `key` reconciles it to the server value after `revalidatePath` re-renders the page.
+ */
+function SelectionForm({
   scenarioId,
   projectId,
   workPackageId,
@@ -37,12 +57,7 @@ export function ScenarioSelectionSelect({
   ronPerEur,
 }: ScenarioSelectionSelectProps) {
   const formRef = useRef<HTMLFormElement>(null);
-
-  if (candidates.length === 0) {
-    return (
-      <span className={styles.muted}>{t("costScenario.noCandidates")}</span>
-    );
-  }
+  const [selected, setSelected] = useState(selectedBidId);
 
   return (
     <form action={setScenarioSelection} ref={formRef}>
@@ -52,8 +67,11 @@ export function ScenarioSelectionSelect({
       <select
         name="bidId"
         aria-label={t("costScenario.choosebid")}
-        defaultValue={selectedBidId}
-        onChange={() => formRef.current?.requestSubmit()}
+        value={selected}
+        onChange={(e) => {
+          setSelected(e.target.value);
+          formRef.current?.requestSubmit();
+        }}
       >
         <option value="">{t("costScenario.notIncluded")}</option>
         {candidates.map((bid) => (
