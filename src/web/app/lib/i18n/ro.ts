@@ -696,9 +696,9 @@ export const ro = {
   "valuation.backToProject": "← Înapoi la proiect",
   "valuation.title": "Evaluare construcție — {name}",
   "valuation.subtitle":
-    "Fișa de calcul a valorii construcției întocmită de evaluatorul băncii: estimarea pe articole și maparea la secțiunile reale din devize.",
+    "Fișa de calcul a valorii construcției întocmită de evaluatorul băncii: evaluarea pe articole și maparea la secțiunile reale din devize.",
   "valuation.empty.body":
-    "Acest proiect nu are încă o fișă de evaluare. Creeaz-o pentru a introduce estimarea evaluatorului și a o compara cu devizele reale.",
+    "Acest proiect nu are încă o fișă de evaluare. Creeaz-o pentru a introduce evaluarea evaluatorului și a o compara cu devizele reale.",
   "valuation.create": "Creează fișa de evaluare",
   "valuation.newTitle": "Fișă de evaluare nouă",
   "valuation.newSubtitle":
@@ -727,7 +727,7 @@ export const ro = {
     "Promovează ciorna la baza activă a proiectului.",
 
   // Sub-navigation from the hub
-  "valuation.subnav.vsBoq": "Estimare vs. real",
+  "valuation.subnav.vsBoq": "Evaluare vs. real",
   "valuation.subnav.progress": "Progres",
   "valuation.subnav.snapshots": "Instantanee",
 
@@ -785,14 +785,14 @@ export const ro = {
   "valuation.map.noCatalog": "Fără fișă de evaluare",
 
   // Estimate-vs-real read model
-  "valuation.vsBoq.title": "Estimare vs. real — {name}",
+  "valuation.vsBoq.title": "Evaluare vs. real — {name}",
   "valuation.vsBoq.subtitle":
-    "Estimarea evaluatorului (fără TVA) față de suma subtotalurilor reale din devizele mapate.",
+    "Evaluarea evaluatorului (cu TVA) față de suma subtotalurilor reale din devizele mapate.",
   "valuation.vsBoq.empty": "Niciun articol de comparat încă.",
   "valuation.vsBoq.col.printedNumber": "Nr. Crt.",
   "valuation.vsBoq.col.name": "Denumire",
-  "valuation.vsBoq.col.estimate": "Estimare (fără TVA)",
-  "valuation.vsBoq.col.actual": "Real BoQ (fără TVA)",
+  "valuation.vsBoq.col.estimate": "Evaluare (cu TVA)",
+  "valuation.vsBoq.col.actual": "Real BoQ (cu TVA)",
   "valuation.vsBoq.col.variance": "Varianță",
   "valuation.vsBoq.col.variancePct": "Varianță %",
   "valuation.vsBoq.col.coverage": "Acoperire",
@@ -801,20 +801,18 @@ export const ro = {
   "valuation.vsBoq.covered": "acoperit",
   "valuation.vsBoq.totalsTitle": "Total, pe monedă",
   "valuation.vsBoq.totals.currency": "Monedă",
-  "valuation.vsBoq.totals.estimate": "Estimare (fără TVA)",
-  "valuation.vsBoq.totals.actual": "Real BoQ (fără TVA)",
-  "valuation.vsBoq.totals.estimateGross": "Estimare (cu TVA)",
-  "valuation.vsBoq.totals.actualGross": "Real BoQ (cu TVA)",
+  "valuation.vsBoq.totals.estimate": "Evaluare (cu TVA)",
+  "valuation.vsBoq.totals.actual": "Real BoQ (cu TVA)",
   "valuation.vsBoq.mappedNote":
-    "{percent}% din valoarea estimată este mapată la devize.",
+    "{percent}% din valoarea evaluată este mapată la devize.",
   "valuation.vsBoq.eurEquivalent": "Echivalent în EUR (aprox.)",
   "valuation.vsBoq.eurRate": "1 EUR = {rate} RON",
   "valuation.vsBoq.gapsTitle": "Lacune de acoperire",
   "valuation.vsBoq.gap.description": "Descriere",
   "valuation.vsBoq.gap.amount": "Sumă",
-  "valuation.vsBoq.scenarioCardTitle": "Estimare vs. real (acest scenariu)",
+  "valuation.vsBoq.scenarioCardTitle": "Evaluare vs. real (acest scenariu)",
   "valuation.vsBoq.scenarioCardSubtitle":
-    "Estimarea evaluatorului față de devizele alese în acest scenariu — câte un deviz per lot.",
+    "Evaluarea evaluatorului față de devizele alese în acest scenariu — câte un deviz per lot.",
   "valuation.vsBoq.scenarioCardEmpty":
     "Niciun catalog de evaluare pentru acest proiect încă, sau scenariul nu are devize alese.",
 
@@ -855,7 +853,7 @@ export const ro = {
   "valuation.snapshot.banner":
     "Acest instantaneu reflectă fișa așa cum era la data evaluării ({date}); modificările ulterioare ale fișei nu îl afectează.",
   "valuation.snapshot.item.name": "Denumire",
-  "valuation.snapshot.item.estimate": "Valoare estimată",
+  "valuation.snapshot.item.estimate": "Valoare evaluată",
   "valuation.snapshot.item.completionPct": "% executat",
   "valuation.snapshot.item.completed": "Lei executați",
   "valuation.snapshot.item.remainingPct": "% rămas",
