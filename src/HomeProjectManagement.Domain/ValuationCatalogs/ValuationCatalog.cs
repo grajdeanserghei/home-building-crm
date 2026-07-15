@@ -227,9 +227,14 @@ public sealed class ValuationCatalog : AggregateRoot<ValuationCatalogId>
     }
 
     /// <summary>
-    /// Map a catalog item to a BoQ section/subsection. Enforces the <b>no-double-count</b> invariant: the
-    /// same <c>(boqId, sectionId, subsectionId)</c> triple may be linked to at most one item across the
-    /// whole catalog. Whether the link points at a real BoQ section is the application service's check.
+    /// Map a catalog item to a BoQ section/subsection. Enforces two invariants across the whole catalog:
+    /// <b>no-double-count</b> — the same <c>(boqId, sectionId, subsectionId)</c> triple may be linked to at
+    /// most one item; and <b>granularity exclusivity</b> — for one <c>(boqId, sectionId)</c>, a whole-section
+    /// link (<c>subsectionId == null</c>) and its subsection links are mutually exclusive, so a section is
+    /// mapped either as a whole (covering all its subsections) or subsection-by-subsection, never both. Both
+    /// are checkable from the link tuples alone because a subsection link carries its parent
+    /// <c>sectionId</c>. Whether the link points at a real BoQ section — and that a subsection link carries
+    /// that subsection's <b>actual</b> parent section — is the application service's responsibility.
     /// </summary>
     public bool LinkBoqSection(ValuationCatalogItemId itemId, ValuationItemLink link)
     {
@@ -259,8 +264,39 @@ public sealed class ValuationCatalog : AggregateRoot<ValuationCatalogId>
                 });
         }
 
+        EnsureGranularityConsistent(link);
+
         item.AddLink(link);
         return true;
+    }
+
+    // A section is mapped either as a whole or subsection-by-subsection, never both: for one
+    // (boqId, sectionId), a whole-section link and any subsection link under it cannot coexist across the
+    // catalog. To switch granularity, unlink first. Enforced here — the root sees every item's links.
+    private void EnsureGranularityConsistent(ValuationItemLink link)
+    {
+        var siblings = _items
+            .SelectMany(i => i.Links)
+            .Where(l => l.BoqId == link.BoqId && l.SectionId == link.SectionId);
+
+        var conflicts = link.SubsectionId is null
+            ? siblings.Any(l => l.SubsectionId is not null)   // mapping the whole section, but a subsection is mapped
+            : siblings.Any(l => l.SubsectionId is null);      // mapping a subsection, but the whole section is mapped
+
+        if (conflicts)
+        {
+            throw new DomainConflictException(
+                link.SubsectionId is null
+                    ? "This BoQ section has subsections mapped individually; unmap them before mapping the whole section."
+                    : "This BoQ section is mapped as a whole; unmap the section before mapping its subsections individually.",
+                code: "ValuationLinkGranularityConflict",
+                parameters: new Dictionary<string, object?>
+                {
+                    ["boqId"] = link.BoqId.Value,
+                    ["sectionId"] = link.SectionId.Value,
+                    ["subsectionId"] = link.SubsectionId?.Value
+                });
+        }
     }
 
     /// <summary>Remove a BoQ mapping from an item. Returns false if the item or the link is absent.</summary>

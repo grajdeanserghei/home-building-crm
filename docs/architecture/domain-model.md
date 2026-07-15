@@ -384,9 +384,12 @@ deleted, because snapshots reference it by id.
 (`{ boqId, sectionId, subsectionId? }`) — no identity of its own; whole links are added and
 removed. Like `Section → ScopeItem`, it is a **loose** cross-aggregate id reference into the
 BoQ aggregate, validated by the **application service**, not an EF navigation; a deleted BoQ
-section simply drops out of the rollup. The **no-double-count** invariant (each BoQ section
-linked to at most one catalog item) is enforced by the Valuation Catalog root, which alone
-sees every item's links.
+section simply drops out of the rollup. A subsection link **always carries that subsection's
+actual parent `sectionId`** (the application service populates it), which lets the root enforce
+both link invariants — **no double-counting** (each BoQ section linked to at most one catalog
+item) and **granularity exclusivity** (a section is mapped either as a whole or
+subsection-by-subsection, never both) — from the link tuples alone, without consulting the BoQ.
+The Valuation Catalog root alone sees every item's links, so it is where both are enforced.
 
 **Construction Valuation Item** is a **local entity inside the Construction Valuation
 aggregate** — one assessed row, holding a `valuationCatalogItemId` **by id** plus values
@@ -440,8 +443,14 @@ needs it, it appears only as a `UserId` value in audit fields (e.g. *created by*
   Package references it (deactivate via `isActive` instead).
 - **Valuation Catalog** — **at most one per Project** (unique index on `projectId`);
   owns its items; VAT rate lives here and, when changed, its items' `totalCostWithVat`
-  is recomputed. Within the catalog, each `(boqId, sectionId, subsectionId)` link points
-  at **at most one** Valuation Catalog Item (no double-counting).
+  is recomputed. Two link invariants hold across the whole catalog: **no double-counting** —
+  each `(boqId, sectionId, subsectionId)` link points at **at most one** item; and
+  **granularity exclusivity** — for one `(boqId, sectionId)`, a whole-section link
+  (`subsectionId = null`) and its subsection links are **mutually exclusive**, so a section
+  is mapped either as a whole (implicitly covering every subsection and direct line) or
+  subsection-by-subsection, never both. Both are checkable from the link tuples alone because
+  a subsection link carries its parent `sectionId`; switching granularity requires unlinking
+  first.
 - **Valuation Catalog Item** — belongs to exactly one Valuation Catalog; retired via
   `isActive` rather than deleted (snapshots reference it). Each BoQ link is validated by
   the application service to point at an existing BoQ section/subsection.

@@ -11,9 +11,13 @@ namespace HomeProjectManagement.Domain.ValuationCatalogs;
 /// <remarks>
 /// The three ids reference the <see cref="BillOfQuantities"/> aggregate <b>loosely by id</b> (no EF
 /// navigation). Validating that they point at an existing BoQ section/subsection is the application
-/// service's job; a deleted section simply drops out of the read-time rollup. The <b>no-double-count</b>
-/// invariant (each triple linked to at most one catalog item) is enforced by the <see cref="ValuationCatalog"/>
-/// root — the only place that sees every item's links — using this type's value equality.
+/// service's job; a deleted section simply drops out of the read-time rollup. A subsection link
+/// <b>always carries that subsection's actual parent <see cref="SectionId"/></b> (the application service
+/// populates it) — which is what lets the <see cref="ValuationCatalog"/> root enforce the
+/// <b>granularity-exclusivity</b> invariant (a section is mapped either as a whole or subsection-by-
+/// subsection, never both) from the link tuples alone, without consulting the BoQ. The
+/// <b>no-double-count</b> invariant (each triple linked to at most one catalog item) is likewise enforced
+/// by the root — the only place that sees every item's links — using this type's value equality.
 /// </remarks>
 public sealed class ValuationItemLink : ValueObject
 {

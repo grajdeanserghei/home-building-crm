@@ -32,7 +32,7 @@ The owners want two things this enables:
 - [ ] Store the appraiser's itemized estimate for a project: each item's name, unit (as printed), catalog source (`F.38`/`Deviz`/…), unit cost per built area, cost weight, and total value with/without VAT.
 - [ ] Store the report header: valuation method, catalog reference, surfaces (built / gross-floor (SCD) / usable), own-regie adjustment, VAT rate, currency (RON).
 - [ ] **One `ValuationCatalog` per project** (the baseline), editable in place.
-- [ ] Map each catalog item to zero or more **BoQ `(BoqId, Section, Subsection?)`** targets, with **no BoQ section linked to more than one item** (no double-counting).
+- [ ] Map each catalog item to zero or more **BoQ `(BoqId, Section, Subsection?)`** targets, with **no BoQ section linked to more than one item** (no double-counting) and **a section mapped either as a whole or subsection-by-subsection, never both** (granularity exclusivity).
 - [ ] Record **many dated `ConstructionValuation` snapshots** against that catalog, each capturing per item: the appraiser's completion %, and the completed/remaining values (with & without VAT).
 - [ ] A snapshot is a **frozen historical fact**: its item values are computed **once at capture** and never recomputed on read; later catalog edits do not alter past snapshots.
 - [ ] Idempotent import of a snapshot document (agent-parsed; the server never parses the file), keyed by a content hash — the same way BoQ ingestion works.
@@ -66,7 +66,12 @@ Owns a flat list of **`ValuationCatalogItem`** (local entities):
 
 **VAT** lives on the catalog. `ChangeVatRate(rate)` loops the items and recomputes each `totalCostWithVat` — a **write-time** recompute on current state. It does **not** touch existing snapshots.
 
-**Mapping invariant:** within a catalog, each `(boqId, sectionId, subsectionId)` triple is linked to **at most one** item — enforced by the root (only the root sees all items' links), so no BoQ section is double-counted across appraiser items.
+**Mapping invariants** (both enforced by the root — only it sees every item's links):
+
+- **No double-counting** — each `(boqId, sectionId, subsectionId)` triple is linked to **at most one** item.
+- **Granularity exclusivity** — for one `(boqId, sectionId)`, a whole-section link (`subsectionId == null`) and its subsection links are **mutually exclusive**. A section is therefore mapped *either* as a whole — implicitly covering every subsection and direct line — *or* subsection-by-subsection (each subsection to any item), never both. Switching granularity requires unlinking first.
+
+Both are checkable from the link tuples alone because a **subsection link stores that subsection's actual parent `sectionId`**. Populating that real parent section is the application service's job when it validates the link against the BoQ (the same loose-reference pattern as `Section → ScopeItem`) — the domain then needs no BoQ lookup.
 
 ### Aggregate `ConstructionValuation` (a dated snapshot; many per catalog)
 
@@ -107,7 +112,7 @@ Owns a flat list of **`ConstructionValuationItem`** (local entities), every mone
 
 Two cross-aggregate read-only queries (the domain holds only ids; money is composed at read time — the same pattern as `ProjectBudgetQuery` / `CostScenarioQuery`):
 
-- **`ValuationVsBoqQuery`** (catalog-scoped, **live**): per catalog item, `totalCostWithoutVat` (estimate) vs. Σ of each linked `boq.SubtotalOf(section/subsection)`, each scaled by `boq.Multiplier(apartmentUnits)` and converted to RON via a supplied/pinned rate. **Net-to-net** (col G is VAT-exclusive; use `SubtotalOf`, not `SubtotalWithVatOf`); VAT-inclusive figures only at the project footer. Variance = actual − estimate (absolute + %). Items with no links (the `%` catch-alls — *Alte lucrări de construcții*, *Alte instalații comune*, *Diverse, organizare, proiectare*) are reported as **coverage gaps** ("X% of estimated value is mapped"), not as −100% variance.
+- **`ValuationVsBoqQuery`** (catalog-scoped, **live**): per catalog item, `totalCostWithoutVat` (estimate) vs. Σ of each linked `boq.SubtotalOf(section/subsection)`, each scaled by `boq.Multiplier(apartmentUnits)` and converted to RON via a supplied/pinned rate. **Net-to-net** (col G is VAT-exclusive; use `SubtotalOf`, not `SubtotalWithVatOf`); VAT-inclusive figures only at the project footer. Variance = actual − estimate (absolute + %). Because `SubtotalOf(sectionId)` already includes a section's direct lines *and* every subsection, a **whole-section** link gives full coverage, while **subsection** links cover only those subsections — any lines held **directly** in that section (not in a subsection) are covered by no link and must surface as a **coverage gap**, not silently vanish. Items with no links at all (the `%` catch-alls — *Alte lucrări de construcții*, *Alte instalații comune*, *Diverse, organizare, proiectare*) are likewise reported as coverage gaps ("X% of estimated value is mapped"), not as −100% variance.
 - **`ValuationProgressQuery`** (snapshot-scoped, **frozen**): completed/remaining per item and project totals from a snapshot's stored values; and the same grouped by `valuationCatalogItemId` **across snapshots** for a progress chart.
 
 Mutations go through app services that load via a repository port, invoke domain behaviour, and commit through the unit of work: `ValuationCatalogAppService` (create/edit catalog, add/revise/deactivate items, change VAT, link/unlink BoQ sections) and `ConstructionValuationAppService` (import/capture a snapshot idempotently, list). Snapshot capture reads the current catalog items' totals, freezes the derived values, and stores them.
