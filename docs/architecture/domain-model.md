@@ -36,6 +36,10 @@ map onto them cleanly.
 | **Line item** | _articol de deviz_ | A single priced row within a section **or a subsection**: description, quantity, unit, net unit price, VAT rate (21% by default), and derived net/gross totals. |
 | **Unit of measure** | _unitate de măsură_ | A canonical unit used by line items (m³, m², m, pcs, kg, hrs). Controlled reference vocabulary. |
 | **Trade** | _meserie / specializare_ | A category of specialized construction work (e.g. Zidarie/masonry, Electrice/electrical, Interioare/interior finishing). A **controlled reference vocabulary** — project-independent and reused across all contractors and work packages. A **Contractor** is tagged with the trades it performs (to filter "show all masonry contractors"); a **Work Package** is tagged with the trades it requires (to match capable contractors to it). Distinct from a Work Package, which is *one project's* procurement unit, not a reusable classification. |
+| **Valuation Catalog** | _fișă de calcul a valorii construcției_ | The bank appraiser's itemized construction estimate for a project (segregated-cost method), **one per project**: each work item priced from a standard catalog (fișa nr. 38), plus the mapping of each item to the owners' real BoQ sections. The slow-moving baseline — distinct from a contractor's `deviz` (which is *real* cost) and from the dated completion assessments hung off it. |
+| **Valuation Catalog Item** | _lucrare (rând în fișă)_ | One priced row of the valuation catalog: name, unit (as printed), catalog source (F.38/Deviz), cost weight, and total value with/without VAT. Owns the **BoQ links** that map it to the owners' real quote sections. |
+| **Construction Valuation** | _evaluare / vizită de evaluare_ | A **dated snapshot** of the appraiser's on-site completion assessment against a Valuation Catalog — "on this visit, item X is 40% done". Many per catalog; a **frozen historical fact** whose values never recompute. |
+| **Valuation item link** | — | A mapping from a Valuation Catalog Item to one BoQ `(section / subsection)`, so the owners' real costs roll up per appraiser item. A BoQ section maps to **at most one** catalog item (no double-counting). |
 | **User / Stakeholder** | — | One of the four people who may access the tool. Handled by authentication; an identity/access concern rather than part of the costing domain. |
 
 ## Entities and relationships
@@ -214,6 +218,11 @@ item is its subtotal within the contractor's **BoQ**.
 | Line item | Unit of measure | many-to-one | Each line item references one canonical unit. |
 | Contractor | Trade | many-to-many | A contractor performs zero or more trades; enables filtering contractors by type of work. References the shared `Trade` vocabulary by id. |
 | Work Package | Trade | many-to-many | A work package requires zero or more trades; enables matching capable contractors to it. References the same `Trade` vocabulary by id. |
+| Project | Valuation Catalog | one-to-zero-or-one | A project has at most one appraiser valuation catalog (the estimate baseline). |
+| Valuation Catalog | Valuation Catalog Item | one-to-many | A catalog is the appraiser's itemized list of works. |
+| Valuation Catalog Item | Bill of Quantities (Section/Subsection) | many-to-many | A catalog item maps to the owners' real BoQ sections/subsections; each BoQ section maps to at most one catalog item (loose id references, no double-counting). |
+| Valuation Catalog | Construction Valuation | one-to-many | A catalog accumulates many dated completion-assessment snapshots. |
+| Construction Valuation | Construction Valuation Item | one-to-many | A snapshot holds one frozen assessed row per catalog item (by id). |
 
 ### Hierarchy at a glance
 
@@ -324,6 +333,8 @@ applied here:
 | **Unit of Measure** | — | — | Shared, managed reference vocabulary referenced by line items. |
 | **Trade** | — | — | Shared, managed reference vocabulary referenced (by id) from Contractor and Work Package. Project-independent classification of construction work. |
 | **Cost Scenario** | Scenario selection | Project, (per selection) Work Package + Bid | A saved "what-if" cost combination — for each work package a chosen bid whose BoQ supplies the cost. Its own lifecycle (named, edited, deleted) independent of the bids it references; loaded and edited as a whole. Holds only ids — the cost is computed at read time from the chosen bids' BoQs. |
+| **Valuation Catalog** | Valuation Catalog Item (which owns Valuation item links) | Project, (per link) BoQ Section/Subsection | The appraiser's itemized estimate + the mapping to real BoQ sections; **one per project**, edited as a whole. Slow-moving baseline referenced by id from every snapshot, so it must be a root. Holds only ids for the BoQ links; the estimate-vs-real comparison is computed at read time. |
+| **Construction Valuation** | Construction Valuation Item | Valuation Catalog, (per item) Valuation Catalog Item | A dated site-visit completion snapshot. Independent lifecycle (captured, listed); loaded as a whole. A **frozen historical fact** — its item values are computed once at capture and never recomputed, so catalog edits don't rewrite past assessments. |
 
 **Section**, **Subsection**, and **Line item** are **local entities inside the Bill
 of Quantities aggregate** — they have identity *within* the BoQ but are never
@@ -363,6 +374,27 @@ current priced BoQ (the same read-only, cross-aggregate composition the project 
 uses). Cross-aggregate validity (the work package belongs to the scenario's project, the
 bid belongs to that work package) is checked by the **application service**, mirroring how
 other cross-aggregate parents are validated.
+
+**Valuation Catalog Item** is a **local entity inside the Valuation Catalog aggregate** —
+one priced row of the appraiser's estimate, created/revised/retired with its catalog. It
+owns its **Valuation item links**. It is retired via `isActive` (like `Trade`) rather than
+deleted, because snapshots reference it by id.
+
+**Valuation item link** is a **value object inside the Valuation Catalog aggregate**
+(`{ boqId, sectionId, subsectionId? }`) — no identity of its own; whole links are added and
+removed. Like `Section → ScopeItem`, it is a **loose** cross-aggregate id reference into the
+BoQ aggregate, validated by the **application service**, not an EF navigation; a deleted BoQ
+section simply drops out of the rollup. The **no-double-count** invariant (each BoQ section
+linked to at most one catalog item) is enforced by the Valuation Catalog root, which alone
+sees every item's links.
+
+**Construction Valuation Item** is a **local entity inside the Construction Valuation
+aggregate** — one assessed row, holding a `valuationCatalogItemId` **by id** plus values
+**denormalized and frozen at capture** (name, estimate, completed/remaining). The id is kept
+only to group the same item across snapshots and to reach its BoQ links; every displayable
+figure is copied so a snapshot renders without joining the (mutable) catalog. It computes
+**nothing** on read — the deliberate asymmetry with a Valuation Catalog Item, whose
+`totalCostWithVat` *is* recomputed when the catalog's VAT rate changes.
 
 **Trade** is a **standalone reference aggregate**, modelled exactly like
 `UnitOfMeasure`: a small controlled vocabulary (seeded, admin-extendable, retired
@@ -406,6 +438,16 @@ needs it, it appears only as a `UserId` value in audit fields (e.g. *created by*
   trade; each must point at an existing, validated Trade). The set may be empty.
 - **Trade** — unique canonical name; cannot be deleted while any Contractor or Work
   Package references it (deactivate via `isActive` instead).
+- **Valuation Catalog** — **at most one per Project** (unique index on `projectId`);
+  owns its items; VAT rate lives here and, when changed, its items' `totalCostWithVat`
+  is recomputed. Within the catalog, each `(boqId, sectionId, subsectionId)` link points
+  at **at most one** Valuation Catalog Item (no double-counting).
+- **Valuation Catalog Item** — belongs to exactly one Valuation Catalog; retired via
+  `isActive` rather than deleted (snapshots reference it). Each BoQ link is validated by
+  the application service to point at an existing BoQ section/subsection.
+- **Construction Valuation** — belongs to exactly one Valuation Catalog; its item values
+  are **frozen at capture** and never recomputed on read (later catalog edits do not alter
+  a past snapshot). Import is idempotent by `sourceContentHash`.
 
 ### Cross-aggregate consistency
 
@@ -420,6 +462,14 @@ eventual consistency):
   contract per work package" rule is additionally guarded by a unique constraint
   on `Contract.workPackageId`; "one bid per work-package/contractor pair" by a
   unique constraint on `Bid (workPackageId, contractorId)`.
+- **Estimate vs. real cost / capturing a snapshot**: read-only, cross-aggregate
+  compositions coordinated by an application query (the same pattern as the project
+  budget and cost-scenario rollups). *Estimate vs. real* resolves each Valuation Catalog
+  Item's BoQ links to live `BillOfQuantities.SubtotalOf(section/subsection)` figures,
+  scales per-apartment BoQs by their multiplier, and converts to RON — **net-to-net**
+  against the item's VAT-exclusive estimate. *Capturing a snapshot* reads the current
+  catalog items' totals, freezes each derived completed/remaining value, and stores them
+  on the new **Construction Valuation**. Neither spans a write across two roots.
 
 > One deliberate judgement call: **Contract is its own root** rather than an
 > entity inside Work Package. The trade-off is that awarding spans two aggregates
@@ -476,6 +526,8 @@ authentication context, not a domain entity.
 | **BoqStatus** | Draft, Submitted, Accepted, Rejected, Withdrawn |
 | **ContractStatus** | Draft, Signed, Active, Completed, Terminated |
 | **UnitCategory** | Length, Area, Volume, Mass, Count, Time, Other |
+| **ValuationMethod** | SegregatedCost |
+| **ValuationCatalogStatus** | Draft, Active |
 
 ### Project
 
@@ -642,6 +694,71 @@ authentication context, not a domain entity.
 | name | string | Canonical trade name, unique (e.g. "Zidarie"). Displayed in Romanian. |
 | code | string | Optional short code. |
 | isActive | bool | Retire a trade without deleting it. |
+
+### Valuation Catalog
+
+| Attribute | Type | Notes |
+| --- | --- | --- |
+| id | ValuationCatalogId | Identity (aggregate root). |
+| projectId | ProjectId | Owning project (by id). **Unique** — one catalog per project. |
+| method | ValuationMethod | The appraisal method (`SegregatedCost`). |
+| catalogReference | string | The standard-catalog basis, e.g. "MATRIX, Fișa 38". |
+| status | ValuationCatalogStatus | Draft / Active. |
+| currency | string | Pricing currency of the estimate (RON). |
+| vatRate | VatRate | Report VAT (21%); changing it recomputes each item's `totalCostWithVat`. |
+| builtArea | decimal | Suprafață Construită (mp). |
+| grossFloorArea | decimal | Suprafață Construită Desfășurată / SCD (mp). |
+| usableArea | decimal | Suprafață Utilă (mp). |
+| ownRegieAdjustment | decimal | Ajustare regie proprie (e.g. 0.20). Provenance. |
+| items | ValuationCatalogItem[] | Internal entities (the priced rows). |
+
+### Valuation Catalog Item (inside Valuation Catalog)
+
+| Attribute | Type | Notes |
+| --- | --- | --- |
+| id | ValuationCatalogItemId | Local identity within the Valuation Catalog aggregate. |
+| sequence | int | Stable display order. |
+| printedNumber | string | The appraiser's printed *Nr. Crt.* verbatim (quirks preserved, e.g. duplicated "25"). |
+| name | string | Denumirea lucrării (e.g. "Beton armat în structură"). |
+| unit | string | UM as printed (**raw text** — `mc`/`mp`/`ml`/`kg`, or lump-sum markers `%`/`lei`); not the `UnitOfMeasure` vocabulary. |
+| catalogSource | string | Sursa / Nr. Fișă (`F.38`, `Deviz`, `F.26`, `F.24`). |
+| costWeight | decimal | Pondere în total cost. |
+| unitCostPerBuiltArea | Money | Cost lucrare (Lei/mpAd). |
+| totalCostWithoutVat | Money | Cost total, fără TVA (col G) — the estimate. |
+| totalCostWithVat | Money | Stored; recomputed when the catalog VAT rate changes. |
+| isActive | bool | Retire without deleting (snapshots reference it). |
+| links | ValuationItemLink[] | Owned value objects `{ boqId, sectionId, subsectionId? }` — the BoQ mapping. |
+
+### Construction Valuation
+
+| Attribute | Type | Notes |
+| --- | --- | --- |
+| id | ConstructionValuationId | Identity (aggregate root). |
+| valuationCatalogId | ValuationCatalogId | The catalog this snapshot assesses (by id). |
+| assessedOn | date | The site-visit / assessment date. |
+| appraiser | string | Appraiser name/firm. Optional. |
+| exchangeRate | ExchangeRate | RON/EUR pinned for this report (moves between visits). |
+| sourceDocument | DocumentReference | The report (agent-provided). Optional. |
+| sourceContentHash | string | SHA-256 for idempotent import. Optional. |
+| items | ConstructionValuationItem[] | Internal entities (frozen assessed rows). |
+
+### Construction Valuation Item (inside Construction Valuation)
+
+All money values are **computed once at capture, then frozen** — never recomputed on read.
+
+| Attribute | Type | Notes |
+| --- | --- | --- |
+| id | ConstructionValuationItemId | Local identity within the Construction Valuation aggregate. |
+| valuationCatalogItemId | ValuationCatalogItemId | The catalog item assessed (by id) — for grouping across snapshots & reaching its BoQ links. |
+| name | string | Denormalized from the catalog item at capture. |
+| estimatedValueWithoutVat | Money | Catalog `totalCostWithoutVat` at capture (frozen). |
+| estimatedValueWithVat | Money | Catalog `totalCostWithVat` at capture (frozen). |
+| completionPercentage | decimal | % executat (col H, appraiser's number). |
+| completedValueWithoutVat | Money | col I (frozen). |
+| completedValueWithVat | Money | col I incl. VAT (frozen). |
+| remainingPercentage | decimal | % rămas (col J = 1 − H, frozen). |
+| remainingValueWithoutVat | Money | col K (frozen). |
+| remainingValueWithVat | Money | col K incl. VAT (frozen). |
 
 ## Open questions
 
