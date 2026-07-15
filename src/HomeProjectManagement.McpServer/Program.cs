@@ -41,6 +41,9 @@ var authEnabled = builder.AddMcpResourceServerAuthentication();
 
 var app = builder.Build();
 
+// Stamp the logs with the running build (also exported as the `service.version` telemetry attribute).
+app.LogApplicationVersion();
+
 app.MapDefaultEndpoints();
 
 if (authEnabled)

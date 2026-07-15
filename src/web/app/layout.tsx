@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Nav } from "./components/Nav";
+import { Footer } from "./components/Footer";
 import { t } from "./lib/i18n";
 import "./globals.css";
 
@@ -30,6 +31,7 @@ export default function RootLayout({
       <body suppressHydrationWarning>
         <Nav />
         {children}
+        <Footer />
       </body>
     </html>
   );

@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.ServiceDiscovery;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 
 namespace Microsoft.Extensions.Hosting;
@@ -53,6 +54,14 @@ public static class Extensions
         });
 
         builder.Services.AddOpenTelemetry()
+            // Tag every trace/metric/log with the running version (see AppVersion). This
+            // surfaces as `service.version` in the Aspire dashboard and any OTLP backend,
+            // so telemetry is attributable to a specific build. AddAttributes (not
+            // AddService) avoids overriding the service.name Aspire injects.
+            .ConfigureResource(resource => resource.AddAttributes(
+            [
+                new KeyValuePair<string, object>("service.version", AppVersion.Current),
+            ]))
             .WithMetrics(metrics =>
             {
                 metrics.AddAspNetCoreInstrumentation()
@@ -104,6 +113,19 @@ public static class Extensions
             .AddCheck("self", () => HealthCheckResult.Healthy(), ["live"]);
 
         return builder;
+    }
+
+    // Logs the running version once at startup, so every service's logs open with an
+    // attributable build stamp (complements the `service.version` telemetry attribute).
+    public static WebApplication LogApplicationVersion(this WebApplication app)
+    {
+        app.Logger.LogInformation(
+            "Starting {Application} version {Version} ({Environment})",
+            app.Environment.ApplicationName,
+            AppVersion.Current,
+            app.Environment.EnvironmentName);
+
+        return app;
     }
 
     public static WebApplication MapDefaultEndpoints(this WebApplication app)

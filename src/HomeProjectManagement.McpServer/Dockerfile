@@ -25,6 +25,13 @@ RUN dotnet publish src/HomeProjectManagement.McpServer/HomeProjectManagement.Mcp
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
 COPY --from=build /app ./
+# Version stamp for startup logging + the `service.version` telemetry attribute. Passed by
+# scripts/build-and-push.sh as build-args (APP_VERSION = release semver, GIT_SHA = git
+# short-SHA) and read at startup via ServiceDefaults' AppVersion. Empty → resolves to "dev".
+ARG APP_VERSION=""
+ARG GIT_SHA=""
+ENV APP_VERSION=$APP_VERSION
+ENV GIT_SHA=$GIT_SHA
 ENV ASPNETCORE_HTTP_PORTS=8080
 EXPOSE 8080
 # Run as the non-root user provided by the base image.
