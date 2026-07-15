@@ -39,11 +39,14 @@ public sealed record ValuationVsBoqItemDto(
     decimal? VariancePercentage,
     IReadOnlyList<ValuationVsBoqLinkDto> Links);
 
-/// <summary>One mapping's contribution to an item's actual cost (converted + scaled to the whole build).</summary>
+/// <summary>One mapping's contribution to an item's actual cost (converted + scaled to the whole build).
+/// <see cref="LineItemId"/> set is a line-level mapping; else <see cref="SubsectionId"/> a subsection-level
+/// one; else the whole section.</summary>
 public sealed record ValuationVsBoqLinkDto(
     Guid BoqId,
     Guid SectionId,
     Guid? SubsectionId,
+    Guid? LineItemId,
     bool BoqResolved,
     MoneyDto Contribution);
 

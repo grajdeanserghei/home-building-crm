@@ -211,13 +211,18 @@ export async function deactivateValuationCatalogItem(formData: FormData) {
   revalidatePath(`/projects/${projectId}/valuation`);
 }
 
-// POST a link/unlink for one catalog item and a (boqId, sectionId, subsectionId?) target
-// (LinkBoqSectionCommand). The item id is in the route, so unlink needs the item that currently
-// holds the target.
+// POST a link/unlink for one catalog item and a (boqId, sectionId, subsectionId?, lineItemId?)
+// target (LinkBoqSectionCommand). The item id is in the route, so unlink needs the item that
+// currently holds the target.
 async function postLink(
   catalogId: string,
   itemId: string,
-  target: { boqId: string; sectionId: string; subsectionId: string | null },
+  target: {
+    boqId: string;
+    sectionId: string;
+    subsectionId: string | null;
+    lineItemId: string | null;
+  },
   remove: boolean,
 ): Promise<Response> {
   const suffix = remove ? "/links/remove" : "/links";
@@ -231,19 +236,21 @@ async function postLink(
   );
 }
 
-// Map (or clear) the item behind a BoQ (boqId, sectionId, subsectionId?) triple. Bound to the
-// auto-submitting select on the BoQ header:
-//   - a chosen itemId links it (unlinking whatever item previously held the triple first, since
+// Map (or clear) the item behind a BoQ (boqId, sectionId, subsectionId?, lineItemId?) target.
+// Bound to the auto-submitting select on the BoQ section/subsection header or a single line:
+//   - a chosen itemId links it (unlinking whatever item previously held the target first, since
 //     the domain rejects double-mapping — this gives replace-on-change);
-//   - an empty itemId clears the current item's link for that triple.
-// The invariants (no-double-count, granularity exclusivity) are enforced by the backend. We
-// refresh the bid's BoQ page (the selects), the valuation hub and the comparison read model.
+//   - an empty itemId clears the current item's link for that target.
+// The invariants (no-double-count, granularity exclusivity across Section ⊃ Subsection ⊃ Line)
+// are enforced by the backend. We refresh the bid's BoQ page (the selects), the valuation hub
+// and the comparison read model.
 export async function setValuationLink(formData: FormData) {
   const projectId = formData.get("projectId") as string;
   const catalogId = formData.get("catalogId") as string;
   const boqId = formData.get("boqId") as string;
   const sectionId = formData.get("sectionId") as string;
   const subsectionId = (formData.get("subsectionId") as string)?.trim() || null;
+  const lineItemId = (formData.get("lineItemId") as string)?.trim() || null;
   const itemId = (formData.get("itemId") as string)?.trim();
   const currentItemId = (formData.get("currentItemId") as string)?.trim();
   const bidId = (formData.get("bidId") as string)?.trim();
@@ -251,7 +258,7 @@ export async function setValuationLink(formData: FormData) {
   // No change (re-selected the same item) — nothing to do.
   if (itemId === currentItemId) return;
 
-  const target = { boqId, sectionId, subsectionId };
+  const target = { boqId, sectionId, subsectionId, lineItemId };
 
   // Replace-on-change: drop the triple's previous owner before linking the new item (the domain
   // rejects mapping a triple that another item already holds).

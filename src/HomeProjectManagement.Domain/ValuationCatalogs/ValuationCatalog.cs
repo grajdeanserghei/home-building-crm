@@ -227,14 +227,16 @@ public sealed class ValuationCatalog : AggregateRoot<ValuationCatalogId>
     }
 
     /// <summary>
-    /// Map a catalog item to a BoQ section/subsection. Enforces two invariants across the whole catalog:
-    /// <b>no-double-count</b> — the same <c>(boqId, sectionId, subsectionId)</c> triple may be linked to at
-    /// most one item; and <b>granularity exclusivity</b> — for one <c>(boqId, sectionId)</c>, a whole-section
-    /// link (<c>subsectionId == null</c>) and its subsection links are mutually exclusive, so a section is
-    /// mapped either as a whole (covering all its subsections) or subsection-by-subsection, never both. Both
-    /// are checkable from the link tuples alone because a subsection link carries its parent
-    /// <c>sectionId</c>. Whether the link points at a real BoQ section — and that a subsection link carries
-    /// that subsection's <b>actual</b> parent section — is the application service's responsibility.
+    /// Map a catalog item to a BoQ section, subsection, or single line item. Enforces two invariants across
+    /// the whole catalog: <b>no-double-count</b> — the same <c>(boqId, sectionId, subsectionId, lineItemId)</c>
+    /// tuple may be linked to at most one item; and <b>granularity exclusivity</b> — for one
+    /// <c>(boqId, sectionId)</c> the three nested levels are mutually exclusive (<b>Section ⊃ Subsection ⊃
+    /// Line item</b>): a section is mapped either as a whole (covering all its subsections and lines), or
+    /// subsection-by-subsection, or line-by-line, and a coarser mapping cannot coexist with any finer one
+    /// within its scope. Both are checkable from the link tuples alone because a subsection link carries its
+    /// parent <c>sectionId</c> and a line link carries its parent <c>sectionId</c>/<c>subsectionId</c>.
+    /// Whether the link points at a real BoQ target — and that it carries the target's <b>actual</b>
+    /// parents — is the application service's responsibility.
     /// </summary>
     public bool LinkBoqSection(ValuationCatalogItemId itemId, ValuationItemLink link)
     {
@@ -253,7 +255,7 @@ public sealed class ValuationCatalog : AggregateRoot<ValuationCatalogId>
         if (owner is not null)
         {
             throw new DomainConflictException(
-                "This BoQ section is already mapped to another valuation catalog item.",
+                "This BoQ target is already mapped to another valuation catalog item.",
                 code: "ValuationLinkAlreadyMapped",
                 parameters: new Dictionary<string, object?>
                 {
@@ -261,6 +263,7 @@ public sealed class ValuationCatalog : AggregateRoot<ValuationCatalogId>
                     ["workPackageId"] = link.WorkPackageId.Value,
                     ["sectionId"] = link.SectionId.Value,
                     ["subsectionId"] = link.SubsectionId?.Value,
+                    ["lineItemId"] = link.LineItemId?.Value,
                     ["ownerItemId"] = owner.Id.Value
                 });
         }
@@ -271,35 +274,69 @@ public sealed class ValuationCatalog : AggregateRoot<ValuationCatalogId>
         return true;
     }
 
-    // A section is mapped either as a whole or subsection-by-subsection, never both: for one
-    // (boqId, sectionId), a whole-section link and any subsection link under it cannot coexist across the
+    // The three nested levels (Section ⊃ Subsection ⊃ Line item) are mutually exclusive within one
+    // (boqId, sectionId): a coarser link and any finer link inside its scope cannot coexist across the
     // catalog. To switch granularity, unlink first. Enforced here — the root sees every item's links.
     private void EnsureGranularityConsistent(ValuationItemLink link)
     {
-        var siblings = _items
+        var conflict = _items
             .SelectMany(i => i.Links)
-            .Where(l => l.BoqId == link.BoqId && l.SectionId == link.SectionId);
+            .Where(l => l.BoqId == link.BoqId && l.SectionId == link.SectionId)
+            .FirstOrDefault(l => Covers(l, link) || Covers(link, l));
 
-        var conflicts = link.SubsectionId is null
-            ? siblings.Any(l => l.SubsectionId is not null)   // mapping the whole section, but a subsection is mapped
-            : siblings.Any(l => l.SubsectionId is null);      // mapping a subsection, but the whole section is mapped
-
-        if (conflicts)
+        if (conflict is not null)
         {
             throw new DomainConflictException(
-                link.SubsectionId is null
-                    ? "This BoQ section has subsections mapped individually; unmap them before mapping the whole section."
-                    : "This BoQ section is mapped as a whole; unmap the section before mapping its subsections individually.",
+                GranularityConflictMessage(link),
                 code: "ValuationLinkGranularityConflict",
                 parameters: new Dictionary<string, object?>
                 {
                     ["boqId"] = link.BoqId.Value,
                     ["workPackageId"] = link.WorkPackageId.Value,
                     ["sectionId"] = link.SectionId.Value,
-                    ["subsectionId"] = link.SubsectionId?.Value
+                    ["subsectionId"] = link.SubsectionId?.Value,
+                    ["lineItemId"] = link.LineItemId?.Value
                 });
         }
     }
+
+    // Does the (coarser) link a cover the finer link b? Assumes both share the same (boqId, sectionId).
+    // A whole-section link covers everything else in the section; a whole-subsection link covers the lines
+    // within that subsection; a line link is the finest and covers nothing below it. Exact-equal links are
+    // not a "cover" (they are the no-double-count / idempotent case handled separately).
+    private static bool Covers(ValuationItemLink a, ValuationItemLink b)
+    {
+        if (a.Equals(b))
+        {
+            return false;
+        }
+
+        // a is a whole-section link.
+        if (a.SubsectionId is null && a.LineItemId is null)
+        {
+            return true;
+        }
+
+        // a is a whole-subsection link: it covers a line mapped within that same subsection.
+        if (a.LineItemId is null)
+        {
+            return b.LineItemId is not null && b.SubsectionId == a.SubsectionId;
+        }
+
+        // a is a line link — nothing is finer.
+        return false;
+    }
+
+    private static string GranularityConflictMessage(ValuationItemLink link) =>
+        link switch
+        {
+            { LineItemId: not null } =>
+                "This BoQ line's section or subsection is already mapped as a whole; unmap it before mapping the line individually.",
+            { SubsectionId: not null } =>
+                "This BoQ section is mapped as a whole, or one of its lines is mapped individually; unmap that before mapping this subsection.",
+            _ =>
+                "This BoQ section has subsections or lines mapped individually; unmap them before mapping the whole section."
+        };
 
     /// <summary>Remove a BoQ mapping from an item. Returns false if the item or the link is absent.</summary>
     public bool UnlinkBoqSection(ValuationCatalogItemId itemId, ValuationItemLink link)

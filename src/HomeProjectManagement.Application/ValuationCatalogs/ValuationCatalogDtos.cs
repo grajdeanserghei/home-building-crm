@@ -40,8 +40,12 @@ public sealed record ValuationCatalogItemDto(
     bool IsActive,
     IReadOnlyList<ValuationItemLinkDto> Links);
 
-/// <summary>A mapping from a catalog item to a real BoQ section (or subsection) — mirrors <c>ValuationItemLink</c>.</summary>
-public sealed record ValuationItemLinkDto(Guid BoqId, Guid SectionId, Guid? SubsectionId);
+/// <summary>
+/// A mapping from a catalog item to a real BoQ section, subsection, or single line item — mirrors
+/// <c>ValuationItemLink</c>. <see cref="LineItemId"/> set is a line-level link (the finest granularity);
+/// its <see cref="SectionId"/>/<see cref="SubsectionId"/> are that line's actual parents.
+/// </summary>
+public sealed record ValuationItemLinkDto(Guid BoqId, Guid SectionId, Guid? SubsectionId, Guid? LineItemId);
 
 /// <summary>
 /// Input for creating a project's valuation catalog. The owning project comes from the route. Starts in
@@ -94,8 +98,10 @@ public sealed record ReviseValuationItemCommand(
     MoneyDto TotalCostWithoutVat);
 
 /// <summary>
-/// Input for mapping a catalog item to a real BoQ section. When <see cref="SubsectionId"/> is set, the
-/// application service resolves that subsection's <b>actual</b> parent section from the BoQ (a client-sent
-/// <see cref="SectionId"/> is validated against it); when it is null, the section is mapped as a whole.
+/// Input for mapping a catalog item to a real BoQ target at one of three granularities. When
+/// <see cref="LineItemId"/> is set the mapping is line-level; else when <see cref="SubsectionId"/> is set
+/// it is subsection-level; else the whole section is mapped. For the finer levels the application service
+/// resolves the target's <b>actual</b> parent section/subsection from the BoQ (any client-sent
+/// <see cref="SectionId"/>/<see cref="SubsectionId"/> is validated against it).
 /// </summary>
-public sealed record LinkBoqSectionCommand(Guid BoqId, Guid? SectionId, Guid? SubsectionId);
+public sealed record LinkBoqSectionCommand(Guid BoqId, Guid? SectionId, Guid? SubsectionId, Guid? LineItemId = null);

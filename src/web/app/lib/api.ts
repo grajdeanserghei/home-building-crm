@@ -1043,12 +1043,14 @@ export const VALUATION_CATALOG_STATUS_LABELS: Record<ValuationCatalogStatus, str
   Active: t("enum.valuationCatalogStatus.Active"),
 };
 
-// One item's mapping onto a BoQ target. `subsectionId` present maps a single subsection;
-// absent (null) maps the whole section. A subsection link carries its actual parent sectionId.
+// One item's mapping onto a BoQ target. `lineItemId` present maps a single line (finest
+// granularity); else `subsectionId` present maps a single subsection; else the whole section.
+// A finer link carries its target's actual parent sectionId/subsectionId.
 export interface ValuationItemLink {
   boqId: string;
   sectionId: string;
   subsectionId?: string | null;
+  lineItemId?: string | null;
 }
 
 // One priced row of the appraiser's estimate. `unit` is raw printed text (mc/mp/ml/kg or the
@@ -1215,6 +1217,7 @@ export interface ValuationVsBoqLink {
   boqId: string;
   sectionId: string;
   subsectionId?: string | null;
+  lineItemId?: string | null;
   boqResolved: boolean;
   contribution: Money;
 }

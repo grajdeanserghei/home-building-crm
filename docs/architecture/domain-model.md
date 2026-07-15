@@ -39,7 +39,7 @@ map onto them cleanly.
 | **Valuation Catalog** | _fișă de calcul a valorii construcției_ | The bank appraiser's itemized construction estimate for a project (segregated-cost method), **one per project**: each work item priced from a standard catalog (fișa nr. 38), plus the mapping of each item to the owners' real BoQ sections. The slow-moving baseline — distinct from a contractor's `deviz` (which is *real* cost) and from the dated completion assessments hung off it. |
 | **Valuation Catalog Item** | _lucrare (rând în fișă)_ | One priced row of the valuation catalog: name, unit (as printed), catalog source (F.38/Deviz), cost weight, and total value with/without VAT. Owns the **BoQ links** that map it to the owners' real quote sections. |
 | **Construction Valuation** | _evaluare / vizită de evaluare_ | A **dated snapshot** of the appraiser's on-site completion assessment against a Valuation Catalog — "on this visit, item X is 40% done". Many per catalog; a **frozen historical fact** whose values never recompute. |
-| **Valuation item link** | — | A mapping from a Valuation Catalog Item to one BoQ `(section / subsection)`, so the owners' real costs roll up per appraiser item. A BoQ section maps to **at most one** catalog item (no double-counting). |
+| **Valuation item link** | — | A mapping from a Valuation Catalog Item to one BoQ target — a `section` (whole), a `subsection`, or a single `line item` — so the owners' real costs roll up per appraiser item. A BoQ target maps to **at most one** catalog item (no double-counting), and the three levels are mutually exclusive within a section (Section ⊃ Subsection ⊃ Line item). |
 | **User / Stakeholder** | — | One of the four people who may access the tool. Handled by authentication; an identity/access concern rather than part of the costing domain. |
 
 ## Entities and relationships
@@ -220,7 +220,7 @@ item is its subtotal within the contractor's **BoQ**.
 | Work Package | Trade | many-to-many | A work package requires zero or more trades; enables matching capable contractors to it. References the same `Trade` vocabulary by id. |
 | Project | Valuation Catalog | one-to-zero-or-one | A project has at most one appraiser valuation catalog (the estimate baseline). |
 | Valuation Catalog | Valuation Catalog Item | one-to-many | A catalog is the appraiser's itemized list of works. |
-| Valuation Catalog Item | Bill of Quantities (Section/Subsection) | many-to-many | A catalog item maps to the owners' real BoQ sections/subsections; each BoQ section maps to at most one catalog item (loose id references, no double-counting). |
+| Valuation Catalog Item | Bill of Quantities (Section/Subsection/Line item) | many-to-many | A catalog item maps to the owners' real BoQ sections, subsections, or single line items; each BoQ target maps to at most one catalog item (loose id references, no double-counting), and the three levels are mutually exclusive within a section. |
 | Valuation Catalog | Construction Valuation | one-to-many | A catalog accumulates many dated completion-assessment snapshots. |
 | Construction Valuation | Construction Valuation Item | one-to-many | A snapshot holds one frozen assessed row per catalog item (by id). |
 
@@ -381,15 +381,19 @@ owns its **Valuation item links**. It is retired via `isActive` (like `Trade`) r
 deleted, because snapshots reference it by id.
 
 **Valuation item link** is a **value object inside the Valuation Catalog aggregate**
-(`{ boqId, sectionId, subsectionId? }`) — no identity of its own; whole links are added and
-removed. Like `Section → ScopeItem`, it is a **loose** cross-aggregate id reference into the
-BoQ aggregate, validated by the **application service**, not an EF navigation; a deleted BoQ
-section simply drops out of the rollup. A subsection link **always carries that subsection's
-actual parent `sectionId`** (the application service populates it), which lets the root enforce
-both link invariants — **no double-counting** (each BoQ section linked to at most one catalog
-item) and **granularity exclusivity** (a section is mapped either as a whole or
-subsection-by-subsection, never both) — from the link tuples alone, without consulting the BoQ.
-The Valuation Catalog root alone sees every item's links, so it is where both are enforced.
+(`{ boqId, sectionId, subsectionId?, lineItemId? }`) — no identity of its own; whole links are
+added and removed. Like `Section → ScopeItem`, it is a **loose** cross-aggregate id reference
+into the BoQ aggregate, validated by the **application service**, not an EF navigation; a deleted
+BoQ target simply drops out of the rollup. A link targets one of three nested granularities: a
+section (whole), a subsection, or a single line item. A subsection link **always carries that
+subsection's actual parent `sectionId`**, and a line link **always carries that line's actual
+`sectionId` and `subsectionId?`** (the application service populates them), which lets the root
+enforce both link invariants — **no double-counting** (each BoQ target linked to at most one
+catalog item) and **granularity exclusivity** (**Section ⊃ Subsection ⊃ Line item**: within one
+`(boqId, sectionId)` a section is mapped either as a whole, or subsection-by-subsection, or
+line-by-line, and a coarser mapping cannot coexist with any finer one inside its scope) — from
+the link tuples alone, without consulting the BoQ. The Valuation Catalog root alone sees every
+item's links, so it is where both are enforced.
 
 **Construction Valuation Item** is a **local entity inside the Construction Valuation
 aggregate** — one assessed row, holding a `valuationCatalogItemId` **by id** plus values
@@ -444,13 +448,14 @@ needs it, it appears only as a `UserId` value in audit fields (e.g. *created by*
 - **Valuation Catalog** — **at most one per Project** (unique index on `projectId`);
   owns its items; VAT rate lives here and, when changed, its items' `totalCostWithVat`
   is recomputed. Two link invariants hold across the whole catalog: **no double-counting** —
-  each `(boqId, sectionId, subsectionId)` link points at **at most one** item; and
-  **granularity exclusivity** — for one `(boqId, sectionId)`, a whole-section link
-  (`subsectionId = null`) and its subsection links are **mutually exclusive**, so a section
-  is mapped either as a whole (implicitly covering every subsection and direct line) or
-  subsection-by-subsection, never both. Both are checkable from the link tuples alone because
-  a subsection link carries its parent `sectionId`; switching granularity requires unlinking
-  first.
+  each `(boqId, sectionId, subsectionId, lineItemId)` link points at **at most one** item; and
+  **granularity exclusivity** — for one `(boqId, sectionId)` the three nested levels
+  **Section ⊃ Subsection ⊃ Line item** are **mutually exclusive**, so a section is mapped either
+  as a whole (implicitly covering every subsection and line), or subsection-by-subsection, or
+  line-by-line, and a coarser mapping cannot coexist with any finer one inside its scope. All
+  are checkable from the link tuples alone because a subsection link carries its parent
+  `sectionId` and a line link carries its parent `sectionId`/`subsectionId`; switching
+  granularity requires unlinking first.
 - **Valuation Catalog Item** — belongs to exactly one Valuation Catalog; retired via
   `isActive` rather than deleted (snapshots reference it). Each BoQ link is validated by
   the application service to point at an existing BoQ section/subsection.
@@ -736,7 +741,7 @@ authentication context, not a domain entity.
 | totalCostWithoutVat | Money | Cost total, fără TVA (col G) — the estimate. |
 | totalCostWithVat | Money | Stored; recomputed when the catalog VAT rate changes. |
 | isActive | bool | Retire without deleting (snapshots reference it). |
-| links | ValuationItemLink[] | Owned value objects `{ boqId, sectionId, subsectionId? }` — the BoQ mapping. |
+| links | ValuationItemLink[] | Owned value objects `{ boqId, sectionId, subsectionId?, lineItemId? }` — the BoQ mapping at section, subsection, or line-item granularity. |
 
 ### Construction Valuation
 

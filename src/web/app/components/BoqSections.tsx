@@ -38,6 +38,8 @@ export function BoqSections({
   catalogId,
   catalogItems,
   mappedItemBySection,
+  wholeMappedSectionIds,
+  wholeMappedSubsectionIds,
 }: {
   // The owning bid's id builds the edit/add hrefs (the BoQ routes live under /bids/[id]/boq);
   // boqId still keys the accordion state and the mutation action fields.
@@ -56,10 +58,29 @@ export function BoqSections({
   projectId: string;
   catalogId: string;
   catalogItems: BoqMappingItem[];
-  // The catalog item currently linked to a section/subsection, keyed by that section's or
-  // subsection's id (a triple maps to at most one item, so a scalar per key suffices).
+  // The catalog item currently linked to a section/subsection/line, keyed by that target's id
+  // (a target maps to at most one item, and section/subsection/line ids are all distinct GUIDs,
+  // so one scalar-per-key map covers all three granularities).
   mappedItemBySection: Record<string, string>;
+  // Sections/subsections mapped as a whole — used to disable the finer selects they cover, so the
+  // user unmaps the coarser link first (the backend also rejects the finer link with a 409).
+  wholeMappedSectionIds: string[];
+  wholeMappedSubsectionIds: string[];
 }) {
+  const wholeMappedSections = useMemo(
+    () => new Set(wholeMappedSectionIds),
+    [wholeMappedSectionIds],
+  );
+  const wholeMappedSubsections = useMemo(
+    () => new Set(wholeMappedSubsectionIds),
+    [wholeMappedSubsectionIds],
+  );
+  // The per-line mapping control appears only when the project has a catalog with active items;
+  // boqId/section/subsection ids come from the table's own props.
+  const lineMapping = (disabled: boolean) =>
+    catalogItems.length > 0
+      ? { projectId, catalogId, bidId, catalogItems, linkedItemByLine: mappedItemBySection, disabled }
+      : undefined;
   // Format a Money for the chosen display currency (see displayMoney: decimals only in Original mode).
   const money = (m: Money) => displayMoney(m, displayCurrency, ronPerEur);
 
@@ -146,6 +167,7 @@ export function BoqSections({
                 duplicateAction={duplicateLineItem}
                 displayCurrency={displayCurrency}
                 ronPerEur={ronPerEur}
+                mapping={lineMapping(wholeMappedSections.has(section.id))}
               />
 
               {/* Subsections: an optional second level of grouping within the section. */}
@@ -182,6 +204,7 @@ export function BoqSections({
                       subsectionId={subsection.id}
                       catalogItems={catalogItems}
                       linkedItemId={mappedItemBySection[subsection.id]}
+                      disabled={wholeMappedSections.has(section.id)}
                     />
 
                     <div id={subPanelId} hidden={!subOpen}>
@@ -201,6 +224,10 @@ export function BoqSections({
                         duplicateAction={duplicateLineItem}
                         displayCurrency={displayCurrency}
                         ronPerEur={ronPerEur}
+                        mapping={lineMapping(
+                          wholeMappedSections.has(section.id) ||
+                            wholeMappedSubsections.has(subsection.id),
+                        )}
                       />
 
                       {editable ? (

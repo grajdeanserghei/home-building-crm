@@ -15,10 +15,13 @@ namespace HomeProjectManagement.Application.Valuations;
 /// same basis as the project budget. Note the VAT asymmetry: the catalog estimate applies one report-wide
 /// VAT rate, whereas a BoQ gross subtotal sums each line's own <c>VatRate</c>, so the effective rate behind
 /// estimate and actual can legitimately differ.
-/// Because a whole-section subtotal already covers a section's direct lines and every subsection, a
-/// whole-section mapping is full coverage; a subsection mapping leaves the section's direct lines (and any
-/// unmapped subsections) uncovered, which is surfaced as an <c>UnattributedBoqLines</c> coverage gap. Items
-/// with no mapping (the <c>%</c> catch-alls) are reported as <c>UnmappedItem</c> gaps, not as −100% variance.
+/// A mapping targets a section (whole), a subsection, or a single line item — its contribution is the
+/// matching gross subtotal (<c>SubtotalWithVatOf</c>) or line total (<c>LineTotalWithVatOf</c>). Because a
+/// whole-section subtotal already covers a section's direct lines and every subsection, a whole-section
+/// mapping is full coverage; a finer (subsection or line) mapping leaves the section's uncovered remainder
+/// (its direct lines and any unmapped subsections/lines) surfaced as an <c>UnattributedBoqLines</c> coverage
+/// gap. Items with no mapping (the <c>%</c> catch-alls) are reported as <c>UnmappedItem</c> gaps, not as
+/// −100% variance.
 /// </summary>
 public sealed class ValuationVsBoqQuery(
     IValuationCatalogRepository catalogs,
@@ -76,9 +79,11 @@ public sealed class ValuationVsBoqQuery(
         var mappedEstimate = 0m;
         var totalActual = 0m;
 
-        // Per (boq, section) mapped subsection-by-subsection: which subsections are covered — for the
-        // direct-line coverage gap. A whole-section mapping never appears here (granularity exclusivity).
-        var subsectionCoverage = new Dictionary<(Guid Boq, Guid Section), List<Guid>>();
+        // Per (boq, section) mapped at a finer-than-whole-section granularity: the native (pricing-currency,
+        // whole-build-scaled) amount covered by subsection/line mappings, so the section's uncovered
+        // remainder is surfaced as a coverage gap. A whole-section mapping never appears here (granularity
+        // exclusivity), so a fully-mapped section yields no gap.
+        var coveredNativePerSection = new Dictionary<(Guid Boq, Guid Section), decimal>();
 
         foreach (var item in catalog.Items.Where(i => i.IsActive).OrderBy(i => i.Sequence))
         {
@@ -112,7 +117,7 @@ public sealed class ValuationVsBoqQuery(
                 if (!isActive)
                 {
                     linkDtos.Add(new ValuationVsBoqLinkDto(
-                        link.BoqId.Value, link.SectionId.Value, link.SubsectionId?.Value,
+                        link.BoqId.Value, link.SectionId.Value, link.SubsectionId?.Value, link.LineItemId?.Value,
                         BoqResolved: false, new MoneyDto(0m, currency)));
                     continue;
                 }
@@ -121,33 +126,32 @@ public sealed class ValuationVsBoqQuery(
                 if (boq is null)
                 {
                     linkDtos.Add(new ValuationVsBoqLinkDto(
-                        link.BoqId.Value, link.SectionId.Value, link.SubsectionId?.Value,
+                        link.BoqId.Value, link.SectionId.Value, link.SubsectionId?.Value, link.LineItemId?.Value,
                         BoqResolved: false, new MoneyDto(0m, currency)));
                     continue;
                 }
 
-                var native = link.SubsectionId is { } subsectionId
-                    ? boq.SubtotalWithVatOf(subsectionId)
-                    : boq.SubtotalWithVatOf(link.SectionId);
+                var native = link.LineItemId is { } lineItemId
+                    ? boq.LineTotalWithVatOf(lineItemId)
+                    : link.SubsectionId is { } subsectionId
+                        ? boq.SubtotalWithVatOf(subsectionId)
+                        : boq.SubtotalWithVatOf(link.SectionId);
                 native = native.Multiply(boq.Multiplier(units));
 
                 var contribution = ConvertTo(native, currency, asOf).Amount;
                 actual += contribution;
                 activeContributions++;
 
-                if (link.SubsectionId is { } sub)
+                // A finer-than-whole-section mapping (subsection or line) covers only part of the section;
+                // accumulate its native amount so the section's uncovered remainder becomes a coverage gap.
+                if (link.SubsectionId is not null || link.LineItemId is not null)
                 {
                     var key = (link.BoqId.Value, link.SectionId.Value);
-                    if (!subsectionCoverage.TryGetValue(key, out var covered))
-                    {
-                        subsectionCoverage[key] = covered = [];
-                    }
-
-                    covered.Add(sub.Value);
+                    coveredNativePerSection[key] = coveredNativePerSection.GetValueOrDefault(key) + native.Amount;
                 }
 
                 linkDtos.Add(new ValuationVsBoqLinkDto(
-                    link.BoqId.Value, link.SectionId.Value, link.SubsectionId?.Value,
+                    link.BoqId.Value, link.SectionId.Value, link.SubsectionId?.Value, link.LineItemId?.Value,
                     BoqResolved: true, new MoneyDto(contribution, currency)));
             }
 
@@ -180,10 +184,11 @@ public sealed class ValuationVsBoqQuery(
                 linkDtos));
         }
 
-        // Direct-line coverage gaps: for each subsection-mapped section, the section subtotal minus the
-        // covered subsections is real cost no mapping accounts for (its direct lines + unmapped subsections).
+        // Coverage gaps: for each partially-mapped section (mapped subsection-by-subsection and/or
+        // line-by-line), the section subtotal minus what those finer mappings cover is real cost no mapping
+        // accounts for (its direct lines and any unmapped subsections/lines).
         var unattributed = 0m;
-        foreach (var ((boqGuid, sectionGuid), coveredSubsections) in subsectionCoverage)
+        foreach (var ((boqGuid, sectionGuid), coveredNative) in coveredNativePerSection)
         {
             var boq = boqCache.GetValueOrDefault(boqGuid);
             if (boq is null)
@@ -191,11 +196,7 @@ public sealed class ValuationVsBoqQuery(
                 continue;
             }
 
-            var sectionId = new SectionId(sectionGuid);
-            var sectionNative = boq.SubtotalWithVatOf(sectionId).Multiply(boq.Multiplier(units)).Amount;
-            var coveredNative = coveredSubsections
-                .Sum(s => boq.SubtotalWithVatOf(new SubsectionId(s)).Multiply(boq.Multiplier(units)).Amount);
-
+            var sectionNative = boq.SubtotalWithVatOf(new SectionId(sectionGuid)).Multiply(boq.Multiplier(units)).Amount;
             var residualNative = sectionNative - coveredNative;
             if (residualNative <= 0m)
             {
@@ -206,7 +207,7 @@ public sealed class ValuationVsBoqQuery(
             unattributed += residual;
             gaps.Add(new ValuationCoverageGapDto(
                 "UnattributedBoqLines", null, boqGuid, sectionGuid,
-                "BoQ cost under a subsection-mapped section that no mapping covers (direct lines / unmapped subsections).",
+                "BoQ cost under a partially-mapped section that no mapping covers (direct lines / unmapped subsections or lines).",
                 new MoneyDto(residual, currency)));
         }
 
