@@ -6,8 +6,11 @@ using HomeProjectManagement.Application.Contractors;
 using HomeProjectManagement.Application.Contracts;
 using HomeProjectManagement.Application.CostScenarios;
 using HomeProjectManagement.Application.Projects;
+using HomeProjectManagement.Application.ConstructionValuations;
 using HomeProjectManagement.Application.Trades;
 using HomeProjectManagement.Application.UnitsOfMeasure;
+using HomeProjectManagement.Application.ValuationCatalogs;
+using HomeProjectManagement.Application.Valuations;
 using HomeProjectManagement.Application.WorkPackages;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -30,6 +33,10 @@ public static class DependencyInjection
         services.AddScoped<IProjectActivityQuery, ProjectActivityQuery>();
         services.AddScoped<ICostScenarioAppService, CostScenarioAppService>();
         services.AddScoped<ICostScenarioQuery, CostScenarioQuery>();
+        services.AddScoped<IValuationCatalogAppService, ValuationCatalogAppService>();
+        services.AddScoped<IConstructionValuationAppService, ConstructionValuationAppService>();
+        services.AddScoped<IValuationVsBoqQuery, ValuationVsBoqQuery>();
+        services.AddScoped<IValuationProgressQuery, ValuationProgressQuery>();
         return services;
     }
 }

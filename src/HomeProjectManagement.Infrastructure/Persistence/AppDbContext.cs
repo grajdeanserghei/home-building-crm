@@ -2,10 +2,12 @@ using HomeProjectManagement.Domain.BillsOfQuantities;
 using HomeProjectManagement.Domain.Bids;
 using HomeProjectManagement.Domain.Contractors;
 using HomeProjectManagement.Domain.Contracts;
+using HomeProjectManagement.Domain.ConstructionValuations;
 using HomeProjectManagement.Domain.CostScenarios;
 using HomeProjectManagement.Domain.Projects;
 using HomeProjectManagement.Domain.Trades;
 using HomeProjectManagement.Domain.UnitsOfMeasure;
+using HomeProjectManagement.Domain.ValuationCatalogs;
 using HomeProjectManagement.Domain.WorkPackages;
 using HomeProjectManagement.Infrastructure.Persistence.Conversions;
 using Microsoft.EntityFrameworkCore;
@@ -36,6 +38,10 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<Trade> Trades => Set<Trade>();
 
     public DbSet<CostScenario> CostScenarios => Set<CostScenario>();
+
+    public DbSet<ValuationCatalog> ValuationCatalogs => Set<ValuationCatalog>();
+
+    public DbSet<ConstructionValuation> ConstructionValuations => Set<ConstructionValuation>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
