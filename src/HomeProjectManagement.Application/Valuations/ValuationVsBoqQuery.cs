@@ -8,10 +8,13 @@ using HomeProjectManagement.Domain.ValuationCatalogs;
 namespace HomeProjectManagement.Application.Valuations;
 
 /// <summary>
-/// Composes <see cref="ValuationVsBoqDto"/> from the repository ports (read-only). Per active catalog item
-/// the estimate is its net <c>TotalCostWithoutVat</c>; the actual is the sum of each mapping's BoQ subtotal
-/// (<c>SubtotalOf</c> — net, VAT-exclusive), scaled to the whole build via <c>boq.Multiplier(apartmentUnits)</c>
-/// and converted to the catalog currency with the app-wide rate — the same basis as the project budget.
+/// Composes <see cref="ValuationVsBoqDto"/> from the repository ports (read-only). All figures are
+/// gross (VAT-inclusive). Per active catalog item the estimate is its <c>TotalCostWithVat</c>; the actual
+/// is the sum of each mapping's gross BoQ subtotal (<c>SubtotalWithVatOf</c>), scaled to the whole build via
+/// <c>boq.Multiplier(apartmentUnits)</c> and converted to the catalog currency with the app-wide rate — the
+/// same basis as the project budget. Note the VAT asymmetry: the catalog estimate applies one report-wide
+/// VAT rate, whereas a BoQ gross subtotal sums each line's own <c>VatRate</c>, so the effective rate behind
+/// estimate and actual can legitimately differ.
 /// Because a whole-section subtotal already covers a section's direct lines and every subsection, a
 /// whole-section mapping is full coverage; a subsection mapping leaves the section's direct lines (and any
 /// unmapped subsections) uncovered, which is surfaced as an <c>UnattributedBoqLines</c> coverage gap. Items
@@ -79,7 +82,7 @@ public sealed class ValuationVsBoqQuery(
 
         foreach (var item in catalog.Items.Where(i => i.IsActive).OrderBy(i => i.Sequence))
         {
-            var estimate = item.TotalCostWithoutVat.Amount;
+            var estimate = item.TotalCostWithVat.Amount;
             totalEstimate += estimate;
 
             if (item.Links.Count == 0)
@@ -124,8 +127,8 @@ public sealed class ValuationVsBoqQuery(
                 }
 
                 var native = link.SubsectionId is { } subsectionId
-                    ? boq.SubtotalOf(subsectionId)
-                    : boq.SubtotalOf(link.SectionId);
+                    ? boq.SubtotalWithVatOf(subsectionId)
+                    : boq.SubtotalWithVatOf(link.SectionId);
                 native = native.Multiply(boq.Multiplier(units));
 
                 var contribution = ConvertTo(native, currency, asOf).Amount;
@@ -189,9 +192,9 @@ public sealed class ValuationVsBoqQuery(
             }
 
             var sectionId = new SectionId(sectionGuid);
-            var sectionNative = boq.SubtotalOf(sectionId).Multiply(boq.Multiplier(units)).Amount;
+            var sectionNative = boq.SubtotalWithVatOf(sectionId).Multiply(boq.Multiplier(units)).Amount;
             var coveredNative = coveredSubsections
-                .Sum(s => boq.SubtotalOf(new SubsectionId(s)).Multiply(boq.Multiplier(units)).Amount);
+                .Sum(s => boq.SubtotalWithVatOf(new SubsectionId(s)).Multiply(boq.Multiplier(units)).Amount);
 
             var residualNative = sectionNative - coveredNative;
             if (residualNative <= 0m)
