@@ -1,0 +1,41 @@
+.footer {
+  /* `margin-top: auto` pushes the footer to the bottom of the flex-column body
+     (see globals.css) even on short pages, without a fixed/sticky position. */
+  margin-top: auto;
+  border-top: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+.inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 14px 24px;
+  font-size: 0.78rem;
+  color: #6b7280;
+}
+
+@media (min-width: 1600px) {
+  .inner {
+    max-width: 1440px;
+  }
+}
+
+.brand {
+  font-weight: 600;
+}
+
+.version {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  white-space: nowrap;
+}
+
+@media (max-width: 1100px) {
+  .inner {
+    padding: 14px 16px;
+  }
+}

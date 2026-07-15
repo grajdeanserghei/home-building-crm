@@ -17,6 +17,11 @@
 #     tags (and the git tag) are SKIPPED so a release never points at
 #     uncommitted work.
 #
+# All three images are additionally stamped with APP_VERSION (the --version semver, or
+# empty) and GIT_SHA (the plain short-SHA) build-args: the web image shows them in the
+# page footer (src/web/app/lib/version.ts); the api and mcp images log them at startup
+# and export them as the `service.version` telemetry attribute (ServiceDefaults).
+#
 # Builds target linux/amd64 by default (the k3s nodes' architecture).
 #
 # Usage:
@@ -70,7 +75,10 @@ done
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
 
-SHA="$(git rev-parse --short HEAD)"
+# CLEAN_SHA is the plain short-SHA (no -dirty suffix); it stamps the web image's
+# footer version. SHA is the image tag, which gains a -dirty suffix on a dirty tree.
+CLEAN_SHA="$(git rev-parse --short HEAD)"
+SHA="$CLEAN_SHA"
 DIRTY=false
 if [[ -n "$(git status --porcelain)" ]]; then
   DIRTY=true
@@ -114,6 +122,12 @@ for entry in "${IMAGES[@]}"; do
   for t in "${TAGS[@]}"; do
     BUILD_ARGS+=(-t "${REF}:${t}")
   done
+
+  # Stamp every image with the release semver (empty for a plain SHA build) and the git
+  # short-SHA. The web image surfaces it in the page footer (app/lib/version.ts); the api
+  # and mcp images log it at startup and export it as the `service.version` telemetry
+  # attribute (ServiceDefaults' AppVersion).
+  BUILD_ARGS+=(--build-arg "APP_VERSION=${VERSION}" --build-arg "GIT_SHA=${CLEAN_SHA}")
 
   echo "==> Building $REF"
   docker build "${BUILD_ARGS[@]}" "$CONTEXT"

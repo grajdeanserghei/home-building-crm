@@ -40,6 +40,9 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+// Stamp the logs with the running build (also exported as the `service.version` telemetry attribute).
+app.LogApplicationVersion();
+
 // Surface unhandled exceptions through the registered IExceptionHandler(s) first, so domain
 // rule violations become ProblemDetails responses before any other middleware runs.
 app.UseExceptionHandler();

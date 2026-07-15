@@ -126,6 +126,9 @@ export const ro = {
   "nav.unitsOfMeasure": "Unități de măsură",
   "nav.trades": "Meserii",
 
+  // Page footer: the app name plus the running version (see lib/version.ts).
+  "footer.versionLabel": "Versiunea aplicației",
+
   // Global display-currency toggle in the header (see displayMoney / getDisplayCurrency).
   "currency.toggleLabel": "Monedă afișată",
   "currency.Original": "Originală",

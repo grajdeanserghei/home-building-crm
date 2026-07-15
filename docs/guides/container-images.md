@@ -125,6 +125,26 @@ All frontend data access is **server-side** (Server Components + Server Actions 
 `API_BASE_URL` points at the **in-cluster** API service (`http://api:8080`), and
 **the API needs no ingress** — only `web` is exposed.
 
+### Version stamp (all three images)
+
+Every image accepts two **build-args** that record which build is running.
+`scripts/build-and-push.sh` fills them in automatically; supply them by hand only for a
+manual `docker build`:
+
+| Build-arg | Purpose | Example |
+|---|---|---|
+| `APP_VERSION` | Release semver (the `-v/--version` value). Empty for a plain SHA build → falls back to the SHA. | `v0.1.0` |
+| `GIT_SHA` | Git short-SHA of the built commit, for traceability. | `9de7e29` |
+
+Each image exposes them as the `APP_VERSION` / `GIT_SHA` runtime env vars and consumes them:
+
+- **web** — shows the version in the page footer (read server-side via `app/lib/version.ts`).
+- **api** and **mcp** — log the version once at startup and export it as the
+  `service.version` OpenTelemetry resource attribute on every trace/metric/log
+  (`ServiceDefaults`' `AppVersion`).
+
+Outside a stamped image (local Aspire dev) neither var is set and the version reads as `dev`.
+
 ## Dockerfiles
 
 Create these three Dockerfiles (and the two `.dockerignore` files) in the repo.
@@ -284,21 +304,28 @@ ARM Mac.
 docker login registry.crozy.eu
 
 VERSION=v0.1.0
+SHA=$(git rev-parse --short HEAD)
+
+# All three images take the same version-stamp build-args (see below);
+# scripts/build-and-push.sh fills these in automatically.
 
 # API — built from the repo root.
 docker build --platform linux/amd64 \
   -f src/HomeProjectManagement.ApiService/Dockerfile \
+  --build-arg APP_VERSION=$VERSION --build-arg GIT_SHA=$SHA \
   -t registry.crozy.eu/home-project-management/api:$VERSION .
 docker push registry.crozy.eu/home-project-management/api:$VERSION
 
 # MCP — also built from the repo root.
 docker build --platform linux/amd64 \
   -f src/HomeProjectManagement.McpServer/Dockerfile \
+  --build-arg APP_VERSION=$VERSION --build-arg GIT_SHA=$SHA \
   -t registry.crozy.eu/home-project-management/mcp:$VERSION .
 docker push registry.crozy.eu/home-project-management/mcp:$VERSION
 
 # Web — built from src/web.
 docker build --platform linux/amd64 \
+  --build-arg APP_VERSION=$VERSION --build-arg GIT_SHA=$SHA \
   -t registry.crozy.eu/home-project-management/web:$VERSION src/web
 docker push registry.crozy.eu/home-project-management/web:$VERSION
 ```
