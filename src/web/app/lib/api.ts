@@ -949,6 +949,8 @@ export interface ScenarioCandidateBid {
   bidId: string;
   contractorId: string;
   contractorName: string;
+  // Variant title telling apart a contractor's several bids on one work package (e.g. "Premium").
+  label?: string | null;
   boqId: string;
   scope: BudgetScopeKind;
   net: Money;

@@ -101,6 +101,7 @@ public sealed record ScenarioCandidateBidDto(
     Guid BidId,
     Guid ContractorId,
     string ContractorName,
+    string? Label,
     Guid BoqId,
     BudgetScopeKind Scope,
     MoneyDto Net,

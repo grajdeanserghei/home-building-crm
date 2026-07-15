@@ -76,7 +76,9 @@ function SelectionForm({
         <option value="">{t("costScenario.notIncluded")}</option>
         {candidates.map((bid) => (
           <option key={bid.bidId} value={bid.bidId}>
-            {bid.contractorName} — {displayMoney(bid.gross, displayCurrency, ronPerEur)}
+            {bid.contractorName}
+            {bid.label ? ` · ${bid.label}` : ""} —{" "}
+            {displayMoney(bid.gross, displayCurrency, ronPerEur)}
           </option>
         ))}
       </select>

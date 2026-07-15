@@ -130,7 +130,7 @@ public sealed class CostScenarioQuery(
 
                 var name = await ContractorNameAsync(bid.ContractorId, contractorNames, cancellationToken);
                 candidates.Add(new ScenarioCandidateBidDto(
-                    bid.Id.Value, bid.ContractorId.Value, name, boq.Id.Value, boq.Scope,
+                    bid.Id.Value, bid.ContractorId.Value, name, bid.Label, boq.Id.Value, boq.Scope,
                     ToDto(boq.EffectiveTotal(project.ApartmentUnits)),
                     ToDto(boq.EffectiveTotalWithVat(project.ApartmentUnits))));
             }
