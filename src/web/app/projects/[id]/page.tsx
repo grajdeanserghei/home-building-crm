@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getProject, getWorkPackages, type WorkPackage } from "@/app/lib/api";
-import { WorkPackagesTable } from "@/app/components/WorkPackagesTable";
+import { SortableWorkPackagesTable } from "@/app/components/SortableWorkPackagesTable";
 import { t } from "@/app/lib/i18n";
 import styles from "@/app/page.module.css";
 
@@ -66,7 +66,7 @@ export default async function ProjectDetailPage({
 
       <section className={styles.card}>
         <h2>{t("projects.workPackages")}</h2>
-        <WorkPackagesTable
+        <SortableWorkPackagesTable
           workPackages={workPackages}
           projectId={project.id}
           error={error}

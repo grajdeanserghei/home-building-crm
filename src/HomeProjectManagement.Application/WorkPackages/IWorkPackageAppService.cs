@@ -17,6 +17,14 @@ public interface IWorkPackageAppService
     Task<WorkPackageDto?> UpdateAsync(Guid id, UpdateWorkPackageCommand command, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Reorder a project's work packages, reassigning their <c>Sequence</c> to <c>1..n</c> by the
+    /// given order in one transaction. Returns the project's packages in the new order, or null if
+    /// the project has no packages or the supplied ids are not an exact permutation of them (a stale
+    /// or malformed request).
+    /// </summary>
+    Task<IReadOnlyList<WorkPackageDto>?> ReorderAsync(Guid projectId, ReorderWorkPackagesCommand command, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Move the package through its lifecycle (the target dispatches to the matching domain
     /// transition). Returns null if the package does not exist; an illegal transition (e.g.
     /// starting an un-awarded package, or targeting Awarded) is a domain conflict → HTTP 409.

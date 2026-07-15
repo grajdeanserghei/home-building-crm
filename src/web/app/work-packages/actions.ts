@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import {
   apiBaseUrl,
   type ScopeItemRequirement,
+  type WorkPackage,
   type WorkPackageStatus,
 } from "../lib/api";
 import { describeApiError } from "@/app/lib/errors";
@@ -89,6 +90,40 @@ export async function deleteWorkPackage(formData: FormData) {
   revalidatePath(`/projects/${projectId}`);
   revalidatePath("/");
   redirect(`/projects/${projectId}`);
+}
+
+// Reorder -----------------------------------------------------------------
+
+// Outcome of a drag-and-drop reorder: on success the project's packages freshly renumbered (so the
+// sortable table reconciles to canonical 1..n order), otherwise a localized message to surface and
+// revert the optimistic move.
+export type ReorderWorkPackagesResult =
+  | { ok: true; workPackages: WorkPackage[] }
+  | { ok: false; error: string };
+
+// Reorder a project's work packages. Called programmatically by the sortable table (not a form) —
+// one call per drop, carrying the full ordered id list. Returns the renumbered packages rather than
+// redirecting; `revalidatePath` keeps the project overview (and its shared home dashboard) fresh.
+export async function reorderWorkPackages(input: {
+  projectId: string;
+  orderedIds: string[];
+}): Promise<ReorderWorkPackagesResult> {
+  const res = await fetch(
+    `${apiBaseUrl()}/api/projects/${input.projectId}/work-packages/reorder`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orderedWorkPackageIds: input.orderedIds }),
+    },
+  );
+
+  if (!res.ok) {
+    return { ok: false, error: await describeApiError(res, "common.actionError") };
+  }
+
+  const workPackages = (await res.json()) as WorkPackage[];
+  revalidatePath(`/projects/${input.projectId}`);
+  return { ok: true, workPackages };
 }
 
 // Lifecycle ---------------------------------------------------------------

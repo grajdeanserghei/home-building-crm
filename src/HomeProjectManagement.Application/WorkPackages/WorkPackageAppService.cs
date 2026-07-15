@@ -92,6 +92,40 @@ public sealed class WorkPackageAppService(
         return ToDto(workPackage);
     }
 
+    public async Task<IReadOnlyList<WorkPackageDto>?> ReorderAsync(
+        Guid projectId,
+        ReorderWorkPackagesCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        var workPackages = await repository.ListByProjectAsync(new ProjectId(projectId), cancellationToken);
+        if (workPackages.Count == 0)
+        {
+            return null;
+        }
+
+        // The request must carry exactly the project's packages, once each: same count and same set
+        // of ids. A mismatch means a stale or malformed client, so we reject rather than renumber a
+        // partial order (which would leave gaps or silently drop packages).
+        var byId = workPackages.ToDictionary(wp => wp.Id.Value);
+        var orderedIds = command.OrderedWorkPackageIds;
+        if (orderedIds.Count != byId.Count || orderedIds.Distinct().Count() != orderedIds.Count ||
+            !orderedIds.All(byId.ContainsKey))
+        {
+            return null;
+        }
+
+        // Reassign sequences 1..n by position; a single commit persists all sibling updates atomically.
+        for (var index = 0; index < orderedIds.Count; index++)
+        {
+            byId[orderedIds[index]].Reorder(index + 1);
+        }
+
+        await unitOfWork.CommitAsync(cancellationToken);
+
+        // Return in the new order (the domain method mutated Sequence, matching the requested order).
+        return orderedIds.Select(id => ToDto(byId[id])).ToList();
+    }
+
     public async Task<WorkPackageDto?> AddRequiredTradeAsync(
         Guid id,
         Guid tradeId,

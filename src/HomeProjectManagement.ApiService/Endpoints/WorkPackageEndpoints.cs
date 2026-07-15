@@ -27,6 +27,14 @@ public static class WorkPackageEndpoints
                     ? Results.Created($"/api/work-packages/{created.Id}", created)
                     : Results.NotFound());
 
+        // Reorder the project's packages: send the full ordered id list; the service renumbers their
+        // Sequence to 1..n in one transaction and returns them in the new order. One call per drop.
+        byProject.MapPost("/reorder",
+            async (Guid projectId, ReorderWorkPackagesCommand command, IWorkPackageAppService service, CancellationToken ct) =>
+                await service.ReorderAsync(projectId, command, ct) is { } ordered
+                    ? Results.Ok(ordered)
+                    : Results.NotFound());
+
         // Root-level item: a work package is an aggregate root, addressable by its own id.
         var workPackages = app.MapGroup("/api/work-packages");
 

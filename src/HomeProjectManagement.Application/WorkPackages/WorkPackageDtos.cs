@@ -68,6 +68,14 @@ public sealed record UpdateWorkPackageCommand(
     IReadOnlyCollection<Guid>? RequiredTradeIds);
 
 /// <summary>
+/// Input for reordering a project's work packages. Carries the full set of the project's work
+/// package ids in the intended display order; the service reassigns their <c>Sequence</c> to
+/// <c>1..n</c> by position in a single transaction. The list must be a permutation of the
+/// project's current packages (no missing, extra, or duplicate ids).
+/// </summary>
+public sealed record ReorderWorkPackagesCommand(IReadOnlyList<Guid> OrderedWorkPackageIds);
+
+/// <summary>
 /// Input for transitioning a work package's status. The service dispatches each target to the
 /// matching intention-revealing domain method (so invariants hold — e.g. only an awarded package
 /// can start). <c>Awarded</c> is reserved for the award flow and is rejected here (HTTP 409).

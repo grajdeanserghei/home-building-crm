@@ -204,6 +204,11 @@ export const ro = {
   "workPackages.empty": "Niciun pachet de lucrări încă.",
   "workPackages.col.plannedStart": "Început planificat",
   "workPackages.col.plannedEnd": "Sfârșit planificat",
+  "workPackages.reorderHint":
+    "Trage un pachet de lucrări de mâner pentru a schimba ordinea.",
+  "workPackages.reorderSaving": "Se salvează…",
+  "workPackages.reorderError": "Reordonarea nu a putut fi salvată.",
+  "workPackages.reorderDragHandle": "Trage pentru a reordona",
   "workPackages.backToProject": "← Înapoi la proiect",
   "workPackages.backToWorkPackage": "← Înapoi la pachetul de lucrări",
   "workPackages.detailSubtitle": "Ofertele pentru acest pachet de lucrări.",
