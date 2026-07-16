@@ -1206,10 +1206,12 @@ export async function getConstructionValuation(
 
 // Estimate-vs-real read model (live) ------------------------------------
 //
-// Per catalog item: the appraiser's net estimate (col G) against the Σ of each linked BoQ
-// section/subsection subtotal, scaled to the whole build and converted to the catalog
-// currency. Net-to-net. Unmapped `%` catch-alls and uncovered direct lines surface as coverage
-// gaps, not as −100% variance. Mirrors ValuationVsBoqDto.
+// Per catalog item: the appraiser's estimate (col G) against the Σ of each linked BoQ
+// section/subsection subtotal, normalized to a single apartment and converted to the catalog
+// currency. Both sides are per-apartment (the appraiser estimate is priced for one apartment,
+// so a per-apartment deviz stays as-is and a whole-build deviz is allocated an equal share per
+// apartment) — like-for-like. Unmapped `%` catch-alls and uncovered direct lines surface as
+// coverage gaps, not as −100% variance. Mirrors ValuationVsBoqDto.
 
 // One mapping's contribution to an item's actual cost. `boqResolved` is false when the linked
 // BoQ could not be resolved (e.g. deleted) — its contribution is then zero.
