@@ -10,9 +10,12 @@ namespace HomeProjectManagement.Application.Valuations;
 /// <summary>
 /// Composes <see cref="ValuationVsBoqDto"/> from the repository ports (read-only). All figures are
 /// gross (VAT-inclusive). Per active catalog item the estimate is its <c>TotalCostWithVat</c>; the actual
-/// is the sum of each mapping's gross BoQ subtotal (<c>SubtotalWithVatOf</c>), scaled to the whole build via
-/// <c>boq.Multiplier(apartmentUnits)</c> and converted to the catalog currency with the app-wide rate — the
-/// same basis as the project budget. Note the VAT asymmetry: the catalog estimate applies one report-wide
+/// is the sum of each mapping's gross BoQ subtotal (<c>SubtotalWithVatOf</c>), normalized to a single
+/// apartment and converted to the catalog currency with the app-wide rate. Both sides are per-apartment
+/// so they are like-for-like: the appraiser estimate is priced for one apartment, so the BoQ side is
+/// scaled by <c>Multiplier(apartmentUnits) / apartmentUnits</c> — a per-apartment <c>deviz</c> stays as-is
+/// (factor 1), a whole-build <c>deviz</c> is allocated an equal share per apartment (factor 1/units).
+/// Note the VAT asymmetry: the catalog estimate applies one report-wide
 /// VAT rate, whereas a BoQ gross subtotal sums each line's own <c>VatRate</c>, so the effective rate behind
 /// estimate and actual can legitimately differ.
 /// A mapping targets a section (whole), a subsection, or a single line item — its contribution is the
@@ -50,6 +53,12 @@ public sealed class ValuationVsBoqQuery(
 
         var currency = catalog.Currency;
         var units = project.ApartmentUnits;
+
+        // Normalize BoQ costs to a single apartment so they are like-for-like with the per-apartment
+        // appraiser evaluation (the catalog estimate is priced for one apartment): a per-apartment
+        // deviz already covers one apartment (factor 1); a whole-build deviz is allocated an equal
+        // share per apartment (factor 1/units). units is always >= 1, so this never divides by zero.
+        decimal PerApartmentFactor(BillOfQuantities boq) => (decimal)boq.Multiplier(units) / units;
         // One conversion date for the whole rollup.
         var asOf = DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime);
         var ronPerEur = exchangeRates.GetRate(Currency.EUR, Currency.RON, asOf).Rate;
@@ -136,7 +145,7 @@ public sealed class ValuationVsBoqQuery(
                     : link.SubsectionId is { } subsectionId
                         ? boq.SubtotalWithVatOf(subsectionId)
                         : boq.SubtotalWithVatOf(link.SectionId);
-                native = native.Multiply(boq.Multiplier(units));
+                native = native.Multiply(PerApartmentFactor(boq));
 
                 var contribution = ConvertTo(native, currency, asOf).Amount;
                 actual += contribution;
@@ -196,7 +205,7 @@ public sealed class ValuationVsBoqQuery(
                 continue;
             }
 
-            var sectionNative = boq.SubtotalWithVatOf(new SectionId(sectionGuid)).Multiply(boq.Multiplier(units)).Amount;
+            var sectionNative = boq.SubtotalWithVatOf(new SectionId(sectionGuid)).Multiply(PerApartmentFactor(boq)).Amount;
             var residualNative = sectionNative - coveredNative;
             if (residualNative <= 0m)
             {
