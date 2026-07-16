@@ -97,7 +97,7 @@ public sealed class CostScenarioQuery(
         var eurEquivalent = BuildEurEquivalent(totals, ronPerEur, asOf);
 
         return new CostScenarioResultDto(
-            scenario.Id.Value, scenario.ProjectId.Value, scenario.Name, scenario.Description,
+            scenario.Id.Value, scenario.ProjectId.Value, scenario.Name, project.ApartmentUnits, scenario.Description,
             orderedLines, totals, eurEquivalent, ronPerEur, scenario.CreatedOn);
     }
 

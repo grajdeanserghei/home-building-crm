@@ -35,12 +35,15 @@ public sealed record CostScenarioSummaryDto(
 /// totals and an approximate EUR-equivalent. Money is reported <b>per currency</b> — the
 /// <see cref="Money"/> value object refuses to sum across currencies — and both net (VAT-exclusive)
 /// and gross (VAT-inclusive) figures are given. Figures are scaled to the whole build: a BoQ priced
-/// <i>per apartment</i> is multiplied by the project's apartment-unit count.
+/// <i>per apartment</i> is multiplied by the project's apartment-unit count. <see cref="ApartmentUnits"/>
+/// (the project's dwelling-unit count) lets a client derive each apartment's share: a per-apartment
+/// figure is a whole-build figure divided by <see cref="ApartmentUnits"/>.
 /// </summary>
 public sealed record CostScenarioResultDto(
     Guid Id,
     Guid ProjectId,
     string Name,
+    int ApartmentUnits,
     string? Description,
     IReadOnlyList<ScenarioLineDto> Lines,
     IReadOnlyList<ScenarioCurrencyTotalDto> TotalsByCurrency,

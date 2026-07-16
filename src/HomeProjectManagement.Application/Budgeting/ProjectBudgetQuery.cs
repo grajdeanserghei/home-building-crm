@@ -80,7 +80,7 @@ public sealed class ProjectBudgetQuery(
         var eurEquivalent = BuildEurEquivalent(totals, asOf);
 
         return new ProjectBudgetDto(
-            project.Id.Value, project.Name, lines, totals, unpricedCount, eurEquivalent);
+            project.Id.Value, project.Name, project.ApartmentUnits, lines, totals, unpricedCount, eurEquivalent);
     }
 
     /// <summary>

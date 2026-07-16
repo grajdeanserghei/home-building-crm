@@ -812,6 +812,7 @@ export interface EurEquivalent {
 export interface ProjectBudget {
   projectId: string;
   projectName: string;
+  apartmentUnits: number; // dwelling-unit count; per-apartment figure = whole-build figure ÷ this
   lines: WorkPackageBudgetLine[];
   totalsByCurrency: CurrencyTotals[];
   unpricedWorkPackageCount: number; // work packages with no figure (pending / no bids)
@@ -934,6 +935,7 @@ export interface CostScenario {
   id: string;
   projectId: string;
   name: string;
+  apartmentUnits: number; // dwelling-unit count; per-apartment figure = whole-build figure ÷ this
   description?: string | null;
   lines: ScenarioLine[];
   totalsByCurrency: ScenarioCurrencyTotal[];

@@ -37,6 +37,13 @@ function bidCountLabel(count: number): string {
     : t("budget.bidCountMany", { count: String(count) });
 }
 
+// Each apartment's share of a whole-build figure: the amount divided by the dwelling-unit count.
+// Every budget figure is already gross (VAT-inclusive) and whole-build, so this exact division is
+// all that "per apartment" needs. divisor === 1 returns the figure unchanged.
+function perApartment(m: Money, divisor: number): Money {
+  return divisor === 1 ? m : { amount: m.amount / divisor, currency: m.currency };
+}
+
 // The candidate-bids cell content for one currency: the price band (in the display currency) plus
 // the bid count.
 function CandidateLine({
@@ -98,6 +105,123 @@ export default async function ProjectBudgetPage({
     eur !== null &&
     (budget.totalsByCurrency.length > 1 ||
       budget.totalsByCurrency[0]?.currency !== "EUR");
+
+  // A duplex (apartmentUnits > 1) also gets a per-apartment view of the same totals; for a single
+  // unit that would just repeat the building figures, so it is omitted.
+  const perApartmentShown = budget.apartmentUnits > 1;
+
+  // The totals table, every figure scaled by 1/divisor. divisor === 1 → whole building; divisor ===
+  // apartmentUnits → one apartment's share. Closes over the display-mode flags computed above.
+  const renderTotalsTable = (divisor: number) => (
+    <table className={styles.table}>
+      <thead>
+        <tr>
+          <th>{t("budget.totals.currency")}</th>
+          <th>{t("budget.totals.committed")}</th>
+          <th>{t("budget.totals.estimated")}</th>
+          <th>{t("budget.totals.projected")}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {converted ? (
+          // RON/EUR: one unified row summing every currency into the display currency.
+          <tr>
+            <td>{displayCurrency}</td>
+            <td>
+              {displayMoney(
+                perApartment(totalIn((x) => x.committed), divisor),
+                displayCurrency,
+                rate,
+              )}
+            </td>
+            <td>
+              {bandIn(
+                perApartment(totalIn((x) => x.estimatedLow), divisor),
+                perApartment(totalIn((x) => x.estimatedHigh), divisor),
+                displayCurrency,
+                rate,
+              )}
+            </td>
+            <td>
+              <strong>
+                {bandIn(
+                  perApartment(totalIn((x) => x.projectedLow), divisor),
+                  perApartment(totalIn((x) => x.projectedHigh), divisor),
+                  displayCurrency,
+                  rate,
+                )}
+              </strong>
+            </td>
+          </tr>
+        ) : (
+          <>
+            {budget.totalsByCurrency.map((totals) => (
+              <tr key={totals.currency}>
+                <td>{totals.currency}</td>
+                <td>
+                  {displayMoney(
+                    perApartment(totals.committed, divisor),
+                    displayCurrency,
+                    rate,
+                  )}
+                </td>
+                <td>
+                  {bandIn(
+                    perApartment(totals.estimatedLow, divisor),
+                    perApartment(totals.estimatedHigh, divisor),
+                    displayCurrency,
+                    rate,
+                  )}
+                </td>
+                <td>
+                  <strong>
+                    {bandIn(
+                      perApartment(totals.projectedLow, divisor),
+                      perApartment(totals.projectedHigh, divisor),
+                      displayCurrency,
+                      rate,
+                    )}
+                  </strong>
+                </td>
+              </tr>
+            ))}
+            {showEur && eur && (
+              <tr>
+                <td>
+                  <strong>{t("budget.eurEquivalent")}</strong>
+                </td>
+                <td>
+                  {displayMoney(
+                    perApartment(eur.totals.committed, divisor),
+                    "Original",
+                    rate,
+                  )}
+                </td>
+                <td>
+                  {bandIn(
+                    perApartment(eur.totals.estimatedLow, divisor),
+                    perApartment(eur.totals.estimatedHigh, divisor),
+                    "Original",
+                    rate,
+                  )}
+                </td>
+                <td>
+                  <strong>
+                    {bandIn(
+                      perApartment(eur.totals.projectedLow, divisor),
+                      perApartment(eur.totals.projectedHigh, divisor),
+                      "Original",
+                      rate,
+                    )}
+                  </strong>
+                </td>
+              </tr>
+            )}
+          </>
+        )}
+      </tbody>
+    </table>
+  );
 
   return (
     <main className={styles.main}>
@@ -188,97 +312,22 @@ export default async function ProjectBudgetPage({
 
       {budget.totalsByCurrency.length > 0 && (
         <section className={styles.card}>
-          <h2>{t("budget.totalsTitle")}</h2>
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th>{t("budget.totals.currency")}</th>
-                <th>{t("budget.totals.committed")}</th>
-                <th>{t("budget.totals.estimated")}</th>
-                <th>{t("budget.totals.projected")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {converted ? (
-                // RON/EUR: one unified row summing every currency into the display currency.
-                <tr>
-                  <td>{displayCurrency}</td>
-                  <td>{displayMoney(totalIn((x) => x.committed), displayCurrency, rate)}</td>
-                  <td>
-                    {bandIn(
-                      totalIn((x) => x.estimatedLow),
-                      totalIn((x) => x.estimatedHigh),
-                      displayCurrency,
-                      rate,
-                    )}
-                  </td>
-                  <td>
-                    <strong>
-                      {bandIn(
-                        totalIn((x) => x.projectedLow),
-                        totalIn((x) => x.projectedHigh),
-                        displayCurrency,
-                        rate,
-                      )}
-                    </strong>
-                  </td>
-                </tr>
-              ) : (
-                <>
-                  {budget.totalsByCurrency.map((totals) => (
-                    <tr key={totals.currency}>
-                      <td>{totals.currency}</td>
-                      <td>{displayMoney(totals.committed, displayCurrency, rate)}</td>
-                      <td>
-                        {bandIn(
-                          totals.estimatedLow,
-                          totals.estimatedHigh,
-                          displayCurrency,
-                          rate,
-                        )}
-                      </td>
-                      <td>
-                        <strong>
-                          {bandIn(
-                            totals.projectedLow,
-                            totals.projectedHigh,
-                            displayCurrency,
-                            rate,
-                          )}
-                        </strong>
-                      </td>
-                    </tr>
-                  ))}
-                  {showEur && eur && (
-                    <tr>
-                      <td>
-                        <strong>{t("budget.eurEquivalent")}</strong>
-                      </td>
-                      <td>{displayMoney(eur.totals.committed, "Original", rate)}</td>
-                      <td>
-                        {bandIn(
-                          eur.totals.estimatedLow,
-                          eur.totals.estimatedHigh,
-                          "Original",
-                          rate,
-                        )}
-                      </td>
-                      <td>
-                        <strong>
-                          {bandIn(
-                            eur.totals.projectedLow,
-                            eur.totals.projectedHigh,
-                            "Original",
-                            rate,
-                          )}
-                        </strong>
-                      </td>
-                    </tr>
-                  )}
-                </>
-              )}
-            </tbody>
-          </table>
+          <h2>
+            {perApartmentShown
+              ? `${t("budget.totalsTitle")} ${t("budget.totalsBuildingSuffix")}`
+              : t("budget.totalsTitle")}
+          </h2>
+          {renderTotalsTable(1)}
+          {perApartmentShown && (
+            <>
+              <h2>
+                {t("budget.totalsPerApartmentTitle", {
+                  count: String(budget.apartmentUnits),
+                })}
+              </h2>
+              {renderTotalsTable(budget.apartmentUnits)}
+            </>
+          )}
           {(converted || (showEur && eur)) && (
             <p className={styles.muted}>
               {t("budget.eurRate", {
