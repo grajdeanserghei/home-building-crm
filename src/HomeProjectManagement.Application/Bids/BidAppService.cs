@@ -3,6 +3,7 @@ using HomeProjectManagement.Domain.BillsOfQuantities;
 using HomeProjectManagement.Domain.Bids;
 using HomeProjectManagement.Domain.Common;
 using HomeProjectManagement.Domain.Contractors;
+using HomeProjectManagement.Domain.ValuationCatalogs;
 using HomeProjectManagement.Domain.WorkPackages;
 
 namespace HomeProjectManagement.Application.Bids;
@@ -20,6 +21,7 @@ public sealed class BidAppService(
     IWorkPackageRepository workPackages,
     IContractorRepository contractors,
     IBillOfQuantitiesRepository billsOfQuantities,
+    IValuationCatalogRepository valuationCatalogs,
     ICurrentUser currentUser,
     IUnitOfWork unitOfWork,
     TimeProvider timeProvider) : IBidAppService
@@ -98,11 +100,58 @@ public sealed class BidAppService(
         var sourceBoq = await billsOfQuantities.GetByBidAsync(source.Id, cancellationToken);
         if (sourceBoq is not null)
         {
-            billsOfQuantities.Add(BillOfQuantities.CopyFor(sourceBoq, copy.Id, now));
+            var boqCopy = BillOfQuantities.CopyFor(sourceBoq, copy.Id, now);
+            billsOfQuantities.Add(boqCopy.Bill);
+
+            // The valuation catalog maps its items to this BoQ's sections/lines by id; carry those
+            // mappings over to the copy (translated to the new ids) so the duplicate is comparable too.
+            await CopyValuationLinksAsync(source, sourceBoq, boqCopy, cancellationToken);
         }
 
         await unitOfWork.CommitAsync(cancellationToken);
         return ToDto(copy);
+    }
+
+    // Re-create, against the copied BoQ, every valuation-catalog link that pointed at the source BoQ.
+    // The catalog is loaded through its repository (same DbContext), so mutating it here is persisted by
+    // the caller's commit. Best-effort: a project with no catalog, or a BoQ with no links, is a no-op.
+    private async Task CopyValuationLinksAsync(
+        Bid source,
+        BillOfQuantities sourceBoq,
+        BoqCopy boqCopy,
+        CancellationToken cancellationToken)
+    {
+        var workPackage = await workPackages.GetAsync(source.WorkPackageId, cancellationToken);
+        if (workPackage is null)
+        {
+            return;
+        }
+
+        var catalog = await valuationCatalogs.GetByProjectAsync(workPackage.ProjectId, cancellationToken);
+        if (catalog is null)
+        {
+            return;
+        }
+
+        // Snapshot the links that target the source BoQ before mutating: LinkBoqSection adds to the same
+        // owned collections we are iterating, which would otherwise throw mid-enumeration.
+        var linksToCopy = catalog.Items
+            .SelectMany(item => item.Links
+                .Where(link => link.BoqId == sourceBoq.Id)
+                .Select(link => (item.Id, link)))
+            .ToList();
+
+        foreach (var (itemId, link) in linksToCopy)
+        {
+            var translated = new ValuationItemLink(
+                boqCopy.Bill.Id,
+                link.WorkPackageId,
+                boqCopy.SectionMap[link.SectionId],
+                link.SubsectionId is { } subsectionId ? boqCopy.SubsectionMap[subsectionId] : null,
+                link.LineItemId is { } lineItemId ? boqCopy.LineItemMap[lineItemId] : null);
+
+            catalog.LinkBoqSection(itemId, translated);
+        }
     }
 
     public async Task<BidDto?> UpdateAsync(
