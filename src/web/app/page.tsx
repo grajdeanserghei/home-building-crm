@@ -43,12 +43,19 @@ function band(
 // one band. In Original mode there is no single "original" for a multi-currency blend, so it keeps
 // the prior behaviour: the backend's EUR-equivalent projection when available, else the lone
 // currency's projection. Null when there is nothing priced yet.
+// `divisor` scales the figure to one apartment's share (whole-build total ÷ apartment count);
+// divisor === 1 (the default) is the whole-building headline. Division is exact and commutes with
+// the currency conversion and cross-currency summation done here.
 function projectedHeadline(
   budget: ProjectBudget | null,
   pref: DisplayCurrency,
   rate: number,
+  divisor = 1,
 ): string | null {
   if (!budget) return null;
+
+  const perApt = (m: Money): Money =>
+    divisor === 1 ? m : { amount: m.amount / divisor, currency: m.currency };
 
   if (pref !== "Original") {
     if (budget.totalsByCurrency.length === 0) return null;
@@ -59,6 +66,8 @@ function projectedHeadline(
       low += convertMoney(tot.projectedLow, target, rate)?.amount ?? 0;
       high += convertMoney(tot.projectedHigh, target, rate)?.amount ?? 0;
     }
+    low /= divisor;
+    high /= divisor;
     const lo = formatMoneyWhole({ amount: low, currency: pref });
     return low === high
       ? lo
@@ -66,13 +75,13 @@ function projectedHeadline(
   }
 
   const eur = budget.eurEquivalent?.totals;
-  if (eur) return band(eur.projectedLow, eur.projectedHigh, pref, rate);
+  if (eur) return band(perApt(eur.projectedLow), perApt(eur.projectedHigh), pref, rate);
   const single: CurrencyTotals | undefined =
     budget.totalsByCurrency.length === 1
       ? budget.totalsByCurrency[0]
       : undefined;
   return single
-    ? band(single.projectedLow, single.projectedHigh, pref, rate)
+    ? band(perApt(single.projectedLow), perApt(single.projectedHigh), pref, rate)
     : null;
 }
 
@@ -142,6 +151,11 @@ export default async function Home() {
     getDisplayRate(),
   ]);
   const projected = projectedHeadline(budget, displayCurrency, rate);
+  // Each apartment's share of the projected total, shown as a sub-line only for a multi-unit build.
+  const projectedPerApartment =
+    current.apartmentUnits > 1
+      ? projectedHeadline(budget, displayCurrency, rate, current.apartmentUnits)
+      : null;
 
   return (
     <main className={styles.main}>
@@ -205,6 +219,13 @@ export default async function Home() {
         </div>
         <div className={styles.stat}>
           <span className={styles.statValue}>{projected ?? "—"}</span>
+          {projectedPerApartment && (
+            <span className={styles.muted}>
+              {t("dashboard.statProjectedPerApartment", {
+                value: projectedPerApartment,
+              })}
+            </span>
+          )}
           <span className={styles.statLabel}>
             {t("dashboard.statProjected")}
           </span>

@@ -16,6 +16,13 @@ import {
 import { t } from "@/app/lib/i18n";
 import styles from "@/app/page.module.css";
 
+// Each apartment's share of a whole-build figure: the amount divided by the dwelling-unit count.
+// Every scenario figure is already gross-or-net whole-build, so this exact division is all "per
+// apartment" needs. units === 1 returns the figure unchanged.
+function perApartment(m: Money, units: number): Money {
+  return units === 1 ? m : { amount: m.amount / units, currency: m.currency };
+}
+
 interface CostScenarioViewProps {
   scenario: CostScenario;
   candidates: ScenarioCandidateWorkPackage[];
@@ -128,8 +135,8 @@ export function CostScenarioView({
                 <th>#</th>
                 <th>{t("common.name")}</th>
                 <th>{t("costScenario.col.contractor")}</th>
-                <th>{t("costScenario.col.net")}</th>
-                <th>{t("costScenario.col.gross")}</th>
+                <th>{t("costScenario.col.grossBuilding")}</th>
+                <th>{t("costScenario.col.grossPerApartment")}</th>
               </tr>
             </thead>
             <tbody>
@@ -154,8 +161,14 @@ export function CostScenarioView({
                   <td>{line.contractorName}</td>
                   {line.priced ? (
                     <>
-                      <td>{displayMoney(line.net, displayCurrency, ronPerEur)}</td>
                       <td>{displayMoney(line.gross, displayCurrency, ronPerEur)}</td>
+                      <td>
+                        {displayMoney(
+                          perApartment(line.gross, scenario.apartmentUnits),
+                          displayCurrency,
+                          ronPerEur,
+                        )}
+                      </td>
                     </>
                   ) : (
                     <td colSpan={2} className={styles.muted}>

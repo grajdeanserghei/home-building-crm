@@ -10,11 +10,14 @@ namespace HomeProjectManagement.Application.Budgeting;
 /// <see cref="MoneyDto"/> from the contracts read model. Money is reported <b>per currency</b> —
 /// the <see cref="Money"/> value object refuses to sum across currencies, so there is no single
 /// cross-currency grand total. <b>All figures are VAT-inclusive (gross)</b> — a budget is what will
-/// actually be paid.
+/// actually be paid. <see cref="ApartmentUnits"/> (the project's dwelling-unit count) lets a client
+/// derive a per-apartment share: every figure here is whole-build, so a per-apartment figure is the
+/// figure divided by <see cref="ApartmentUnits"/>.
 /// </summary>
 public sealed record ProjectBudgetDto(
     Guid ProjectId,
     string ProjectName,
+    int ApartmentUnits,
     IReadOnlyList<WorkPackageBudgetLineDto> Lines,
     IReadOnlyList<CurrencyTotalsDto> TotalsByCurrency,
     int UnpricedWorkPackageCount,
