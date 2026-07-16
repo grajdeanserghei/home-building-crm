@@ -165,9 +165,11 @@ public sealed class BillOfQuantities : AggregateRoot<BoqId>
     /// line item, with fresh ids and freshly-constructed owned value objects (an EF owned entity cannot
     /// be shared between two owners — same reason <see cref="DuplicateLineItem"/> rebuilds them). The
     /// copy starts in <see cref="BoqStatus.Draft"/> (editable) whatever the source's status, since a
-    /// variant exists to be re-priced.
+    /// variant exists to be re-priced. Returns the copy together with the old→new id maps (see
+    /// <see cref="BoqCopy"/>) so callers can re-point references to the source BoQ (e.g. valuation
+    /// catalog links) at the new ids.
     /// </summary>
-    public static BillOfQuantities CopyFor(BillOfQuantities source, BidId targetBidId, DateTimeOffset now)
+    public static BoqCopy CopyFor(BillOfQuantities source, BidId targetBidId, DateTimeOffset now)
     {
         var copy = Draft(
             targetBidId,
@@ -186,9 +188,11 @@ public sealed class BillOfQuantities : AggregateRoot<BoqId>
             source.Scope);
 
         // Recreate the heading structure first, mapping old ids to the freshly-minted ones so the flat
-        // line items can be re-tagged with the copy's section/subsection ids.
+        // line items can be re-tagged with the copy's section/subsection ids. The maps are also returned
+        // (with the line-item map below) so callers can translate references to the source BoQ's ids.
         var sectionMap = new Dictionary<SectionId, SectionId>();
         var subsectionMap = new Dictionary<SubsectionId, SubsectionId>();
+        var lineItemMap = new Dictionary<LineItemId, LineItemId>();
 
         foreach (var section in source.Sections.OrderBy(s => s.Sequence))
         {
@@ -207,21 +211,18 @@ public sealed class BillOfQuantities : AggregateRoot<BoqId>
             var price = new Money(line.UnitPrice.Amount, line.UnitPrice.Currency);
             var vat = new VatRate(line.VatRate.Percentage);
 
-            if (line.SubsectionId is { } subsectionId)
-            {
-                copy.AddSubsectionLineItem(
+            var newLine = line.SubsectionId is { } subsectionId
+                ? copy.AddSubsectionLineItem(
                     sectionMap[line.SectionId], subsectionMap[subsectionId], line.Description, line.Quantity,
-                    line.UnitOfMeasureId, price, vat, line.Sequence, line.Notes);
-            }
-            else
-            {
-                copy.AddLineItem(
+                    line.UnitOfMeasureId, price, vat, line.Sequence, line.Notes)!
+                : copy.AddLineItem(
                     sectionMap[line.SectionId], line.Description, line.Quantity,
-                    line.UnitOfMeasureId, price, vat, line.Sequence, line.Notes);
-            }
+                    line.UnitOfMeasureId, price, vat, line.Sequence, line.Notes)!;
+
+            lineItemMap[line.Id] = newLine.Id;
         }
 
-        return copy;
+        return new BoqCopy(copy, sectionMap, subsectionMap, lineItemMap);
     }
 
     /// <summary>Update the BoQ's header details (reference, pinned rate, dates). The pricing currency is fixed.</summary>
